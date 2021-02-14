@@ -18,18 +18,24 @@
 #include "lwip/netdb.h"
 #include "lwip/dns.h"
 
-#include "rom/queue.h"
+#include "sys/queue.h"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_system.h"
 
-char *platform_create_id_string();
+char *platform_create_id_string(void);
 int platform_random(int max);
-long long platform_tick_get_ms();
+long long platform_tick_get_ms(void);
 void ms_to_timeval(int timeout_ms, struct timeval *tv);
 
 #define ESP_MEM_CHECK(TAG, a, action) if (!(a)) {                                                      \
         ESP_LOGE(TAG,"%s:%d (%s): %s", __FILE__, __LINE__, __FUNCTION__, "Memory exhausted");       \
         action;                                                                                         \
         }
+
+#define ESP_OK_CHECK(TAG, a, action) if ((a) != ESP_OK) {                                                     \
+        ESP_LOGE(TAG,"%s:%d (%s): %s", __FILE__, __LINE__, __FUNCTION__, "Failed with non ESP_OK err code");  \
+        action;                                                                                               \
+        }
+
 #endif

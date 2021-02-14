@@ -24,7 +24,7 @@ we add more types of external RAM memory, this can be made into a more intellige
 #include "sdkconfig.h"
 #include "esp_attr.h"
 #include "esp_err.h"
-#include "esp_spiram.h"
+#include "esp32/spiram.h"
 #include "spiram_psram.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -33,8 +33,8 @@ we add more types of external RAM memory, this can be made into a more intellige
 #include "esp_heap_caps_init.h"
 #include "soc/soc_memory_layout.h"
 #include "soc/dport_reg.h"
-#include "rom/cache.h"
-#include "esp_himem.h"
+#include "esp32/himem.h"
+#include "esp32/rom/cache.h"
 
 #if CONFIG_FREERTOS_UNICORE
 #define PSRAM_MODE PSRAM_VADDR_MODE_NORMAL
@@ -46,7 +46,7 @@ we add more types of external RAM memory, this can be made into a more intellige
 #endif
 #endif
 
-#if CONFIG_SPIRAM_SUPPORT
+#if CONFIG_SPIRAM
 
 static const char* TAG = "spiram";
 
@@ -69,12 +69,12 @@ static bool spiram_inited=false;
 //If no function in esp_himem.c is used, this function will be linked into the
 //binary instead of the one in esp_himem.c, automatically making sure no memory
 //is reserved if no himem function is used.
-size_t __attribute__((weak)) esp_himem_reserved_area_size() {
+size_t __attribute__((weak)) esp_himem_reserved_area_size(void) {
     return 0;
 }
 
 
-static int spiram_size_usable_for_malloc()
+static int spiram_size_usable_for_malloc(void)
 {
     int s=esp_spiram_get_size();
     if (s>4*1024*1024) s=4*1024*1024; //we can map at most 4MiB
@@ -87,7 +87,7 @@ static int spiram_size_usable_for_malloc()
  true when RAM seems OK, false when test fails. WARNING: Do not run this before the 2nd cpu has been
  initialized (in a two-core system) or after the heap allocator has taken ownership of the memory.
 */
-bool esp_spiram_test()
+bool esp_spiram_test(void)
 {
     volatile int *spiram=(volatile int*)SOC_EXTRAM_DATA_LOW;
     size_t p;
@@ -112,22 +112,24 @@ bool esp_spiram_test()
     }
 }
 
-void IRAM_ATTR esp_spiram_init_cache()
+void IRAM_ATTR esp_spiram_init_cache(void)
 {
+    int size = esp_spiram_get_size();
+    if (size > 4 * 1024 * 1024) size = 4 * 1024 * 1024; // we can map at most 4MByte
     //Enable external RAM in MMU
-    cache_sram_mmu_set( 0, 0, SOC_EXTRAM_DATA_LOW, 0, 32, 128 );
+    cache_sram_mmu_set(0, 0, SOC_EXTRAM_DATA_LOW, 0, 32, (size / 1024 / 32));
     //Flush and enable icache for APP CPU
 #if !CONFIG_FREERTOS_UNICORE
     DPORT_CLEAR_PERI_REG_MASK(DPORT_APP_CACHE_CTRL1_REG, DPORT_APP_CACHE_MASK_DRAM1);
-    cache_sram_mmu_set( 1, 0, SOC_EXTRAM_DATA_LOW, 0, 32, 128 );
+    cache_sram_mmu_set(1, 0, SOC_EXTRAM_DATA_LOW, 0, 32, (size / 1024 / 32));
 #endif
 }
 
-esp_spiram_size_t esp_spiram_get_chip_size()
+esp_spiram_size_t esp_spiram_get_chip_size(void)
 {
     if (!spiram_inited) {
         ESP_EARLY_LOGE(TAG, "SPI RAM not initialized");
-        return ESP_SPIRAM_SIZE_INVALID;
+        abort();
     }
     psram_size_t psram_size = psram_get_size();
     switch (psram_size) {
@@ -142,7 +144,7 @@ esp_spiram_size_t esp_spiram_get_chip_size()
     }
 }
 
-esp_err_t esp_spiram_init()
+esp_err_t esp_spiram_init(void)
 {
     esp_err_t r;
     r = psram_enable(PSRAM_SPEED, PSRAM_MODE);
@@ -174,7 +176,7 @@ esp_err_t esp_spiram_init()
 }
 
 
-esp_err_t esp_spiram_add_to_heapalloc()
+esp_err_t esp_spiram_add_to_heapalloc(void)
 {
     //Add entire external RAM region to heap allocator. Heap allocator knows the capabilities of this type of memory, so there's
     //no need to explicitly specify them.
@@ -213,7 +215,7 @@ esp_err_t esp_spiram_reserve_dma_pool(size_t size) {
     return ESP_OK;
 }
 
-size_t esp_spiram_get_size()
+size_t esp_spiram_get_size(void)
 {
     psram_size_t size=esp_spiram_get_chip_size();
     if (size==PSRAM_SIZE_16MBITS) return 2*1024*1024;
@@ -228,7 +230,7 @@ size_t esp_spiram_get_size()
  Note that this routine assumes some unique mapping for the first 2 banks of the PSRAM memory range, as well as the
  2 banks after the 2 MiB mark.
 */
-void IRAM_ATTR esp_spiram_writeback_cache()
+void IRAM_ATTR esp_spiram_writeback_cache(void)
 {
     int x;
     volatile int i=0;
@@ -260,10 +262,10 @@ void IRAM_ATTR esp_spiram_writeback_cache()
     }
 #else
     /*
-    Low/high psram cache mode uses one 32KB cache for the lowest 2MiB of SPI flash and another 32K for the highest
+    Low/high psram cache mode uses one 32K cache for the lowest 2MiB of SPI flash and another 32K for the highest
     2MiB. Clear this by reading from both regions.
-    Note: this assumes the amount of external RAM is >2MB. If it is 2MB or less, what this code does is undefined. If
-    we ever support external RAM chips of 2MB or smaller, this may need adjusting.
+    Note: this assumes the amount of external RAM is >2M. If it is 2M or less, what this code does is undefined. If
+    we ever support external RAM chips of 2M or smaller, this may need adjusting.
     */
     for (x=0; x<1024*64; x+=32) {
         i+=psram[x];
@@ -289,7 +291,7 @@ void IRAM_ATTR esp_spiram_writeback_cache()
  * @return true SPI RAM has been initialized successfully
  * @return false SPI RAM hasn't been initialized or initialized failed
  */
-bool esp_spiram_is_initialized()
+bool esp_spiram_is_initialized(void)
 {
     return spiram_inited;
 }

@@ -14,10 +14,10 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_spiram.h"
-#include "rom/cache.h"
+#include "esp32/spiram.h"
+#include "esp32/rom/cache.h"
 #include "sdkconfig.h"
-#include "esp_himem.h"
+#include "esp32/himem.h"
 #include "soc/soc.h"
 #include "esp_log.h"
 
@@ -117,13 +117,13 @@ static void set_bank(int virt_bank, int phys_bank, int ct)
     assert(r == 0);
 }
 
-size_t esp_himem_get_phys_size()
+size_t esp_himem_get_phys_size(void)
 {
     int paddr_start = (4096 * 1024) - (CACHE_BLOCKSIZE * SPIRAM_BANKSWITCH_RESERVE);
     return esp_spiram_get_size()-paddr_start;
 }
 
-size_t esp_himem_get_free_size()
+size_t esp_himem_get_free_size(void)
 {
     size_t ret=0;
     for (int i = 0; i < s_ramblockcnt; i++) {
@@ -132,12 +132,12 @@ size_t esp_himem_get_free_size()
     return ret;
 }
 
-size_t esp_himem_reserved_area_size() {
+size_t esp_himem_reserved_area_size(void) {
     return CACHE_BLOCKSIZE * SPIRAM_BANKSWITCH_RESERVE;
 }
 
 
-void __attribute__((constructor)) esp_himem_init()
+void __attribute__((constructor)) esp_himem_init(void)
 {
     if (SPIRAM_BANKSWITCH_RESERVE == 0) return;
     int maxram=esp_spiram_get_size();
@@ -161,7 +161,7 @@ void __attribute__((constructor)) esp_himem_init()
         free(s_range_descriptor);
         return;
     }
-    ESP_EARLY_LOGI(TAG, "Initialized. Using last %d 32KB address blocks for bank switching on %d KB of physical memory.", 
+    ESP_EARLY_LOGI(TAG, "Initialized. Using last %d 32KB address blocks for bank switching on %d KB of physical memory.",
                 SPIRAM_BANKSWITCH_RESERVE, (paddr_end - paddr_start)/1024);
 }
 

@@ -8,7 +8,9 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "unity.h"
+#include "test_utils.h"
 #include "sdkconfig.h"
+
 
 static __thread int tl_test_var1;
 static __thread uint8_t tl_test_var2 = 55;

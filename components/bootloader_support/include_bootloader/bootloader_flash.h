@@ -18,10 +18,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <esp_err.h>
-#include "esp_spi_flash.h"
+#include <esp_spi_flash.h> /* including in bootloader for error values */
 
 #define FLASH_SECTOR_SIZE 0x1000
 #define FLASH_BLOCK_SIZE 0x10000
+#define MMAP_ALIGNED_MASK 0x0000FFFF
 
 /* Provide a Flash API for bootloader_support code,
    that can be used from bootloader or app code.
@@ -29,6 +30,13 @@
    This header is available to source code in the bootloader &
    bootloader_support components only.
 */
+
+/**
+ * @brief Get number of free pages
+ *
+ * @return Number of free pages
+ */
+uint32_t bootloader_mmap_get_free_pages(void);
 
 /**
  * @brief Map a region of flash to data memory

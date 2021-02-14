@@ -1,7 +1,5 @@
-set(SOC_NAME esp32)
-set(COMPONENT_SRCDIRS "../${SOC_NAME}/test")
-set(COMPONENT_ADD_INCLUDEDIRS "../${SOC_NAME}/test")
+idf_build_get_property(soc_name IDF_TARGET)
 
-set(COMPONENT_REQUIRES unity)
-
-register_component()
+idf_component_register(SRC_DIRS "."
+                    PRIV_INCLUDE_DIRS "${include_dirs}"
+                    PRIV_REQUIRES unity test_utils)

@@ -1,9 +1,9 @@
-// Copyright 2010-2018 Espressif Systems (Shanghai) PTE LTD
+// Copyright 2010-2019 Espressif Systems (Shanghai) PTE LTD
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
@@ -12,19 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
-#ifndef _DRIVER_SPI_MASTER_H_
-#define _DRIVER_SPI_MASTER_H_
+#pragma once
 
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
-
+//for spi_bus_initialization funcions. to be back-compatible
 #include "driver/spi_common.h"
 
 /** SPI master clock is divided by 80MHz apb clock. Below defines are example frequencies, and are accurate. Be free to specify a random frequency, it will be rounded to closest frequency (to macros below if above 8MHz).
   * 8MHz
   */
+#if APB_CLK_FREQ==80*1000*1000
 #define SPI_MASTER_FREQ_8M      (APB_CLK_FREQ/10)
 #define SPI_MASTER_FREQ_9M      (APB_CLK_FREQ/9)    ///< 8.89MHz
 #define SPI_MASTER_FREQ_10M     (APB_CLK_FREQ/8)    ///< 10MHz
@@ -35,7 +33,14 @@
 #define SPI_MASTER_FREQ_26M     (APB_CLK_FREQ/3)    ///< 26.67MHz
 #define SPI_MASTER_FREQ_40M     (APB_CLK_FREQ/2)    ///< 40MHz
 #define SPI_MASTER_FREQ_80M     (APB_CLK_FREQ/1)    ///< 80MHz
-
+#elif APB_CLK_FREQ==40*1000*1000
+#define SPI_MASTER_FREQ_7M      (APB_CLK_FREQ/6)    ///< 13.33MHz
+#define SPI_MASTER_FREQ_8M      (APB_CLK_FREQ/5)    ///< 16MHz
+#define SPI_MASTER_FREQ_10M     (APB_CLK_FREQ/4)    ///< 20MHz
+#define SPI_MASTER_FREQ_13M     (APB_CLK_FREQ/3)    ///< 26.67MHz
+#define SPI_MASTER_FREQ_20M     (APB_CLK_FREQ/2)    ///< 40MHz
+#define SPI_MASTER_FREQ_40M     (APB_CLK_FREQ/1)    ///< 80MHz
+#endif
 #ifdef __cplusplus
 extern "C"
 {
@@ -54,6 +59,7 @@ extern "C"
   *       Set this flag to confirm that you're going to work with output only, or read without dummy bits at your own risk.
   */
 #define SPI_DEVICE_NO_DUMMY                (1<<6)
+#define SPI_DEVICE_DDRCLK                  (1<<7)
 
 
 typedef struct spi_transaction_t spi_transaction_t;
@@ -67,8 +73,8 @@ typedef struct {
     uint8_t address_bits;           ///< Default amount of bits in address phase (0-64), used when ``SPI_TRANS_VARIABLE_ADDR`` is not used, otherwise ignored.
     uint8_t dummy_bits;             ///< Amount of dummy bits to insert between address and data phase
     uint8_t mode;                   ///< SPI mode (0-3)
-    uint8_t duty_cycle_pos;         ///< Duty cycle of positive clock, in 1/256th increments (128 = 50%/50% duty). Setting this to 0 (=not setting it) is equivalent to setting this to 128.
-    uint8_t cs_ena_pretrans;        ///< Amount of SPI bit-cycles the cs should be activated before the transmission (0-16). This only works on half-duplex transactions.
+    uint16_t duty_cycle_pos;         ///< Duty cycle of positive clock, in 1/256th increments (128 = 50%/50% duty). Setting this to 0 (=not setting it) is equivalent to setting this to 128.
+    uint16_t cs_ena_pretrans;        ///< Amount of SPI bit-cycles the cs should be activated before the transmission (0-16). This only works on half-duplex transactions.
     uint8_t cs_ena_posttrans;       ///< Amount of SPI bit-cycles the cs should stay active after the transmission (0-16)
     int clock_speed_hz;             ///< Clock speed, divisors of 80MHz, in Hz. See ``SPI_MASTER_FREQ_*``.
     int input_delay_ns;             /**< Maximum data valid time of slave. The time required between SCLK and MISO
@@ -109,6 +115,8 @@ typedef struct {
 #define SPI_TRANS_MODE_DIOQIO_ADDR    (1<<4)  ///< Also transmit address in mode selected by SPI_MODE_DIO/SPI_MODE_QIO
 #define SPI_TRANS_VARIABLE_CMD        (1<<5)  ///< Use the ``command_bits`` in ``spi_transaction_ext_t`` rather than default value in ``spi_device_interface_config_t``.
 #define SPI_TRANS_VARIABLE_ADDR       (1<<6)  ///< Use the ``address_bits`` in ``spi_transaction_ext_t`` rather than default value in ``spi_device_interface_config_t``.
+#define SPI_TRANS_VARIABLE_DUMMY      (1<<7)  ///< Use the ``dummy_bits`` in ``spi_transaction_ext_t`` rather than default value in ``spi_device_interface_config_t``.
+#define SPI_TRANS_SET_CD              (1<<7)  ///< Set the CD pin
 
 /**
  * This structure describes one SPI transaction. The descriptor should not be modified until the transaction finishes.
@@ -132,11 +140,11 @@ struct spi_transaction_t {
     void *user;                     ///< User-defined variable. Can be used to store eg transaction ID.
     union {
         const void *tx_buffer;      ///< Pointer to transmit buffer, or NULL for no MOSI phase
-        uint8_t tx_data[4];         ///< If SPI_USE_TXDATA is set, data set here is sent directly from this variable.
+        uint8_t tx_data[4];         ///< If SPI_TRANS_USE_TXDATA is set, data set here is sent directly from this variable.
     };
     union {
         void *rx_buffer;            ///< Pointer to receive buffer, or NULL for no MISO phase. Written by 4 bytes-unit if DMA is used.
-        uint8_t rx_data[4];         ///< If SPI_USE_RXDATA is set, data is received directly to this variable
+        uint8_t rx_data[4];         ///< If SPI_TRANS_USE_RXDATA is set, data is received directly to this variable
     };
 } ;        //the rx data should start from a 32-bit aligned address to get around dma issue.
 
@@ -148,47 +156,11 @@ typedef struct {
     struct spi_transaction_t base;  ///< Transaction data, so that pointer to spi_transaction_t can be converted into spi_transaction_ext_t
     uint8_t command_bits;           ///< The command length in this transaction, in bits.
     uint8_t address_bits;           ///< The address length in this transaction, in bits.
+    uint8_t dummy_bits;             ///< The dummy length in this transaction, in bits.
 } spi_transaction_ext_t ;
 
 
 typedef struct spi_device_t* spi_device_handle_t;  ///< Handle for a device on a SPI bus
-
-/**
- * @brief Initialize a SPI bus
- *
- * @warning For now, only supports HSPI and VSPI.
- *
- * @param host SPI peripheral that controls this bus
- * @param bus_config Pointer to a spi_bus_config_t struct specifying how the host should be initialized
- * @param dma_chan Either channel 1 or 2, or 0 in the case when no DMA is required. Selecting a DMA channel
- *                 for a SPI bus allows transfers on the bus to have sizes only limited by the amount of
- *                 internal memory. Selecting no DMA channel (by passing the value 0) limits the amount of
- *                 bytes transfered to a maximum of 32.
- *
- * @warning If a DMA channel is selected, any transmit and receive buffer used should be allocated in
- *          DMA-capable memory.
- *
- * @return
- *         - ESP_ERR_INVALID_ARG   if configuration is invalid
- *         - ESP_ERR_INVALID_STATE if host already is in use
- *         - ESP_ERR_NO_MEM        if out of memory
- *         - ESP_OK                on success
- */
-esp_err_t spi_bus_initialize(spi_host_device_t host, const spi_bus_config_t *bus_config, int dma_chan);
-
-/**
- * @brief Free a SPI bus
- *
- * @warning In order for this to succeed, all devices have to be removed first.
- *
- * @param host SPI peripheral to free
- * @return
- *         - ESP_ERR_INVALID_ARG   if parameter is invalid
- *         - ESP_ERR_INVALID_STATE if not all devices on the bus are freed
- *         - ESP_OK                on success
- */
-esp_err_t spi_bus_free(spi_host_device_t host);
-
 /**
  * @brief Allocate a device on a SPI bus
  *
@@ -199,7 +171,7 @@ esp_err_t spi_bus_free(spi_host_device_t host);
  * @note While in general, speeds up to 80MHz on the dedicated SPI pins and 40MHz on GPIO-matrix-routed pins are
  *       supported, full-duplex transfers routed over the GPIO matrix only support speeds up to 26MHz.
  *
- * @param host SPI peripheral to allocate device on
+ * @param host_id SPI peripheral to allocate device on
  * @param dev_config SPI interface protocol config for the device
  * @param handle Pointer to variable to hold the device handle
  * @return
@@ -208,7 +180,7 @@ esp_err_t spi_bus_free(spi_host_device_t host);
  *         - ESP_ERR_NO_MEM        if out of memory
  *         - ESP_OK                on success
  */
-esp_err_t spi_bus_add_device(spi_host_device_t host, const spi_device_interface_config_t *dev_config, spi_device_handle_t *handle);
+esp_err_t spi_bus_add_device(spi_host_device_t host_id, const spi_device_interface_config_t *dev_config, spi_device_handle_t *handle);
 
 
 /**
@@ -374,9 +346,23 @@ void spi_device_release_bus(spi_device_handle_t dev);
  * @param hz Desired working frequency
  * @param duty_cycle Duty cycle of the spi clock
  * @param reg_o Output of value to be set in clock register, or NULL if not needed.
+ *
+ * @deprecated The app shouldn't care about the register. Call ``spi_get_actual_clock`` instead.
+ *
  * @return Actual working frequency that most fit.
  */
-int spi_cal_clock(int fapb, int hz, int duty_cycle, uint32_t* reg_o);
+int spi_cal_clock(int fapb, int hz, int duty_cycle, uint32_t* reg_o) __attribute__((deprecated));
+
+/**
+ * @brief Calculate the working frequency that is most close to desired frequency.
+ *
+ * @param fapb The frequency of apb clock, should be ``APB_CLK_FREQ``.
+ * @param hz Desired working frequency
+ * @param duty_cycle Duty cycle of the spi clock
+ *
+ * @return Actual working frequency that most fit.
+ */
+int spi_get_actual_clock(int fapb, int hz, int duty_cycle);
 
 /**
   * @brief Calculate the timing settings of specified frequency and settings.
@@ -409,4 +395,3 @@ int spi_get_freq_limit(bool gpio_is_used, int input_delay_ns);
 }
 #endif
 
-#endif

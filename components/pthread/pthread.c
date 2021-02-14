@@ -22,10 +22,11 @@
 #include <string.h>
 #include "esp_err.h"
 #include "esp_attr.h"
-#include "rom/queue.h"
+#include "sys/queue.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
+#include "soc/soc_memory_layout.h"
 
 #include "pthread_internal.h"
 #include "esp_pthread.h"
@@ -136,7 +137,6 @@ static void pthread_delete(esp_pthread_t *pthread)
     free(pthread);
 }
 
-
 /* Call this function to configure pthread stacks in Pthreads */
 esp_err_t esp_pthread_set_cfg(const esp_pthread_cfg_t *cfg)
 {
@@ -168,6 +168,24 @@ esp_err_t esp_pthread_get_cfg(esp_pthread_cfg_t *p)
     return ESP_ERR_NOT_FOUND;
 }
 
+static int get_default_pthread_core(void)
+{
+    return CONFIG_PTHREAD_TASK_CORE_DEFAULT == -1 ? tskNO_AFFINITY : CONFIG_PTHREAD_TASK_CORE_DEFAULT;
+}
+
+esp_pthread_cfg_t esp_pthread_get_default_config(void)
+{
+    esp_pthread_cfg_t cfg = {
+        .stack_size = CONFIG_PTHREAD_TASK_STACK_SIZE_DEFAULT,
+        .prio = CONFIG_PTHREAD_TASK_PRIO_DEFAULT,
+        .inherit_cfg = false,
+        .thread_name = NULL,
+        .pin_to_core = get_default_pthread_core()
+    };
+
+    return cfg;
+}
+
 static void pthread_task_func(void *arg)
 {
     void *rval = NULL;
@@ -179,8 +197,13 @@ static void pthread_task_func(void *arg)
     xTaskNotifyWait(0, 0, NULL, portMAX_DELAY);
 
     if (task_arg->cfg.inherit_cfg) {
-        /* If inherit option is set, then do a set_cfg() ourselves for future forks */
-        esp_pthread_set_cfg(&task_arg->cfg);
+        /* If inherit option is set, then do a set_cfg() ourselves for future forks,
+        but first set thread_name to NULL to enable inheritance of the name too.
+        (This also to prevents dangling pointers to name of tasks that might
+        possibly have been deleted when we use the configuration).*/
+        esp_pthread_cfg_t *cfg = &task_arg->cfg;
+        cfg->thread_name = NULL;
+        esp_pthread_set_cfg(cfg);
     }
     ESP_LOGV(TAG, "%s START %p", __FUNCTION__, task_arg->func);
     rval = task_arg->func(task_arg->arg);
@@ -210,8 +233,10 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
         return ENOMEM;
     }
 
-    uint32_t stack_size = CONFIG_ESP32_PTHREAD_TASK_STACK_SIZE_DEFAULT;
-    BaseType_t prio = CONFIG_ESP32_PTHREAD_TASK_PRIO_DEFAULT;
+    uint32_t stack_size = CONFIG_PTHREAD_TASK_STACK_SIZE_DEFAULT;
+    BaseType_t prio = CONFIG_PTHREAD_TASK_PRIO_DEFAULT;
+    BaseType_t core_id = get_default_pthread_core();
+    const char *task_name = CONFIG_PTHREAD_TASK_NAME_DEFAULT;
 
     esp_pthread_cfg_t *pthread_cfg = pthread_getspecific(s_pthread_cfg_key);
     if (pthread_cfg) {
@@ -221,6 +246,25 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
         if (pthread_cfg->prio && pthread_cfg->prio < configMAX_PRIORITIES) {
             prio = pthread_cfg->prio;
         }
+
+        if (pthread_cfg->inherit_cfg) {
+            if (pthread_cfg->thread_name == NULL) {
+                // Inherit task name from current task.
+                task_name = pcTaskGetTaskName(NULL);
+            } else {
+                // Inheriting, but new task name.
+                task_name = pthread_cfg->thread_name;
+            }
+        } else if (pthread_cfg->thread_name == NULL) {
+            task_name = CONFIG_PTHREAD_TASK_NAME_DEFAULT;
+        } else {
+            task_name = pthread_cfg->thread_name;
+        }
+
+        if (pthread_cfg->pin_to_core >= 0 && pthread_cfg->pin_to_core < portNUM_PROCESSORS) {
+            core_id = pthread_cfg->pin_to_core;
+        }
+
         task_arg->cfg = *pthread_cfg;
     }
 
@@ -241,9 +285,19 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
     task_arg->func = start_routine;
     task_arg->arg = arg;
     pthread->task_arg = task_arg;
-    BaseType_t res = xTaskCreate(&pthread_task_func, "pthread", stack_size,
-                                 task_arg, prio, &xHandle);
-    if(res != pdPASS) {
+    BaseType_t res = xTaskCreatePinnedToCore(&pthread_task_func,
+                                             task_name,
+                                             // stack_size is in bytes. This transformation ensures that the units are
+                                             // transformed to the units used in FreeRTOS.
+                                             // Note: float division of ceil(m / n) ==
+                                             //       integer division of (m + n - 1) / n
+                                             (stack_size + sizeof(StackType_t) - 1) / sizeof(StackType_t),
+                                             task_arg,
+                                             prio,
+                                             &xHandle,
+                                             core_id);
+
+    if (res != pdPASS) {
         ESP_LOGE(TAG, "Failed to create task!");
         free(pthread);
         free(task_arg);
@@ -346,8 +400,19 @@ int pthread_detach(pthread_t thread)
     TaskHandle_t handle = pthread_find_handle(thread);
     if (!handle) {
         ret = ESRCH;
-    } else {
+    } else if (pthread->detached) {
+        // already detached
+        ret = EINVAL;
+    } else if (pthread->join_task) {
+        // already have waiting task to join
+        ret = EINVAL;
+    } else if (pthread->state == PTHREAD_TASK_STATE_RUN) {
+        // pthread still running
         pthread->detached = true;
+    } else {
+        // pthread already stopped
+        pthread_delete(pthread);
+        vTaskDelete(handle);
     }
     xSemaphoreGive(s_threads_mux);
     ESP_LOGV(TAG, "%s %p EXIT %d", __FUNCTION__, pthread, ret);
@@ -396,7 +461,8 @@ void pthread_exit(void *value_ptr)
         vTaskSuspend(NULL);
     }
 
-    ESP_LOGV(TAG, "%s EXIT", __FUNCTION__);
+    // Should never be reached
+    abort();
 }
 
 int pthread_cancel(pthread_t thread)
@@ -438,13 +504,13 @@ int pthread_once(pthread_once_t *once_control, void (*init_routine)(void))
     }
 
     uint32_t res = 1;
-#if defined(CONFIG_SPIRAM_SUPPORT)
+#if defined(CONFIG_SPIRAM)
     if (esp_ptr_external_ram(once_control)) {
         uxPortCompareSetExtram((uint32_t *) &once_control->init_executed, 0, &res);
     } else {
 #endif
         uxPortCompareSet((uint32_t *) &once_control->init_executed, 0, &res);
-#if defined(CONFIG_SPIRAM_SUPPORT)
+#if defined(CONFIG_SPIRAM)
     }
 #endif
     // Check if compare and set was successful
@@ -692,7 +758,7 @@ int pthread_attr_init(pthread_attr_t *attr)
 {
     if (attr) {
         /* Nothing to allocate. Set everything to default */
-        attr->stacksize   = CONFIG_ESP32_PTHREAD_TASK_STACK_SIZE_DEFAULT;
+        attr->stacksize   = CONFIG_PTHREAD_TASK_STACK_SIZE_DEFAULT;
         attr->detachstate = PTHREAD_CREATE_JOINABLE;
         return 0;
     }
@@ -703,7 +769,7 @@ int pthread_attr_destroy(pthread_attr_t *attr)
 {
     if (attr) {
         /* Nothing to deallocate. Reset everything to default */
-        attr->stacksize   = CONFIG_ESP32_PTHREAD_TASK_STACK_SIZE_DEFAULT;
+        attr->stacksize   = CONFIG_PTHREAD_TASK_STACK_SIZE_DEFAULT;
         attr->detachstate = PTHREAD_CREATE_JOINABLE;
         return 0;
     }
@@ -753,4 +819,9 @@ int pthread_attr_setdetachstate(pthread_attr_t *attr, int detachstate)
         return 0;
     }
     return EINVAL;
+}
+
+/* Hook function to force linking this file */
+void pthread_include_pthread_impl(void)
+{
 }

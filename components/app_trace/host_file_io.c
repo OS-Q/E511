@@ -25,7 +25,7 @@
 #include <string.h>
 #include "esp_app_trace.h"
 
-#if CONFIG_ESP32_APPTRACE_ENABLE
+#if CONFIG_APPTRACE_ENABLE
 
 #define LOG_LOCAL_LEVEL CONFIG_LOG_DEFAULT_LEVEL
 #include "esp_log.h"
@@ -145,6 +145,9 @@ void *esp_apptrace_fopen(esp_apptrace_dest_t dest, const char *path, const char 
     esp_apptrace_fopen_args_t cmd_args;
 
     ESP_EARLY_LOGV(TAG, "esp_apptrace_fopen '%s' '%s'", path, mode);
+    if (path == NULL || mode == NULL) {
+        return 0;        
+    }
 
     cmd_args.path = path;
     cmd_args.path_len = strlen(path) + 1;
@@ -213,6 +216,10 @@ size_t esp_apptrace_fwrite(esp_apptrace_dest_t dest, const void *ptr, size_t siz
 
     ESP_EARLY_LOGV(TAG, "esp_apptrace_fwrite f %p l %d", stream, size*nmemb);
 
+    if (ptr == NULL) {
+        return 0;        
+    }
+
     cmd_args.buf = (void *)ptr;
     cmd_args.size = size * nmemb;
     cmd_args.file = stream;
@@ -247,6 +254,10 @@ size_t esp_apptrace_fread(esp_apptrace_dest_t dest, void *ptr, size_t size, size
     esp_apptrace_fread_args_t cmd_args;
 
     ESP_EARLY_LOGV(TAG, "esp_apptrace_fread f %p l %d", stream, size*nmemb);
+
+    if (ptr == NULL) {
+        return 0;        
+    }
 
     cmd_args.size = size * nmemb;
     cmd_args.file = stream;

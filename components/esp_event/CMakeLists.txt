@@ -1,9 +1,21 @@
-set(COMPONENT_SRCS "default_event_loop.c"
-                   "esp_event.c"
-                   "esp_event_private.c")
-set(COMPONENT_ADD_INCLUDEDIRS "include")
-set(COMPONENT_PRIV_INCLUDEDIRS "private_include")
+if(IDF_TARGET STREQUAL "esp32")
+    set(priv_requires esp_eth esp_timer)
+else()
+    set(priv_requires esp_timer)
+endif()
 
-set(COMPONENT_REQUIRES log)
+idf_component_register(SRCS "default_event_loop.c"
+                            "esp_event.c"
+                            "esp_event_private.c"
+                            "event_loop_legacy.c"
+                            "event_send.c"
+                    INCLUDE_DIRS "include"
+                    PRIV_INCLUDE_DIRS "private_include"
+                    REQUIRES log esp_netif
+                    PRIV_REQUIRES ${priv_requires}
+                    LDFRAGMENTS linker.lf)
 
-register_component()
+if(CONFIG_ESP_EVENT_LOOP_PROFILING)
+    # uses C11 atomic feature
+    set_source_files_properties(esp_event.c PROPERTIES COMPILE_FLAGS -std=gnu11)
+endif()

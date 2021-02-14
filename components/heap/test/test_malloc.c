@@ -4,7 +4,6 @@
 
 #include <esp_types.h>
 #include <stdio.h>
-#include "rom/ets_sys.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -12,12 +11,8 @@
 #include "freertos/queue.h"
 #include "freertos/xtensa_api.h"
 #include "unity.h"
-#include "soc/uart_reg.h"
-#include "soc/dport_reg.h"
-#include "soc/io_mux_reg.h"
 #include "esp_heap_caps.h"
 
-#include "esp_panic.h"
 #include "sdkconfig.h"
 
 
@@ -25,7 +20,7 @@ static int **allocatedMem;
 static int noAllocated;
 
 
-static int tryAllocMem() {
+static int tryAllocMem(void) {
     int i, j;
     const int allocateMaxK=1024*5; //try to allocate a max of 5MiB
 
@@ -42,7 +37,7 @@ static int tryAllocMem() {
 }
 
 
-static void tryAllocMemFree() {
+static void tryAllocMemFree(void) {
     int i, j;
     for (i=0; i<noAllocated; i++) {
         for (j=0; j<1024/4; j++) {
@@ -130,5 +125,12 @@ TEST_CASE("unreasonable allocs should all fail", "[heap]")
     TEST_ASSERT_NULL(test_malloc_wrapper(SIZE_MAX / 2));
     TEST_ASSERT_NULL(test_malloc_wrapper(SIZE_MAX - 256));
     TEST_ASSERT_NULL(test_malloc_wrapper(xPortGetFreeHeapSize() - 1));
+}
+
+TEST_CASE("malloc(0) should return a NULL pointer", "[heap]")
+{
+    void *p;
+    p = malloc(0);
+    TEST_ASSERT(p == NULL);
 }
 
