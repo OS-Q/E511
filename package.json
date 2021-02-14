@@ -1,7 +1,7 @@
 {
+    "name": "N52",
     "description": "Espressif IoT Development Framework with the ESP32",
-    "name": "framework-N14",
     "system": "*",
-    "url": "https://github.com/espressif/esp-idf",
+    "url": "https://github.com/OS-Q/N52",
     "version": "1.0.0"
 }
