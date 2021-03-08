@@ -1,8 +1,6 @@
 idf_component_register(SRC_DIRS "."
-                    PRIV_INCLUDE_DIRS "."
-                    PRIV_REQUIRES unity test_utils mbedtls libsodium
-                    EMBED_TXTFILES server_cert_chain.pem prvtkey.pem server_cert_bundle)
-
+                    INCLUDE_DIRS "."
+                    REQUIRES unity test_utils mbedtls libsodium)
 
 idf_component_get_property(mbedtls mbedtls COMPONENT_LIB)
 target_compile_definitions(${mbedtls} INTERFACE "-DMBEDTLS_DEPRECATED_WARNING")

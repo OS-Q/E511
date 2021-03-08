@@ -161,7 +161,7 @@ enum {
     BTA_DM_API_BLE_SET_CHANNELS_EVT,
     BTA_DM_API_UPDATE_WHITE_LIST_EVT,
     BTA_DM_API_BLE_READ_ADV_TX_POWER_EVT,
-    BTA_DM_API_READ_RSSI_EVT,
+    BTA_DM_API_BLE_READ_RSSI_EVT,
 #if BLE_INCLUDED == TRUE
     BTA_DM_API_UPDATE_DUPLICATE_EXCEPTIONAL_LIST_EVT,
 #endif
@@ -432,7 +432,6 @@ typedef struct {
     UINT8           new_role;
     BD_ADDR         bd_addr;
     UINT8           hci_status;
-    BOOLEAN         sc_downgrade;
 #if BLE_INCLUDED == TRUE
     UINT16          handle;
 #endif
@@ -474,7 +473,6 @@ typedef struct {
     BD_NAME             bd_name;
     UINT8               features[BTA_FEATURE_BYTES_PER_PAGE * (BTA_EXT_FEATURES_PAGE_MAX + 1)];
     UINT8               pin_length;
-    UINT8               sc_support;
 } tBTA_DM_API_ADD_DEVICE;
 
 /* data type for BTA_DM_API_REMOVE_ACL_EVT */
@@ -844,8 +842,8 @@ typedef union {
     tBTA_DM_API_BLE_SET_CHANNELS  ble_set_channels;
     tBTA_DM_API_UPDATE_WHITE_LIST white_list;
     tBTA_DM_API_READ_ADV_TX_POWER read_tx_power;
-#endif  ///BLE_INCLUDED == TRUE
     tBTA_DM_API_READ_RSSI rssi;
+#endif  ///BLE_INCLUDED == TRUE
 
     tBTA_DM_API_SET_VISIBILITY set_visibility;
 
@@ -1101,7 +1099,7 @@ typedef struct {
 
 
     tBTA_DM_ENCRYPT_CBACK      *p_encrypt_cback;
-    TIMER_LIST_ENT              switch_delay_timer[BTA_DM_NUM_PEER_DEVICE];
+    TIMER_LIST_ENT              switch_delay_timer;
 
 } tBTA_DM_CB;
 
@@ -1304,7 +1302,7 @@ extern void bta_dm_read_rmt_name(tBTA_DM_MSG *p_data);
 extern void bta_dm_ble_set_channels (tBTA_DM_MSG *p_data);
 extern void bta_dm_update_white_list(tBTA_DM_MSG *p_data);
 extern void bta_dm_ble_read_adv_tx_power(tBTA_DM_MSG *p_data);
-extern void bta_dm_read_rssi(tBTA_DM_MSG *p_data);
+extern void bta_dm_ble_read_rssi(tBTA_DM_MSG *p_data);
 extern void bta_dm_set_visibility (tBTA_DM_MSG *p_data);
 
 extern void bta_dm_set_scan_config(tBTA_DM_MSG *p_data);

@@ -65,8 +65,7 @@ esp_err_t esp_ble_mesh_proxy_gatt_disable(void);
  *
  */
 esp_err_t esp_ble_mesh_proxy_client_connect(esp_ble_mesh_bd_addr_t addr,
-                                            esp_ble_mesh_addr_type_t addr_type,
-                                            uint16_t net_idx);
+        esp_ble_mesh_addr_type_t addr_type, uint16_t net_idx);
 
 /**
  * @brief        Proxy Client terminates a connection with the Proxy Server.
@@ -88,8 +87,8 @@ esp_err_t esp_ble_mesh_proxy_client_disconnect(uint8_t conn_handle);
  * @return       ESP_OK on success or error code otherwise.
  *
  */
-esp_err_t esp_ble_mesh_proxy_client_set_filter_type(uint8_t conn_handle, uint16_t net_idx,
-                                                    esp_ble_mesh_proxy_filter_type_t filter_type);
+esp_err_t esp_ble_mesh_proxy_client_set_filter_type(uint8_t conn_handle,
+        uint16_t net_idx, esp_ble_mesh_proxy_filter_type_t filter_type);
 
 /**
  * @brief        Proxy Client adds address to the Proxy Server filter list.
@@ -102,8 +101,8 @@ esp_err_t esp_ble_mesh_proxy_client_set_filter_type(uint8_t conn_handle, uint16_
  * @return       ESP_OK on success or error code otherwise.
  *
  */
-esp_err_t esp_ble_mesh_proxy_client_add_filter_addr(uint8_t conn_handle, uint16_t net_idx,
-                                                    uint16_t *addr, uint16_t addr_num);
+esp_err_t esp_ble_mesh_proxy_client_add_filter_addr(uint8_t conn_handle,
+        uint16_t net_idx, uint16_t *addr, uint16_t addr_num);
 
 /**
  * @brief        Proxy Client removes address from the Proxy Server filter list.
@@ -116,8 +115,8 @@ esp_err_t esp_ble_mesh_proxy_client_add_filter_addr(uint8_t conn_handle, uint16_
  * @return       ESP_OK on success or error code otherwise.
  *
  */
-esp_err_t esp_ble_mesh_proxy_client_remove_filter_addr(uint8_t conn_handle, uint16_t net_idx,
-                                                       uint16_t *addr, uint16_t addr_num);
+esp_err_t esp_ble_mesh_proxy_client_remove_filter_addr(uint8_t conn_handle,
+        uint16_t net_idx, uint16_t *addr, uint16_t addr_num);
 
 #ifdef __cplusplus
 }

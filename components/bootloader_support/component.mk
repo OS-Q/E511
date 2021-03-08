@@ -19,9 +19,8 @@ ifndef IS_BOOTLOADER_BUILD
 COMPONENT_OBJEXCLUDE := src/bootloader_init.o
 endif
 
-COMPONENT_OBJEXCLUDE += src/bootloader_flash_config_esp32s2.o \
-			src/bootloader_efuse_esp32s2.o \
-			src/bootloader_random_esp32s2.o
+COMPONENT_OBJEXCLUDE += src/bootloader_flash_config_esp32s2beta.o \
+			src/bootloader_efuse_esp32s2beta.o
 
 ifndef CONFIG_SECURE_SIGNED_APPS_ECDSA_SCHEME
 ifndef CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME

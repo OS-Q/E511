@@ -90,7 +90,6 @@ struct wpa_sm {
     u16 txcb_flags;
     bool   ap_notify_completed_rsne;
     wifi_pmf_config_t pmf_cfg;
-    u8 eapol1_count;
 };
 
 /**

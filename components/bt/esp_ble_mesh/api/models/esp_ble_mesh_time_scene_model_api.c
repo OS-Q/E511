@@ -27,16 +27,13 @@ esp_err_t esp_ble_mesh_register_time_scene_client_callback(esp_ble_mesh_time_sce
 }
 
 esp_err_t esp_ble_mesh_time_scene_client_get_state(esp_ble_mesh_client_common_param_t *params,
-                                                   esp_ble_mesh_time_scene_client_get_state_t *get_state)
+        esp_ble_mesh_time_scene_client_get_state_t *get_state)
 {
     btc_ble_mesh_time_scene_client_args_t arg = {0};
     btc_msg_t msg = {0};
 
-    if (params == NULL || params->model == NULL ||
-        params->ctx.net_idx == ESP_BLE_MESH_KEY_UNUSED ||
-        params->ctx.app_idx == ESP_BLE_MESH_KEY_UNUSED ||
-        params->ctx.addr == ESP_BLE_MESH_ADDR_UNASSIGNED ||
-        (params->opcode == ESP_BLE_MESH_MODEL_OP_SCHEDULER_ACT_GET && get_state == NULL)) {
+    if (!params || !params->model || !params->ctx.addr || (!get_state &&
+        params->opcode == ESP_BLE_MESH_MODEL_OP_SCHEDULER_ACT_GET)) {
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -53,15 +50,12 @@ esp_err_t esp_ble_mesh_time_scene_client_get_state(esp_ble_mesh_client_common_pa
 }
 
 esp_err_t esp_ble_mesh_time_scene_client_set_state(esp_ble_mesh_client_common_param_t *params,
-                                                   esp_ble_mesh_time_scene_client_set_state_t *set_state)
+        esp_ble_mesh_time_scene_client_set_state_t *set_state)
 {
     btc_ble_mesh_time_scene_client_args_t arg = {0};
     btc_msg_t msg = {0};
 
-    if (params == NULL || params->model == NULL || set_state == NULL ||
-        params->ctx.net_idx == ESP_BLE_MESH_KEY_UNUSED ||
-        params->ctx.app_idx == ESP_BLE_MESH_KEY_UNUSED ||
-        params->ctx.addr == ESP_BLE_MESH_ADDR_UNASSIGNED) {
+    if (!params || !params->model || !params->ctx.addr || !set_state) {
         return ESP_ERR_INVALID_ARG;
     }
 

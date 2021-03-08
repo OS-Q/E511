@@ -69,8 +69,8 @@ static volatile USHORT  usMasterSendPDULength;
 
 /*------------------------ Shared variables ---------------------------------*/
 
-volatile UCHAR  ucMasterSndBuf[MB_SERIAL_BUF_SIZE];
-volatile UCHAR  ucMasterRcvBuf[MB_SERIAL_BUF_SIZE];
+volatile UCHAR  ucMasterSndBuf[MB_PDU_SIZE_MAX];
+volatile UCHAR  ucMasterRcvBuf[MB_SER_PDU_SIZE_MAX];
 volatile eMBMasterTimerMode eMasterCurTimerMode;
 volatile BOOL   xFrameIsBroadcast = FALSE;
 
@@ -359,8 +359,8 @@ eMBMasterPoll( void )
             }
             else
             {
-                vMBMasterSetErrorType(EV_ERROR_OK);
-                ( void ) xMBMasterPortEventPost( EV_MASTER_ERROR_PROCESS );
+                vMBMasterCBRequestSuccess( );
+                vMBMasterRunResRelease( );
             }
             MB_PORT_CLEAR_EVENT( eEvent, EV_MASTER_EXECUTE );
         } else if ( MB_PORT_CHECK_EVENT( eEvent, EV_MASTER_FRAME_TRANSMIT ) ) {
@@ -394,9 +394,6 @@ eMBMasterPoll( void )
                 case EV_ERROR_EXECUTE_FUNCTION:
                     vMBMasterErrorCBExecuteFunction( ucMBMasterGetDestAddress( ),
                             ucMBFrame, usMBMasterGetPDUSndLength( ) );
-                    break;
-                case EV_ERROR_OK:
-                    vMBMasterCBRequestSuccess( );
                     break;
                 default:
                     ESP_LOGE( MB_PORT_TAG, "%s: incorrect error type = %d.", __func__, errorType);

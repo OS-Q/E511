@@ -297,7 +297,6 @@ exit:
     return ret;
 }
 
-
 /**
  * wps_get_uuid_e - Get UUID-E from WPS IE
  * @msg: WPS IE contents from Beacon or Probe Response frame

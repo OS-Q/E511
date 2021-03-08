@@ -95,7 +95,6 @@ static int wps_validate_response_type(const u8 *response_type, int mandatory)
 
 static int valid_config_methods(u16 val, int wps2)
 {
-#ifndef CONFIG_WPA_WPS_WARS
 	if (wps2) {
 		if (!(val & 0x6000) && (val & WPS_CONFIG_DISPLAY)) {
 			wpa_printf(MSG_INFO, "WPS-STRICT: Display flag "
@@ -109,7 +108,6 @@ static int valid_config_methods(u16 val, int wps2)
 		}
 	}
 
-#endif
 	return 1;
 }
 

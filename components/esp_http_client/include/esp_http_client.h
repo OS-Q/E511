@@ -497,34 +497,6 @@ void esp_http_client_add_auth(esp_http_client_handle_t client);
  */
 bool esp_http_client_is_complete_data_received(esp_http_client_handle_t client);
 
-/**
- * @brief      Helper API to read larger data chunks
- *             This is a helper API which internally calls `esp_http_client_read` multiple times till the end of data is reached or till the buffer gets full.
- *
- * @param[in]  client   The esp_http_client handle
- * @param      buffer   The buffer
- * @param[in]  len      The buffer length
- *
- * @return
- *     - Length of data was read
- */
-
-int esp_http_client_read_response(esp_http_client_handle_t client, char *buffer, int len);
-
-/**
- * @brief          Get URL from client
- *
- * @param[in]      client   The esp_http_client handle
- * @param[inout]   url      The buffer to store URL
- * @param[in]      len      The buffer length
- *
- * @return
- *     - ESP_OK
- *     - ESP_FAIL
- */
-
-esp_err_t esp_http_client_get_url(esp_http_client_handle_t client, char *url, const int len);
-
 #ifdef __cplusplus
 }
 #endif

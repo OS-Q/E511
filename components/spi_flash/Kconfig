@@ -84,22 +84,6 @@ menu "SPI Flash driver"
             The implementation of SPI flash has been greatly changed in IDF v4.0.
             Enable this option to use the legacy implementation.
 
-    config SPI_FLASH_SHARE_SPI1_BUS
-        bool  "Support other devices attached to SPI1 bus"
-        default n
-        # The bus lock on SPI1 is meaningless when the legacy implementation is used, or the SPI
-        # driver does not support SPI1.
-        depends on !SPI_FLASH_USE_LEGACY_IMPL && !IDF_TARGET_ESP32S2
-        select FREERTOS_SUPPORT_STATIC_ALLOCATION
-        help
-            Each SPI bus needs a lock for arbitration among devices. This allows multiple
-            devices on a same bus, but may reduce the speed of esp_flash driver access to the
-            main flash chip.
-
-            If you only need to use esp_flash driver to access the main flash chip, disable
-            this option, and the lock will be bypassed on SPI1 bus. Otherwise if extra devices
-            are needed to attach to SPI1 bus, enable this option.
-
     config SPI_FLASH_BYPASS_BLOCK_ERASE
         bool "Bypass a block erase and always do sector erase"
         default n
@@ -137,14 +121,6 @@ menu "SPI Flash driver"
             default y
             help
                 Enable this to support auto detection of ISSI chips if chip vendor not directly
-                given by ``chip_drv`` member of the chip struct. This adds support for variant
-                chips, however will extend detecting time.
-
-        config SPI_FLASH_SUPPORT_MXIC_CHIP
-            bool "MXIC"
-            default y
-            help
-                Enable this to support auto detection of MXIC chips if chip vendor not directly
                 given by ``chip_drv`` member of the chip struct. This adds support for variant
                 chips, however will extend detecting time.
 

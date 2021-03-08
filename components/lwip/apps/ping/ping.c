@@ -268,23 +268,22 @@ ping_init(void)
   uint32_t ping_timeout = PING_RCV_TIMEO;
   uint32_t ping_delay = PING_DELAY;
   uint32_t ping_count_max = 3;
-  uint32_t interface = 0;
-  ip_addr_t ipaddr;
+  ip_addr_t ping_target;
+  ip4_addr_t ipaddr;
 
   esp_ping_get_target(PING_TARGET_IP_ADDRESS_COUNT, &ping_count_max, sizeof(ping_count_max));
   esp_ping_get_target(PING_TARGET_RCV_TIMEO, &ping_timeout, sizeof(ping_timeout));
   esp_ping_get_target(PING_TARGET_DELAY_TIME, &ping_delay, sizeof(ping_delay));
-  esp_ping_get_target(PING_TARGET_IP_ADDRESS, &ipaddr, sizeof(ip_addr_t));
+  esp_ping_get_target(PING_TARGET_IP_ADDRESS, &ipaddr.addr, sizeof(uint32_t));
   esp_ping_get_target(PING_TARGET_IP_TOS, &tos, sizeof(tos));
-  esp_ping_get_target(PING_TARGET_IF_INDEX, &interface, sizeof(interface));
+  ip_addr_copy_from_ip4(ping_target, ipaddr);
 
   esp_ping_config_t config = ESP_PING_DEFAULT_CONFIG();
   config.count = ping_count_max;
   config.timeout_ms = ping_timeout;
   config.interval_ms = ping_delay;
-  config.target_addr = ipaddr;
+  config.target_addr = ping_target;
   config.tos = tos;
-  config.interface = interface;
 
   esp_ping_callbacks_t cbs = {
     .on_ping_end = on_ping_end,

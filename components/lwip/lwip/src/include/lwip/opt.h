@@ -1534,11 +1534,6 @@
 #define LWIP_ALTCP_TLS                  0
 #endif
 
-#if ESP_LWIP
-#if !defined LWIP_TCP_RTO_TIME || defined __DOXYGEN__
-#define LWIP_TCP_RTO_TIME             3000
-#endif
-#endif
 /**
  * @}
  */
@@ -2588,14 +2583,6 @@
  */
 #if !defined LWIP_ND6_QUEUEING || defined __DOXYGEN__
 #define LWIP_ND6_QUEUEING               LWIP_IPV6
-#endif
-
-/**
- * ESP_ND6_QUEUEING==1: queue outgoing IPv6 packets while MAC address
- * is being resolved.
- */
-#if !defined ESP_ND6_QUEUEING || defined __DOXYGEN__
-#define ESP_ND6_QUEUEING               LWIP_IPV6
 #endif
 
 /**

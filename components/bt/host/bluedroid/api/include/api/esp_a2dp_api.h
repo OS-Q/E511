@@ -31,8 +31,7 @@ extern "C" {
 
 typedef uint8_t esp_a2d_mct_t;
 
-/** A2DP media codec capabilities union
- */
+/// A2DP media codec capabilities union
 typedef struct {
     esp_a2d_mct_t type;                        /*!< A2DP media codec type */
 #define ESP_A2D_CIE_LEN_SBC          (4)
@@ -40,10 +39,10 @@ typedef struct {
 #define ESP_A2D_CIE_LEN_M24          (6)
 #define ESP_A2D_CIE_LEN_ATRAC        (7)
     union {
-        uint8_t sbc[ESP_A2D_CIE_LEN_SBC];      /*!< SBC codec capabilities */
-        uint8_t m12[ESP_A2D_CIE_LEN_M12];      /*!< MPEG-1,2 audio codec capabilities */
-        uint8_t m24[ESP_A2D_CIE_LEN_M24];      /*!< MPEG-2, 4 AAC audio codec capabilities */
-        uint8_t atrac[ESP_A2D_CIE_LEN_ATRAC];  /*!< ATRAC family codec capabilities */
+        uint8_t sbc[ESP_A2D_CIE_LEN_SBC];
+        uint8_t m12[ESP_A2D_CIE_LEN_M12];
+        uint8_t m24[ESP_A2D_CIE_LEN_M24];
+        uint8_t atrac[ESP_A2D_CIE_LEN_ATRAC];
     } cie;                                     /*!< A2DP codec information element */
 } __attribute__((packed)) esp_a2d_mcc_t;
 
@@ -77,7 +76,7 @@ typedef enum {
 
 /// A2DP media control commands
 typedef enum {
-    ESP_A2D_MEDIA_CTRL_NONE = 0,               /*!< Not for application use, use inside stack only. */
+    ESP_A2D_MEDIA_CTRL_NONE = 0,               /*!< dummy command */
     ESP_A2D_MEDIA_CTRL_CHECK_SRC_RDY,          /*!< check whether AVDTP is connected, only used in A2DP source */
     ESP_A2D_MEDIA_CTRL_START,                  /*!< command to set up media transmission channel */
     ESP_A2D_MEDIA_CTRL_STOP,                   /*!< command to stop media transmission */
@@ -194,8 +193,7 @@ esp_err_t esp_a2d_sink_register_data_callback(esp_a2d_sink_data_cb_t callback);
 /**
  *
  * @brief           Initialize the bluetooth A2DP sink module. This function should be called
- *                  after esp_bluedroid_enable() completes successfully. Note: A2DP can work independently.
- *                  If you want to use AVRC together, you should initiate AVRC first.
+ *                  after esp_bluedroid_enable() completes successfully
  *
  * @return
  *                  - ESP_OK: if the initialization request is sent successfully
@@ -266,8 +264,7 @@ esp_err_t esp_a2d_media_ctrl(esp_a2d_media_ctrl_t ctrl);
 /**
  *
  * @brief           Initialize the bluetooth A2DP source module. This function should be called
- *                  after esp_bluedroid_enable() completes successfully. Note: A2DP can work independently.
- *                  If you want to use AVRC together, you should initiate AVRC first.
+ *                  after esp_bluedroid_enable() completes successfully
  *
  * @return
  *                  - ESP_OK: if the initialization request is sent successfully

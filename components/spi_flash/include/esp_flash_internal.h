@@ -16,7 +16,6 @@
 #include "esp_err.h"
 #include <stdint.h>
 #include <stdbool.h>
-#include <driver/spi_common_internal.h>
 #include "sdkconfig.h"
 
 #include "esp_flash.h"
@@ -52,7 +51,7 @@ esp_err_t esp_flash_app_init(void);
 #endif
 
 /**
- *  Disable (or enable) OS-level SPI flash protections in IDF
+ *  Disable OS-level SPI flash protections in IDF
  *
  *  Called by the IDF internal code (e.g. coredump). You do not need to call this in your own applications.
  *
@@ -69,31 +68,12 @@ esp_err_t esp_flash_app_disable_protect(bool disable);
  *
  * @param chip The chip to init os functions.
  * @param host_id Which SPI host to use, 1 for SPI1, 2 for SPI2 (HSPI), 3 for SPI3 (VSPI)
- * @param out_dev_id Output of occupied device slot
  *
  * @return
  *      - ESP_OK if success
  *      - ESP_ERR_INVALID_ARG if host_id is invalid
  */
-esp_err_t esp_flash_init_os_functions(esp_flash_t *chip, int host_id, int *out_dev_id);
-
-/**
- * @brief Deinitialize OS-level functions
- *
- * @param chip  The chip to deinit os functions
- * @return always ESP_OK.
- */
-esp_err_t esp_flash_deinit_os_functions(esp_flash_t* chip);
-
-/**
- * @brief Initialize the bus lock on the SPI1 bus. Should be called if drivers (including esp_flash)
- * wants to use SPI1 bus.
- *
- * @note When using legacy spi flash API, the bus lock will not be available on SPI1 bus.
- *
- * @return esp_err_t always ESP_OK.
- */
-esp_err_t esp_flash_init_main_bus_lock(void);
+esp_err_t esp_flash_init_os_functions(esp_flash_t *chip, int host_id);
 
 /**
  *  Initialize OS-level functions for the main flash chip.
@@ -102,7 +82,7 @@ esp_err_t esp_flash_init_main_bus_lock(void);
  *
  * @return always ESP_OK
  */
-esp_err_t esp_flash_app_enable_os_functions(esp_flash_t* chip);
+esp_err_t esp_flash_app_init_os_functions(esp_flash_t* chip);
 
 /**
  *  Disable OS-level functions for the main flash chip during special phases (e.g. coredump)

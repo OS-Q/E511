@@ -13,7 +13,7 @@
 #include <freertos/semphr.h>
 #include "soc/soc_caps.h"
 
-#if !TEMPORARY_DISABLED_FOR_TARGETS(ESP32S2)
+#if !TEMPORARY_DISABLED_FOR_TARGETS(ESP32S2BETA)
 
 //Function just extern, need not test
 #ifdef SOC_BT_SUPPORTED

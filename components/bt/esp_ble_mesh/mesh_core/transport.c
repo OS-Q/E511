@@ -194,7 +194,7 @@ static int send_unseg(struct bt_mesh_net_tx *tx, struct net_buf_simple *sdu,
 
     buf = bt_mesh_adv_create(BLE_MESH_ADV_DATA, tx->xmit, BUF_TIMEOUT);
     if (!buf) {
-        BT_ERR("Out of network buffers");
+        BT_ERR("%s, Out of network buffers", __func__);
         return -ENOBUFS;
     }
 
@@ -398,7 +398,7 @@ static void seg_tx_send_unacked(struct seg_tx *tx)
         err = bt_mesh_net_resend(tx->sub, seg, tx->new_key,
                                  &seg_sent_cb, tx);
         if (err) {
-            BT_ERR("Sending segment failed");
+            BT_ERR("%s, Sending segment failed", __func__);
             bt_mesh_tx_seg_unlock();
             seg_tx_complete(tx, -EIO);
             return;
@@ -428,12 +428,12 @@ static int send_seg(struct bt_mesh_net_tx *net_tx, struct net_buf_simple *sdu,
            net_tx->aszmic, sdu->len);
 
     if (sdu->len < 1) {
-        BT_ERR("Zero-length SDU not allowed");
+        BT_ERR("%s, Zero-length SDU not allowed", __func__);
         return -EINVAL;
     }
 
     if (sdu->len > BLE_MESH_TX_SDU_MAX) {
-        BT_ERR("Not enough segment buffers for length %u", sdu->len);
+        BT_ERR("%s, Not enough segment buffers for length %u", __func__, sdu->len);
         return -EMSGSIZE;
     }
 
@@ -445,7 +445,7 @@ static int send_seg(struct bt_mesh_net_tx *net_tx, struct net_buf_simple *sdu,
     }
 
     if (!tx) {
-        BT_ERR("No multi-segment message contexts available");
+        BT_ERR("%s, No multi-segment message contexts available", __func__);
         return -EBUSY;
     }
 
@@ -496,7 +496,7 @@ static int send_seg(struct bt_mesh_net_tx *net_tx, struct net_buf_simple *sdu,
         seg = bt_mesh_adv_create(BLE_MESH_ADV_DATA, net_tx->xmit,
                                  BUF_TIMEOUT);
         if (!seg) {
-            BT_ERR("Out of segment buffers");
+            BT_ERR("%s, Out of segment buffers", __func__);
             seg_tx_reset(tx);
             return -ENOBUFS;
         }
@@ -544,7 +544,7 @@ static int send_seg(struct bt_mesh_net_tx *net_tx, struct net_buf_simple *sdu,
                                seg_o ? &seg_sent_cb : &first_sent_cb,
                                tx);
         if (err) {
-            BT_ERR("Sending segment failed");
+            BT_ERR("%s, Sending segment failed", __func__);
             seg_tx_reset(tx);
             return err;
         }
@@ -593,7 +593,7 @@ int bt_mesh_trans_send(struct bt_mesh_net_tx *tx, struct net_buf_simple *msg,
     int err = 0;
 
     if (net_buf_simple_tailroom(msg) < BLE_MESH_MIC_SHORT) {
-        BT_ERR("Insufficient tailroom for Transport MIC");
+        BT_ERR("%s, Insufficient tailroom for Transport MIC", __func__);
         return -EINVAL;
     }
 
@@ -607,7 +607,7 @@ int bt_mesh_trans_send(struct bt_mesh_net_tx *tx, struct net_buf_simple *msg,
 
     role = bt_mesh_get_device_role(tx->ctx->model, tx->ctx->srv_send);
     if (role == ROLE_NVAL) {
-        BT_ERR("Failed to get model role");
+        BT_ERR("%s, Failed to get model role", __func__);
         return -EINVAL;
     }
 
@@ -636,7 +636,6 @@ int bt_mesh_trans_send(struct bt_mesh_net_tx *tx, struct net_buf_simple *msg,
                               tx->ctx->addr, bt_mesh.seq,
                               BLE_MESH_NET_IVI_TX);
     if (err) {
-        BT_ERR("Encrypt failed (err %d)", err);
         return err;
     }
 
@@ -714,7 +713,7 @@ static bool is_replay(struct bt_mesh_net_rx *rx, struct bt_mesh_rpl **match)
         }
     }
 
-    BT_ERR("RPL is full!");
+    BT_ERR("%s, RPL is full!", __func__);
     return true;
 }
 
@@ -731,7 +730,7 @@ static int sdu_recv(struct bt_mesh_net_rx *rx, u32_t seq, u8_t hdr,
     BT_DBG("len %u: %s", buf->len, bt_hex(buf->data, buf->len));
 
     if (buf->len < 1 + APP_MIC_LEN(aszmic)) {
-        BT_ERR("Too short SDU + MIC (len %u)", buf->len);
+        BT_ERR("%s, Too short SDU + MIC", __func__);
         return -EINVAL;
     }
 
@@ -755,7 +754,7 @@ static int sdu_recv(struct bt_mesh_net_rx *rx, u32_t seq, u8_t hdr,
      */
     sdu = bt_mesh_alloc_buf(CONFIG_BLE_MESH_RX_SDU_MAX - BLE_MESH_MIC_SHORT);
     if (!sdu) {
-        BT_ERR("%s, Out of memory", __func__);
+        BT_ERR("%s, Failed to allocate memory", __func__);
         return -ENOMEM;
     }
 
@@ -767,7 +766,7 @@ static int sdu_recv(struct bt_mesh_net_rx *rx, u32_t seq, u8_t hdr,
 
             dev_key = bt_mesh_rx_devkey_get(i, rx->ctx.addr);
             if (!dev_key) {
-                BT_DBG("DevKey not found");
+                BT_DBG("%s, NULL Device Key", __func__);
                 continue;
             }
 
@@ -787,7 +786,7 @@ static int sdu_recv(struct bt_mesh_net_rx *rx, u32_t seq, u8_t hdr,
             return 0;
         }
 
-        BT_WARN("Unable to decrypt with DevKey");
+        BT_WARN("%s, Unable to decrypt with DevKey", __func__);
         bt_mesh_free_buf(sdu);
         return -ENODEV;
     }
@@ -800,7 +799,7 @@ static int sdu_recv(struct bt_mesh_net_rx *rx, u32_t seq, u8_t hdr,
 
         key = bt_mesh_rx_appkey_get(i);
         if (!key) {
-            BT_DBG("AppKey not found");
+            BT_DBG("%s, NULL AppKey", __func__);
             continue;
         }
 
@@ -839,7 +838,7 @@ static int sdu_recv(struct bt_mesh_net_rx *rx, u32_t seq, u8_t hdr,
     }
 
     if (rx->local_match) {
-        BT_WARN("No matching AppKey");
+        BT_WARN("%s, No matching AppKey", __func__);
     }
     bt_mesh_free_buf(sdu);
     return 0;
@@ -885,7 +884,7 @@ static int trans_ack(struct bt_mesh_net_rx *rx, u8_t hdr,
     u8_t obo = 0U;
 
     if (buf->len < 6) {
-        BT_ERR("Too short ack message (len %u)", buf->len);
+        BT_ERR("%s, Too short ack message", __func__);
         return -EINVAL;
     }
 
@@ -911,7 +910,7 @@ static int trans_ack(struct bt_mesh_net_rx *rx, u8_t hdr,
     }
 
     if (!BLE_MESH_ADDR_IS_UNICAST(tx->dst)) {
-        BT_WARN("Received ack for segments to group");
+        BT_WARN("%s, Received ack for segments to group", __func__);
         return -EINVAL;
     }
 
@@ -924,7 +923,7 @@ static int trans_ack(struct bt_mesh_net_rx *rx, u8_t hdr,
     }
 
     if (find_msb_set(ack) - 1 > tx->seg_n) {
-        BT_ERR("Too large segment number in ack");
+        BT_ERR("%s, Too large segment number in ack", __func__);
         return -EINVAL;
     }
 
@@ -958,7 +957,7 @@ static int trans_heartbeat(struct bt_mesh_net_rx *rx,
     u16_t feat = 0U;
 
     if (buf->len < 3) {
-        BT_ERR("Too short heartbeat message (len %u)", buf->len);
+        BT_ERR("%s, Too short heartbeat message", __func__);
         return -EINVAL;
     }
 
@@ -1054,7 +1053,7 @@ static int trans_unseg(struct net_buf_simple *buf, struct bt_mesh_net_rx *rx,
     BT_DBG("AFK %u AID 0x%02x", AKF(buf->data), AID(buf->data));
 
     if (buf->len < 1) {
-        BT_ERR("Too small unsegmented PDU");
+        BT_ERR("%s, Too small unsegmented PDU", __func__);
         return -EINVAL;
     }
 
@@ -1111,7 +1110,7 @@ static int ctl_send_unseg(struct bt_mesh_net_tx *tx, u8_t ctl_op, void *data,
 
     buf = bt_mesh_adv_create(BLE_MESH_ADV_DATA, tx->xmit, BUF_TIMEOUT);
     if (!buf) {
-        BT_ERR("Out of transport buffers");
+        BT_ERR("%s, Out of transport buffers", __func__);
         return -ENOBUFS;
     }
 
@@ -1154,7 +1153,7 @@ static int ctl_send_seg(struct bt_mesh_net_tx *tx, u8_t ctl_op, void *data,
     }
 
     if (!tx_seg) {
-        BT_ERR("No multi-segment message contexts available");
+        BT_ERR("%s, No multi-segment message contexts available", __func__);
         return -EBUSY;
     }
 
@@ -1187,7 +1186,7 @@ static int ctl_send_seg(struct bt_mesh_net_tx *tx, u8_t ctl_op, void *data,
         seg = bt_mesh_adv_create(BLE_MESH_ADV_DATA, tx->xmit,
                                  BUF_TIMEOUT);
         if (!seg) {
-            BT_ERR("Out of segment buffers");
+            BT_ERR("%s, Out of segment buffers", __func__);
             seg_tx_reset(tx_seg);
             return -ENOBUFS;
         }
@@ -1212,7 +1211,7 @@ static int ctl_send_seg(struct bt_mesh_net_tx *tx, u8_t ctl_op, void *data,
                                seg_o ? &seg_sent_cb : &first_sent_cb,
                                tx_seg);
         if (err) {
-            BT_ERR("Sending segment failed (err %d)", err);
+            BT_ERR("%s, Sending segment failed", __func__);
             seg_tx_reset(tx_seg);
             return err;
         }
@@ -1418,17 +1417,17 @@ static bool seg_rx_is_valid(struct seg_rx *rx, struct bt_mesh_net_rx *net_rx,
                             const u8_t *hdr, u8_t seg_n)
 {
     if (rx->hdr != *hdr || rx->seg_n != seg_n) {
-        BT_ERR("Invalid segment for ongoing session");
+        BT_ERR("%s, Invalid segment for ongoing session", __func__);
         return false;
     }
 
     if (rx->src != net_rx->ctx.addr || rx->dst != net_rx->ctx.recv_dst) {
-        BT_ERR("Invalid source or destination for segment");
+        BT_ERR("%s, Invalid source or destination for segment", __func__);
         return false;
     }
 
     if (rx->ctl != net_rx->ctl) {
-        BT_ERR("Inconsistent CTL in segment");
+        BT_ERR("%s, Inconsistent CTL in segment", __func__);
         return false;
     }
 
@@ -1482,7 +1481,7 @@ static int trans_seg(struct net_buf_simple *buf, struct bt_mesh_net_rx *net_rx,
     int err = 0;
 
     if (buf->len < 5) {
-        BT_ERR("Too short segmented message (len %u)", buf->len);
+        BT_ERR("%s, Too short segmented message (len %u)", __func__, buf->len);
         return -EINVAL;
     }
 
@@ -1506,7 +1505,7 @@ static int trans_seg(struct net_buf_simple *buf, struct bt_mesh_net_rx *net_rx,
     BT_DBG("SeqZero 0x%04x SegO %u SegN %u", seq_zero, seg_o, seg_n);
 
     if (seg_o > seg_n) {
-        BT_ERR("SegO greater than SegN (%u > %u)", seg_o, seg_n);
+        BT_ERR("%s, SegO greater than SegN (%u > %u)", __func__, seg_o, seg_n);
         return -EINVAL;
     }
 
@@ -1571,7 +1570,7 @@ static int trans_seg(struct net_buf_simple *buf, struct bt_mesh_net_rx *net_rx,
 
     /* Bail out early if we're not ready to receive such a large SDU */
     if (!sdu_len_is_ok(net_rx->ctl, seg_n)) {
-        BT_ERR("Too big incoming SDU length");
+        BT_ERR("%s, Too big incoming SDU length", __func__);
         send_ack(net_rx->sub, net_rx->ctx.recv_dst, net_rx->ctx.addr,
                  net_rx->ctx.send_ttl, seq_auth, 0,
                  net_rx->friend_match);
@@ -1633,7 +1632,7 @@ found_rx:
         }
     } else {
         if (buf->len != seg_len(rx->ctl)) {
-            BT_ERR("Incorrect segment size for message type");
+            BT_ERR("%s, Incorrect segment size for message type", __func__);
             return -EINVAL;
         }
     }
@@ -1768,7 +1767,7 @@ int bt_mesh_trans_recv(struct net_buf_simple *buf, struct bt_mesh_net_rx *rx)
     return err;
 }
 
-void bt_mesh_rx_reset(bool erase)
+void bt_mesh_rx_reset(void)
 {
     int i;
 
@@ -1778,10 +1777,10 @@ void bt_mesh_rx_reset(bool erase)
         seg_rx_reset(&seg_rx[i], true);
     }
 
-    (void)memset(bt_mesh.rpl, 0, sizeof(bt_mesh.rpl));
-
-    if (IS_ENABLED(CONFIG_BLE_MESH_SETTINGS) && erase) {
+    if (IS_ENABLED(CONFIG_BLE_MESH_SETTINGS)) {
         bt_mesh_clear_rpl();
+    } else {
+        (void)memset(bt_mesh.rpl, 0, sizeof(bt_mesh.rpl));
     }
 }
 
@@ -1863,7 +1862,16 @@ void bt_mesh_trans_deinit(bool erase)
 {
     int i;
 
-    bt_mesh_rx_reset(erase);
+    for (i = 0; i < ARRAY_SIZE(seg_rx); i++) {
+        seg_rx_reset(&seg_rx[i], true);
+    }
+
+    if (erase && IS_ENABLED(CONFIG_BLE_MESH_SETTINGS)) {
+        bt_mesh_clear_rpl();
+    } else {
+        bt_mesh_rpl_clear();
+    }
+
     bt_mesh_tx_reset();
 
     for (i = 0; i < ARRAY_SIZE(seg_tx); i++) {
@@ -1876,6 +1884,12 @@ void bt_mesh_trans_deinit(bool erase)
 
     bt_mesh_tx_seg_mutex_free();
     bt_mesh_rx_seg_mutex_free();
+}
+
+void bt_mesh_rpl_clear(void)
+{
+    BT_DBG("%s", __func__);
+    (void)memset(bt_mesh.rpl, 0, sizeof(bt_mesh.rpl));
 }
 
 void bt_mesh_heartbeat_send(void)
@@ -1938,7 +1952,7 @@ int bt_mesh_app_key_get(const struct bt_mesh_subnet *subnet, u16_t app_idx,
     if (app_idx == BLE_MESH_KEY_DEV) {
         *key = bt_mesh_tx_devkey_get(role, dst);
         if (!*key) {
-            BT_ERR("DevKey not found");
+            BT_ERR("%s, Failed to get Device Key", __func__);
             return -EINVAL;
         }
 
@@ -1947,13 +1961,13 @@ int bt_mesh_app_key_get(const struct bt_mesh_subnet *subnet, u16_t app_idx,
     }
 
     if (!subnet) {
-        BT_ERR("Invalid subnet");
+        BT_ERR("%s, Invalid subnet", __func__);
         return -EINVAL;
     }
 
     app_key = bt_mesh_tx_appkey_get(role, app_idx);
     if (!app_key) {
-        BT_ERR("Invalid AppKeyIndex 0x%04x", app_idx);
+        BT_ERR("%s, Failed to get AppKey", __func__);
         return -ENOENT;
     }
 

@@ -414,8 +414,7 @@ esp_err_t esp_avrc_ct_register_callback(esp_avrc_ct_cb_t callback);
 /**
  *
  * @brief           Initialize the bluetooth AVRCP controller module, This function should be called
- *                  after esp_bluedroid_enable() completes successfully. Note: AVRC cannot work independently,
- *                  AVRC should be used along with A2DP and AVRC should be initialized before A2DP.
+ *                  after esp_bluedroid_enable() completes successfully
  *
  * @return
  *                  - ESP_OK: success
@@ -428,8 +427,7 @@ esp_err_t esp_avrc_ct_init(void);
 /**
  *
  * @brief           De-initialize AVRCP controller module. This function should be called after
- *                  after esp_bluedroid_enable() completes successfully. Note: AVRC cannot work independently,
- *                  AVRC should be used along with A2DP and AVRC should be deinitialized before A2DP.
+ *                  after esp_bluedroid_enable() completes successfully
  *
  * @return
  *                  - ESP_OK: success
@@ -545,8 +543,7 @@ esp_err_t esp_avrc_tg_register_callback(esp_avrc_tg_cb_t callback);
 /**
  *
  * @brief           Initialize the bluetooth AVRCP target module, This function should be called
- *                  after esp_bluedroid_enable() completes successfully. Note: AVRC cannot work independently,
- *                  AVRC should be used along with A2DP and AVRC should be initialized before A2DP.
+ *                  after esp_bluedroid_enable() completes successfully
  *
  * @return
  *                  - ESP_OK: success
@@ -559,8 +556,7 @@ esp_err_t esp_avrc_tg_init(void);
 /**
  *
  * @brief           De-initialize AVRCP target module. This function should be called after
- *                  after esp_bluedroid_enable() completes successfully. Note: AVRC cannot work independently,
- *                  AVRC should be used along with A2DP and AVRC should be deinitialized before A2DP.
+ *                  after esp_bluedroid_enable() completes successfully
  *
  * @return
  *                  - ESP_OK: success

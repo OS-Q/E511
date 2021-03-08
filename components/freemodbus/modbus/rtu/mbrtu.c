@@ -265,9 +265,7 @@ xMBRTUReceiveFSM( void )
     case STATE_RX_RCV:
         if( usRcvBufferPos < MB_SER_PDU_SIZE_MAX )
         {
-            if ( xStatus ) {
-                ucRTUBuf[usRcvBufferPos++] = ucByte;
-            }
+            ucRTUBuf[usRcvBufferPos++] = ucByte;
         }
         else
         {

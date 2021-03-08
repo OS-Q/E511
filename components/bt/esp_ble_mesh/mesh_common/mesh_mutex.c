@@ -22,36 +22,32 @@ static bt_mesh_mutex_t atomic_lock;
 void bt_mesh_mutex_create(bt_mesh_mutex_t *mutex)
 {
     if (!mutex) {
-        BT_ERR("Create, invalid mutex");
+        BT_ERR("%s, Invalid mutex", __func__);
         return;
     }
 
-#if CONFIG_BLE_MESH_FREERTOS_STATIC_ALLOC
-#if CONFIG_BLE_MESH_FREERTOS_STATIC_ALLOC_EXTERNAL
-    mutex->buffer = heap_caps_calloc_prefer(1, sizeof(StaticQueue_t), 2, MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT, MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT);
-#elif CONFIG_BLE_MESH_FREERTOS_STATIC_ALLOC_IRAM_8BIT
-    mutex->buffer = heap_caps_calloc_prefer(1, sizeof(StaticQueue_t), 2, MALLOC_CAP_INTERNAL|MALLOC_CAP_IRAM_8BIT, MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT);
-#endif
-    __ASSERT(mutex->buffer, "Failed to create mutex buffer");
+#if CONFIG_SPIRAM_USE_MALLOC
+    mutex->buffer = heap_caps_calloc(1, sizeof(StaticQueue_t), MALLOC_CAP_DEFAULT|MALLOC_CAP_SPIRAM);
+    __ASSERT(mutex->buffer, "%s, Failed to create queue buffer", __func__);
     mutex->mutex = xSemaphoreCreateMutexStatic(mutex->buffer);
-    __ASSERT(mutex->mutex, "Failed to create static mutex");
-#else /* CONFIG_BLE_MESH_FREERTOS_STATIC_ALLOC */
+    __ASSERT(mutex->mutex, "%s, Failed to create static mutex", __func__);
+#else
     mutex->mutex = xSemaphoreCreateMutex();
-    __ASSERT(mutex->mutex, "Failed to create mutex");
-#endif /* CONFIG_BLE_MESH_FREERTOS_STATIC_ALLOC */
+    __ASSERT(mutex->mutex, "%s, Failed to create mutex", __func__);
+#endif
 }
 
 void bt_mesh_mutex_free(bt_mesh_mutex_t *mutex)
 {
     if (!mutex) {
-        BT_ERR("Free, invalid mutex");
+        BT_ERR("%s, Invalid mutex", __func__);
         return;
     }
 
     if (mutex->mutex) {
         vSemaphoreDelete(mutex->mutex);
         mutex->mutex = NULL;
-#if CONFIG_BLE_MESH_FREERTOS_STATIC_ALLOC
+#if CONFIG_SPIRAM_USE_MALLOC
         heap_caps_free(mutex->buffer);
         mutex->buffer = NULL;
 #endif
@@ -61,7 +57,7 @@ void bt_mesh_mutex_free(bt_mesh_mutex_t *mutex)
 void bt_mesh_mutex_lock(bt_mesh_mutex_t *mutex)
 {
     if (!mutex) {
-        BT_ERR("Lock, invalid mutex");
+        BT_ERR("%s, Invalid mutex", __func__);
         return;
     }
 
@@ -73,7 +69,7 @@ void bt_mesh_mutex_lock(bt_mesh_mutex_t *mutex)
 void bt_mesh_mutex_unlock(bt_mesh_mutex_t *mutex)
 {
     if (!mutex) {
-        BT_ERR("Unlock, invalid mutex");
+        BT_ERR("%s, Invalid mutex", __func__);
         return;
     }
 

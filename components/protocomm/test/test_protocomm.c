@@ -553,18 +553,8 @@ static esp_err_t test_req_endpoint(session_t *session)
         memcpy(enc_test_data, rand_test_data, sizeof(rand_test_data));
     }
     else if (session->sec_ver == 1) {
-#if !CONFIG_MBEDTLS_HARDWARE_AES
-        // Check if the AES key is correctly set before calling the software encryption
-        // API. Without this check, the code will crash, resulting in a test case failure.
-        // For hardware AES, portability layer takes care of this.
-        if (session->ctx_aes.rk != NULL && session->ctx_aes.nr > 0) {
-#endif
-
-            mbedtls_aes_crypt_ctr(&session->ctx_aes, sizeof(rand_test_data), &session->nc_off,
-                    session->rand, session->stb, rand_test_data, enc_test_data);
-#if !CONFIG_MBEDTLS_HARDWARE_AES
-        }
-#endif
+        mbedtls_aes_crypt_ctr(&session->ctx_aes, sizeof(rand_test_data), &session->nc_off,
+                              session->rand, session->stb, rand_test_data, enc_test_data);
     }
 
     ssize_t  verify_data_len = 0;
@@ -888,7 +878,7 @@ static esp_err_t test_security1_wrong_pop (void)
     return ESP_OK;
 }
 
-__attribute__((unused)) static esp_err_t test_security1_insecure_client (void)
+static esp_err_t test_security1_insecure_client (void)
 {
     ESP_LOGI(TAG, "Starting Security 1 insecure client test");
 
@@ -940,7 +930,7 @@ __attribute__((unused)) static esp_err_t test_security1_insecure_client (void)
     return ESP_OK;
 }
 
-__attribute__((unused)) static esp_err_t test_security1_weak_session (void)
+static esp_err_t test_security1_weak_session (void)
 {
     ESP_LOGI(TAG, "Starting Security 1 weak session test");
 

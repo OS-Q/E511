@@ -11,7 +11,7 @@
 #include "esp_log.h"
 #include "driver/gpio.h"
 
-#if CONFIG_ETH_SPI_ETHERNET_DM9051
+#if !TEMPORARY_DISABLED_FOR_TARGETS(ESP32S2BETA)
 
 static const char *TAG = "dm9051_test";
 
@@ -67,6 +67,7 @@ static void got_ip_event_handler(void *arg, esp_event_base_t event_base,
     xEventGroupSetBits(eth_event_group, ETH_GOT_IP_BIT);
 }
 
+#if CONFIG_ETH_USE_SPI_ETHERNET
 TEST_CASE("dm9051 io test", "[ethernet][dm9051][ignore]")
 {
     spi_device_handle_t spi_handle = NULL;
@@ -128,4 +129,6 @@ TEST_CASE("dm9051 io test", "[ethernet][dm9051][ignore]")
     TEST_ESP_OK(spi_bus_remove_device(spi_handle));
     TEST_ESP_OK(spi_bus_free(HSPI_HOST));
 }
+#endif
+
 #endif

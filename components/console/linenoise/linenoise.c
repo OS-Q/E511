@@ -129,7 +129,6 @@ static int dumbmode = 0; /* Dumb mode where line editing is disabled. Off by def
 static int history_max_len = LINENOISE_DEFAULT_HISTORY_MAX_LEN;
 static int history_len = 0;
 static char **history = NULL;
-static bool allow_empty = true;
 
 /* The linenoiseState structure represents the state during line editing.
  * We pass this state to functions implementing specific editing
@@ -888,10 +887,6 @@ static int linenoiseEdit(char *buf, size_t buflen, const char *prompt)
     return l.len;
 }
 
-void linenoiseAllowEmpty(bool val) {
-    allow_empty = val;
-}
-
 int linenoiseProbe(void) {
     /* Switch to non-blocking mode */
     int flags = fcntl(STDIN_FILENO, F_GETFL);
@@ -979,9 +974,6 @@ static void sanitize(char* src) {
 char *linenoise(const char *prompt) {
     char *buf = calloc(1, LINENOISE_MAX_LINE);
     int count = 0;
-    if (buf == NULL) {
-        return NULL;
-    }
     if (!dumbmode) {
         count = linenoiseRaw(buf, LINENOISE_MAX_LINE, prompt);
     } else {
@@ -990,9 +982,8 @@ char *linenoise(const char *prompt) {
     if (count > 0) {
         sanitize(buf);
         count = strlen(buf);
-    } else if (count == 0 && allow_empty) {
-        /* will return an empty (0-length) string */
-    } else {
+    }
+    if (count <= 0) {
         free(buf);
         return NULL;
     }
@@ -1108,15 +1099,9 @@ int linenoiseHistorySave(const char *filename) {
  * on error -1 is returned. */
 int linenoiseHistoryLoad(const char *filename) {
     FILE *fp = fopen(filename,"r");
-    if (fp == NULL) {
-        return -1;
-    }
+    char buf[LINENOISE_MAX_LINE];
 
-    char *buf = calloc(1, LINENOISE_MAX_LINE);
-    if (buf == NULL) {
-        fclose(fp);
-        return -1;
-    }
+    if (fp == NULL) return -1;
 
     while (fgets(buf,LINENOISE_MAX_LINE,fp) != NULL) {
         char *p;
@@ -1126,9 +1111,6 @@ int linenoiseHistoryLoad(const char *filename) {
         if (p) *p = '\0';
         linenoiseHistoryAdd(buf);
     }
-
-    free(buf);
     fclose(fp);
-
     return 0;
 }

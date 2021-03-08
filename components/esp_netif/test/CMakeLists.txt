@@ -1,3 +1,5 @@
-idf_component_register(SRC_DIRS "."
-                    PRIV_INCLUDE_DIRS  "../private_include" "."
-                    PRIV_REQUIRES unity test_utils esp_netif nvs_flash)
+set(COMPONENT_SRCDIRS ".")
+set(COMPONENT_PRIV_INCLUDEDIRS "../private_include" ".")
+set(COMPONENT_PRIV_REQUIRES unity test_utils esp_netif nvs_flash)
+
+register_component()

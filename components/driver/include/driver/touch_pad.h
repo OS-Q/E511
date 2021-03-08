@@ -14,4 +14,4 @@
 
 #pragma once
 
-#include "driver/touch_sensor.h"
+#include "touch_sensor_common.h"

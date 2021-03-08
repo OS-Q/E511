@@ -28,10 +28,6 @@ extern "C" {
  *
  * Clock for the module will be ungated, and reset de-asserted.
  *
- * @note If periph_module_enable is called a number of times,
- *       periph_module_disable has to be called the same number of times
- *       in order to put the peripheral into disabled state.
- *
  * @return     NULL
  *
  */
@@ -43,10 +39,6 @@ void periph_module_enable(periph_module_t periph);
  * @param[in]  periph    :  Peripheral module name
  *
  * Clock for the module will be gated, reset asserted.
- *
- * @note If periph_module_enable is called a number of times,
- *       periph_module_disable has to be called the same number of times
- *       in order to put the peripheral into disabled state.
  *
  * @return     NULL
  *
@@ -67,29 +59,6 @@ void periph_module_disable(periph_module_t periph);
  */
 void periph_module_reset(periph_module_t periph);
 
-/**
- * @brief      enable wifi bt common module
- *
- * @note If wifi_bt_common_module_enable is called a number of times,
- *       wifi_bt_common_module_disable has to be called the same number of times
- *       in order to put the peripheral into disabled state.
- *
- * @return     NULL 
- * 
- */
-void wifi_bt_common_module_enable(void);
-
-/**
- * @brief      disable wifi bt common module
- *
- * @note If wifi_bt_common_module_enable is called a number of times,
- *       wifi_bt_common_module_disable has to be called the same number of times
- *       in order to put the peripheral into disabled state.
- *
- * @return     NULL 
- * 
- */
-void wifi_bt_common_module_disable(void);
 
 #ifdef __cplusplus
 }

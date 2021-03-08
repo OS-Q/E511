@@ -2,7 +2,6 @@
 archive: libxtensa.a
 entries:
     eri (noflash_text)
-    stdatomic (noflash)
 
 [mapping:hal]
 archive: libhal.a

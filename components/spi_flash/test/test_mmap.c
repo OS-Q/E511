@@ -324,8 +324,9 @@ TEST_CASE("flash_mmap can mmap after get enough free MMU pages", "[spi_flash][mm
         }
     }
     uint32_t free_pages = spi_flash_mmap_get_free_pages(SPI_FLASH_MMAP_DATA);
-    uint32_t flash_pages = spi_flash_get_chip_size() / SPI_FLASH_MMU_PAGE_SIZE;
-    free_pages = (free_pages > flash_pages) ? flash_pages : free_pages;
+    if (spi_flash_get_chip_size() <= 0x200000) {
+        free_pages -= 0x200000/0x10000;
+    }
 
     printf("Mapping %x (+%x)\n", 0, free_pages * SPI_FLASH_MMU_PAGE_SIZE);
     const void *ptr2;

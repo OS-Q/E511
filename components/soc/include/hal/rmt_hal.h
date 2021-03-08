@@ -40,6 +40,13 @@ typedef struct {
 void rmt_hal_init(rmt_hal_context_t *hal);
 
 /**
+ * @brief Reset RMT HAL driver
+ *
+ * @param hal: RMT HAL context
+ */
+void rmt_hal_reset(rmt_hal_context_t *hal);
+
+/**
  * @brief Reset RMT Channel specific HAL driver
  *
  * @param hal: RMT HAL context
@@ -126,8 +133,7 @@ uint32_t rmt_hal_receive(rmt_hal_context_t *hal, uint32_t channel, rmt_item32_t 
  * @param channel: RMT channel number
  * @param src: RMT items to transmit
  * @param length: length of RMT items to transmit
- * @param offset: offset of RMT internal memory to store the items.
- *        Note: the caller should ensure that (length + offset) <= (memory block * SOC_RMT_CHANNEL_MEM_WORDS).
+ * @param offset: offset of RMT internal memory to store the items
  */
 void rmt_hal_transmit(rmt_hal_context_t *hal, uint32_t channel, const rmt_item32_t *src, uint32_t length, uint32_t offset);
 

@@ -1,7 +1,7 @@
 idf_component_register(SRC_DIRS "."
-                    PRIV_INCLUDE_DIRS "." "${CMAKE_CURRENT_BINARY_DIR}"
+                    INCLUDE_DIRS "." "${CMAKE_CURRENT_BINARY_DIR}"
                     PRIV_INCLUDE_DIRS "../src"
-                    PRIV_REQUIRES unity esp_common test_utils wpa_supplicant mbedtls)
+                    REQUIRES unity esp_common test_utils wpa_supplicant mbedtls)
 
 idf_component_get_property(esp_supplicant_dir wpa_supplicant COMPONENT_DIR)
 
@@ -11,4 +11,3 @@ string(SUBSTRING "${WIFI_SUPPLICANT_MD5}" 0 7 WIFI_SUPPLICANT_MD5)
 
 add_definitions(-DWIFI_SUPPLICANT_MD5=\"${WIFI_SUPPLICANT_MD5}\")
 add_definitions(-DCONFIG_WPA3_SAE)
-add_definitions(-DCONFIG_DPP)

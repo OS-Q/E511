@@ -31,8 +31,3 @@
  */
 
 #include "lwip/sockets.h"
-/*
-	SOMAXCONN is expected to be found in this header too,
-	while for ESP32 port is defined in net/if.h
-*/
-#include <net/if.h>

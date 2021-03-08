@@ -21,9 +21,7 @@ esp_err_t PageManager::load(uint32_t baseSector, uint32_t sectorCount)
     mPageCount = sectorCount;
     mPageList.clear();
     mFreePageList.clear();
-    mPages.reset(new (nothrow) Page[sectorCount]);
-
-    if (!mPages) return ESP_ERR_NO_MEM;
+    mPages.reset(new Page[sectorCount]);
 
     for (uint32_t i = 0; i < sectorCount; ++i) {
         auto err = mPages[i].load(baseSector + i);
@@ -87,7 +85,7 @@ esp_err_t PageManager::load(uint32_t baseSector, uint32_t sectorCount)
                     break;
                 }
             }
-        }
+        } 
     }
 
     // check if power went out while page was being freed

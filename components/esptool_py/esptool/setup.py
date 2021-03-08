@@ -4,7 +4,7 @@ import io
 import os
 import re
 
-from setuptools import find_packages, setup
+from setuptools import setup
 
 
 # Example code to pull version from esptool.py with regex, taken from
@@ -101,23 +101,17 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
     ],
-    extras_require={
-        "dev": [
-            'flake8>=3.2.0',
-            'flake8-future-import',
-            'flake8-import-order',
-            'pyelftools',
-            'unittest-xml-reporting<=2.5.2',  # the replacement of the old xmlrunner package (Python 2 comp. version)
-        ],
-    },
-    install_requires=[
-        'bitstring>=3.1.6',
-        'cryptography>=2.1.4',
-        'ecdsa>=0.16.0',
-        'pyserial>=3.0',
-        'reedsolo>=1.5.3,<=1.5.4',
+    tests_require=[
+        'flake8>=3.2.0',
+        'flake8-future-import',
+        'flake8-import-order',
     ],
-    packages=find_packages(),
+    install_requires=[
+        'pyserial>=3.0',
+        'pyaes',
+        'ecdsa',
+        'cryptography>=2.1.4',
+    ],
     scripts=scripts,
     entry_points=entry_points,
 )

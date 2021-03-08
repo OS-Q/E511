@@ -1755,10 +1755,6 @@ tcp_kill_state(enum tcp_state state)
   struct tcp_pcb *pcb, *inactive;
   u32_t inactivity;
 
-#if !ESP_LWIP
-  LWIP_ASSERT("invalid state", (state == CLOSING) || (state == LAST_ACK));
-#endif
-
   inactivity = 0;
   inactive = NULL;
   /* Go through the list of active pcbs and get the oldest pcb that is in state
@@ -1981,14 +1977,8 @@ tcp_alloc(u8_t prio)
     /* As initial send MSS, we use TCP_MSS but limit it to 536.
        The send MSS is updated when an MSS option is received. */
     pcb->mss = INITIAL_MSS;
-#if ESP_LWIP
-    /* make TCP's retransmission time to be configurable */
-    pcb->rto = LWIP_TCP_RTO_TIME / TCP_SLOW_INTERVAL;
-    pcb->sv = LWIP_TCP_RTO_TIME / TCP_SLOW_INTERVAL;
-#else
     pcb->rto = 3000 / TCP_SLOW_INTERVAL;
     pcb->sv = 3000 / TCP_SLOW_INTERVAL;
-#endif
     pcb->rtime = -1;
     pcb->cwnd = 1;
     pcb->tmr = tcp_ticks;

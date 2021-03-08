@@ -95,7 +95,7 @@ extern "C" esp_err_t nvs_flash_init_custom(const char *partName, uint32_t baseSe
 {
     ESP_LOGD(TAG, "nvs_flash_init_custom partition=%s start=%d count=%d", partName, baseSector, sectorCount);
 
-    return NVSPartitionManager::get_instance()->init_custom(partName, baseSector, sectorCount);
+    return nvs::NVSPartitionManager::get_instance()->init_custom(partName, baseSector, sectorCount);
 }
 
 #ifdef CONFIG_NVS_ENCRYPTION
@@ -105,9 +105,6 @@ extern "C" esp_err_t nvs_flash_secure_init_custom(const char *partName, uint32_t
 
     if(cfg) {
         auto encrMgr = EncrMgr::getInstance();
-
-        if (!encrMgr) return ESP_ERR_NO_MEM;
-
         auto err = encrMgr->setSecurityContext(baseSector, sectorCount, cfg);
         if(err != ESP_OK) {
             return err;
@@ -118,28 +115,6 @@ extern "C" esp_err_t nvs_flash_secure_init_custom(const char *partName, uint32_t
 }
 #endif
 
-static esp_err_t close_handles_and_deinit(const char* part_name)
-{
-    // Delete all corresponding open handles
-    s_nvs_handles.clearAndFreeNodes();
-
-    // Deinit partition
-    return NVSPartitionManager::get_instance()->deinit_partition(part_name);
-}
-
-extern "C" esp_err_t nvs_flash_init_partition_ptr(const esp_partition_t *partition)
-{
-    Lock::init();
-    Lock lock;
-
-    if (!partition) {
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    return nvs_flash_init_custom(partition->label,
-                                 partition->address / SPI_FLASH_SEC_SIZE,
-                                 partition->size / SPI_FLASH_SEC_SIZE);
-}
 
 #ifdef ESP_PLATFORM
 extern "C" esp_err_t nvs_flash_init_partition(const char *part_name)
@@ -147,7 +122,7 @@ extern "C" esp_err_t nvs_flash_init_partition(const char *part_name)
     Lock::init();
     Lock lock;
 
-    return NVSPartitionManager::get_instance()->init_partition(part_name);
+    return nvs::NVSPartitionManager::get_instance()->init_partition(part_name);
 }
 
 extern "C" esp_err_t nvs_flash_init(void)
@@ -185,45 +160,10 @@ extern "C" esp_err_t nvs_flash_secure_init(nvs_sec_cfg_t* cfg)
 
 extern "C" esp_err_t nvs_flash_erase_partition(const char *part_name)
 {
-    Lock::init();
-    Lock lock;
-
-    // if the partition is initialized, uninitialize it first
-    if (NVSPartitionManager::get_instance()->lookup_storage_from_name(part_name)) {
-        esp_err_t err = close_handles_and_deinit(part_name);
-
-        // only hypothetical/future case, deinit_partition() only fails if partition is uninitialized
-        if (err != ESP_OK) {
-            return err;
-        }
-    }
-
     const esp_partition_t* partition = esp_partition_find_first(
             ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, part_name);
     if (partition == NULL) {
         return ESP_ERR_NOT_FOUND;
-    }
-
-    return esp_partition_erase_range(partition, 0, partition->size);
-}
-
-extern "C" esp_err_t nvs_flash_erase_partition_ptr(const esp_partition_t *partition)
-{
-    Lock::init();
-    Lock lock;
-
-    if (!partition) {
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    // if the partition is initialized, uninitialize it first
-    if (NVSPartitionManager::get_instance()->lookup_storage_from_name(partition->label)) {
-        const esp_err_t err = close_handles_and_deinit(partition->label);
-
-        // only hypothetical/future case, deinit_partition() only fails if partition is uninitialized
-        if (err != ESP_OK) {
-            return err;
-        }
     }
 
     return esp_partition_erase_range(partition, 0, partition->size);
@@ -240,7 +180,11 @@ extern "C" esp_err_t nvs_flash_deinit_partition(const char* partition_name)
     Lock::init();
     Lock lock;
 
-    return close_handles_and_deinit(partition_name);
+    // Delete all corresponding open handles
+    s_nvs_handles.clearAndFreeNodes();
+
+    // Deinit partition
+    return nvs::NVSPartitionManager::get_instance()->deinit_partition(partition_name);
 }
 
 extern "C" esp_err_t nvs_flash_deinit(void)
@@ -266,9 +210,9 @@ extern "C" esp_err_t nvs_open_from_partition(const char *part_name, const char* 
     ESP_LOGD(TAG, "%s %s %d", __func__, name, open_mode);
 
     NVSHandleSimple *handle;
-    esp_err_t result = NVSPartitionManager::get_instance()->open_handle(part_name, name, open_mode, &handle);
+    esp_err_t result = nvs::NVSPartitionManager::get_instance()->open_handle(part_name, name, open_mode, &handle);
     if (result == ESP_OK) {
-        NVSHandleEntry *entry = new (std::nothrow) NVSHandleEntry(handle, part_name);
+        NVSHandleEntry *entry = new NVSHandleEntry(handle, part_name);
         if (entry) {
             s_nvs_handles.push_back(entry);
             *out_handle = entry->mHandle;

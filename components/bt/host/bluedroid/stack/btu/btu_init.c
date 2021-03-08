@@ -47,7 +47,7 @@
 #define BTU_TASK_PINNED_TO_CORE         (TASK_PINNED_TO_CORE)
 #define BTU_TASK_STACK_SIZE             (BT_BTU_TASK_STACK_SIZE + BT_TASK_EXTRA_STACK_SIZE)
 #define BTU_TASK_PRIO                   (BT_TASK_MAX_PRIORITIES - 5)
-#define BTU_TASK_NAME                   "BTU_TASK"
+#define BTU_TASK_NAME                   "btuT"
 
 hash_map_t *btu_general_alarm_hash_map;
 osi_mutex_t btu_general_alarm_lock;
@@ -260,8 +260,3 @@ bool BTU_check_queue_is_congest(void)
     return false;
 }
 #endif
-
-int get_btu_work_queue_size(void)
-{
-    return osi_thread_queue_wait_size(btu_thread, 0);
-}

@@ -25,7 +25,6 @@
 #define BTC_STORAGE_LINK_KEY_STR        "LinkKey"    /* same as the ble */
 #define BTC_STORAGE_LINK_KEY_TYPE_STR   "LinkKeyType"
 #define BTC_STORAGE_PIN_LENGTH_STR      "PinLength"
-#define BTC_STORAGE_SC_SUPPORT          "SCSupport"
 
 /*******************************************************************************
 **
@@ -41,8 +40,7 @@
 bt_status_t btc_storage_add_bonded_device(bt_bdaddr_t *remote_bd_addr,
         LINK_KEY link_key,
         uint8_t key_type,
-        uint8_t pin_length,
-        BOOLEAN sc_support);
+        uint8_t pin_length);
 
 /*******************************************************************************
 **
@@ -89,6 +87,6 @@ int btc_storage_get_num_bt_bond_devices(void);
 **                  BT_STATUS_FAIL otherwise
 **
 *******************************************************************************/
-bt_status_t btc_storage_get_bonded_bt_devices_list(bt_bdaddr_t *bond_dev, int *dev_num);
+bt_status_t btc_storage_get_bonded_bt_devices_list(bt_bdaddr_t *bond_dev, int dev_num);
 
 #endif /* BTC_STORAGE_H */

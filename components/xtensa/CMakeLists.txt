@@ -1,5 +1,3 @@
-idf_build_get_property(target IDF_TARGET)
-
 if(BOOTLOADER_BUILD)
     # bootloader only needs headers from this component
     set(priv_requires soc)
@@ -8,17 +6,19 @@ else()
     set(srcs "debug_helpers.c"
              "debug_helpers_asm.S"
              "expression_with_stack_xtensa_asm.S"
-             "expression_with_stack_xtensa.c"
+             "expression_with_stack_xtensa.c"             
              "eri.c"
-             "trax.c"
-             "${target}/trax_init.c"
              )
 
-    if(IDF_TARGET STREQUAL "esp32s2")
+    if(IDF_TARGET STREQUAL "esp32s2beta")
         list(APPEND srcs "stdatomic.c")
+    endif()
+    if(IDF_TARGET STREQUAL "esp32")
+        list(APPEND srcs "trax.c")
     endif()
 endif()
 
+idf_build_get_property(target IDF_TARGET)
 idf_component_register(SRCS ${srcs}
                     INCLUDE_DIRS include ${target}/include
                     LDFRAGMENTS linker.lf

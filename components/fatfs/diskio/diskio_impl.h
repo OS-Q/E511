@@ -23,8 +23,6 @@ typedef unsigned int UINT;
 typedef unsigned char BYTE;
 typedef uint32_t DWORD;
 
-#define FF_DRV_NOT_USED 0xFF
-
 #include "diskio.h"
 #include "esp_err.h"
 

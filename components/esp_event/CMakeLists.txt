@@ -1,7 +1,7 @@
 if(IDF_TARGET STREQUAL "esp32")
-    set(priv_requires esp_eth esp_timer)
+    set(priv_requires esp_eth)
 else()
-    set(priv_requires esp_timer)
+    set(priv_requires)
 endif()
 
 idf_component_register(SRCS "default_event_loop.c"

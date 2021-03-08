@@ -37,6 +37,7 @@
 
 /* ----------------------- Modbus includes ----------------------------------*/
 #include "freertos/FreeRTOS.h"
+#include "freertos/portmacro.h"
 #include "sys/lock.h"
 #include "port.h"
 

@@ -13,13 +13,13 @@
 // limitations under the License.
 #pragma once
 
-#include "esp_eth_com.h"
-#include "esp_eth_mac.h"
-#include "esp_eth_phy.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#include "esp_eth_com.h"
+#include "esp_eth_mac.h"
+#include "esp_eth_phy.h"
 
 /**
 * @brief Handle of Ethernet driver

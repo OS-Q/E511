@@ -26,9 +26,6 @@ esp_err_t nvs_flash_write(size_t destAddr, const void *srcAddr, size_t size) {
 
     if(EncrMgr::isEncrActive()) {
         auto encrMgr = EncrMgr::getInstance();
-
-        if (!encrMgr) return ESP_ERR_NO_MEM;
-
         auto xtsCtxt = encrMgr->findXtsCtxtFromAddr(destAddr);
 
         if(xtsCtxt) {
@@ -47,7 +44,7 @@ esp_err_t nvs_flash_write(size_t destAddr, const void *srcAddr, size_t size) {
 }
 
 esp_err_t nvs_flash_read(size_t srcAddr, void *destAddr, size_t size) {
-
+    
     auto err = spi_flash_read(srcAddr, destAddr, size);
 
     if(err != ESP_OK) {
@@ -56,9 +53,6 @@ esp_err_t nvs_flash_read(size_t srcAddr, void *destAddr, size_t size) {
 
     if(EncrMgr::isEncrActive()) {
         auto encrMgr = EncrMgr::getInstance();
-
-        if (!encrMgr) return ESP_ERR_NO_MEM;
-
         auto xtsCtxt = encrMgr->findXtsCtxtFromAddr(srcAddr);
         if(xtsCtxt) {
             return encrMgr->decryptNvsData(static_cast<uint8_t*>(destAddr),

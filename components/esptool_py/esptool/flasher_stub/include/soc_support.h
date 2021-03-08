@@ -35,12 +35,7 @@
 #define READ_REG(REG) (*((volatile uint32_t *)(REG)))
 #define WRITE_REG(REG, VAL) *((volatile uint32_t *)(REG)) = (VAL)
 #define REG_SET_MASK(reg, mask) WRITE_REG((reg), (READ_REG(reg)|(mask)))
-#define REG_CLR_MASK(reg, mask) WRITE_REG((reg), (READ_REG(reg)&(~(mask))))
 
-#define ESP32_OR_LATER (ESP32 || ESP32S2 || ESP32S3 || ESP32C3)
-#define ESP32S2_OR_LATER (ESP32S2 || ESP32S3 || ESP32C3)
-#define ESP32S3_OR_LATER (ESP32S3 || ESP32C3)
-#define ESP32C3_OR_LATER (ESP32C3)
 
 /**********************************************************
  * Per-SOC based peripheral register base addresses
@@ -54,7 +49,7 @@
 #define UART_BASE_REG      0x3ff40000 /* UART0 */
 #define SPI_BASE_REG       0x3ff42000 /* SPI peripheral 1, used for SPI flash */
 #define SPI0_BASE_REG      0x3ff43000 /* SPI peripheral 0, inner state machine */
-#define GPIO_BASE_REG      0x3ff44000 /* GPIO */
+#define GPIO_BASE_REG      0x3ff44000
 #endif
 
 #ifdef ESP32S2
@@ -62,25 +57,8 @@
 #define SPI_BASE_REG       0x3f402000 /* SPI peripheral 1, used for SPI flash */
 #define SPI0_BASE_REG      0x3f403000 /* SPI peripheral 0, inner state machine */
 #define GPIO_BASE_REG      0x3f404000
-#define USB_BASE_REG       0x60080000
-#define RTCCNTL_BASE_REG   0x3f408000
 #endif
 
-#ifdef ESP32S3
-#define UART_BASE_REG      0x60000000 /* UART0 */
-#define SPI_BASE_REG       0x60002000 /* SPI peripheral 1, used for SPI flash */
-#define SPI0_BASE_REG      0x60003000 /* SPI peripheral 0, inner state machine */
-#define GPIO_BASE_REG      0x60004000 /* GPIO */
-#define RTCCNTL_BASE_REG   0x60008000 /* RTC Control */
-#endif
-
-#ifdef ESP32C3
-#define UART_BASE_REG      0x60000000 /* UART0 */
-#define SPI_BASE_REG       0x60002000 /* SPI peripheral 1, used for SPI flash */
-#define SPI0_BASE_REG      0x60003000 /* SPI peripheral 0, inner state machine */
-#define GPIO_BASE_REG      0x60004000
-#define RTCCNTL_BASE_REG   0x60008000
-#endif
 
 /**********************************************************
  * UART peripheral
@@ -92,7 +70,7 @@
 #define UART_CLKDIV_REG(X) (UART_BASE_REG + 0x14)
 #define UART_CLKDIV_M      (0x000FFFFF)
 
-#if defined(ESP32) || defined(ESP32S2) || defined(ESP32S3) || defined(ESP32C3)
+#if defined(ESP32) || defined(ESP32S2)
 #define UART_CLKDIV_FRAG_S 20
 #define UART_CLKDIV_FRAG_V 0xF
 #endif
@@ -103,7 +81,7 @@
 #define UART_INT_CLR(X)    (UART_BASE_REG + 0x10)
 #define UART_STATUS(X)     (UART_BASE_REG + 0x1C)
 
-#if defined(ESP32S2) || defined(ESP32S3)
+#ifdef ESP32S2
 #define UART_RXFIFO_CNT_M 0x3FF
 #else
 #define UART_RXFIFO_CNT_M 0xFF
@@ -122,25 +100,25 @@
  * except for W0 base address & option for 2-byte status command
  *
  * Only one SPI peripheral is used (0 on ESP8266, 1 on ESP32).
- * On ESP32S2 && ESP32S3 this is called SPI_MEM_xxx index 1
+ * On ESP32S2 this is called SPI_MEM_xxx index 1
  */
 #define SPI_CMD_REG       (SPI_BASE_REG + 0x00)
-#define SPI_FLASH_WREN    (1<<30)
 #define SPI_FLASH_RDSR    (1<<27)
 #define SPI_FLASH_SE      (1<<24)
 #define SPI_FLASH_BE      (1<<23)
+#define SPI_FLASH_WREN    (1<<30)
 
 #define SPI_ADDR_REG      (SPI_BASE_REG + 0x04)
 
 #define SPI_CTRL_REG      (SPI_BASE_REG + 0x08)
-#if defined(ESP32) || defined(ESP32S2) || defined(ESP32S3) || defined(ESP32C3)
+#if defined(ESP32) || defined(ESP32S2)
 #define SPI_WRSR_2B       (1<<22)
 #endif
 
-#if defined(ESP32S2) || defined(ESP32S3) || defined(ESP32C3)
-#define SPI_RD_STATUS_REG (SPI_BASE_REG + 0x2C)
-#else
+#if !defined(ESP32S2)
 #define SPI_RD_STATUS_REG (SPI_BASE_REG + 0x10)
+#else // ESP32S2
+#define SPI_RD_STATUS_REG (SPI_BASE_REG + 0x2C)
 #endif
 
 #ifdef ESP8266
@@ -149,14 +127,14 @@
 #ifdef ESP32
 #define SPI_W0_REG        (SPI_BASE_REG + 0x80)
 #endif
-#if defined(ESP32S2) || defined(ESP32S3) || defined(ESP32C3)
-#define SPI_W0_REG        (SPI_BASE_REG + 0x58)
+#ifdef ESP32S2
+#define SPI_W0_REG        (SPI_BASE_REG + 0xA8)
 #endif
 
-#if defined(ESP32S2) || defined(ESP32S3) || defined(ESP32C3)
-#define SPI_EXT2_REG      (SPI_BASE_REG + 0x54) /* renamed SPI_MEM_FSM_REG */
-#else
+#if !defined(ESP32S2)
 #define SPI_EXT2_REG      (SPI_BASE_REG + 0xF8)
+#else
+#define SPI_EXT2_REG      (SPI_BASE_REG + 0x54) /* renamed SPI_MEM_FSM_REG */
 #endif
 
 #define SPI_ST 0x7 /* done state value */
@@ -168,33 +146,13 @@
  */
 #define SPI0_EXT2_REG     (SPI0_BASE_REG + 0xF8)
 #endif
-#if defined(ESP32S2) || defined(ESP32S3) || defined(ESP32C3)
+#ifdef ESP32S2
 #define SPI0_EXT2_REG     (SPI0_BASE_REG + 0x54)
 #endif
 
 /**********************************************************
  * GPIO peripheral
  *
- * We only need to read the strapping register on ESP32 & ESP32S2 & ESP32S3
+ * We only need to read the strapping register on ESP32 & ESP32S2
  */
 #define GPIO_STRAP_REG    (GPIO_BASE_REG + 0x38)
-
-/**********************************************************
- * USB peripheral
- */
-
-#ifdef ESP32S2
-#define ETS_USB_INTR_SOURCE  48
-#define ETS_USB_INUM  9  /* arbitrary level 1 level interrupt */
-#endif // ESP32S2
-
-#define USB_GAHBCFG_REG    (USB_BASE_REG + 0x8)
-#define USB_GLBLLNTRMSK    (1 << 0)
-
-
-/**********************************************************
- * RTC_CNTL peripheral
- */
-
-#define RTC_CNTL_OPTION1_REG          (RTCCNTL_BASE_REG + 0x0128)
-#define RTC_CNTL_FORCE_DOWNLOAD_BOOT  (1 << 0)

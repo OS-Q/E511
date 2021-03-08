@@ -44,14 +44,13 @@
 #include "time_scene_client.h"
 #include "client_common.h"
 #include "state_binding.h"
-#include "local_operation.h"
 
 #include "esp_ble_mesh_common_api.h"
 #include "esp_ble_mesh_provisioning_api.h"
 #include "esp_ble_mesh_networking_api.h"
 
 static inline void btc_ble_mesh_prov_cb_to_app(esp_ble_mesh_prov_cb_event_t event,
-                                               esp_ble_mesh_prov_cb_param_t *param)
+        esp_ble_mesh_prov_cb_param_t *param)
 {
     esp_ble_mesh_prov_cb_t btc_ble_mesh_cb =
         (esp_ble_mesh_prov_cb_t)btc_profile_cb_get(BTC_PID_PROV);
@@ -61,7 +60,7 @@ static inline void btc_ble_mesh_prov_cb_to_app(esp_ble_mesh_prov_cb_event_t even
 }
 
 static inline void btc_ble_mesh_model_cb_to_app(esp_ble_mesh_model_cb_event_t event,
-                                                esp_ble_mesh_model_cb_param_t *param)
+        esp_ble_mesh_model_cb_param_t *param)
 {
     esp_ble_mesh_model_cb_t btc_ble_mesh_cb =
         (esp_ble_mesh_model_cb_t)btc_profile_cb_get(BTC_PID_MODEL);
@@ -82,33 +81,36 @@ void btc_ble_mesh_prov_arg_deep_copy(btc_msg_t *msg, void *p_dest, void *p_src)
 
     switch (msg->act) {
     case BTC_BLE_MESH_ACT_PROXY_CLIENT_ADD_FILTER_ADDR:
+        BT_DBG("%s, BTC_BLE_MESH_ACT_PROXY_CLIENT_ADD_FILTER_ADDR", __func__);
         dst->proxy_client_add_filter_addr.addr = (uint16_t *)bt_mesh_calloc(src->proxy_client_add_filter_addr.addr_num << 1);
         if (dst->proxy_client_add_filter_addr.addr) {
             memcpy(dst->proxy_client_add_filter_addr.addr, src->proxy_client_add_filter_addr.addr,
                    src->proxy_client_add_filter_addr.addr_num << 1);
         } else {
-            BT_ERR("%s, Out of memory, act %d", __func__, msg->act);
+            BT_ERR("%s, Failed to allocate memory, act %d", __func__, msg->act);
         }
         break;
     case BTC_BLE_MESH_ACT_PROXY_CLIENT_REMOVE_FILTER_ADDR:
+        BT_DBG("%s, BTC_BLE_MESH_ACT_PROXY_CLIENT_REMOVE_FILTER_ADDR", __func__);
         dst->proxy_client_remove_filter_addr.addr = bt_mesh_calloc(src->proxy_client_remove_filter_addr.addr_num << 1);
         if (dst->proxy_client_remove_filter_addr.addr) {
             memcpy(dst->proxy_client_remove_filter_addr.addr, src->proxy_client_remove_filter_addr.addr,
                    src->proxy_client_remove_filter_addr.addr_num << 1);
         } else {
-            BT_ERR("%s, Out of memory, act %d", __func__, msg->act);
+            BT_ERR("%s, Failed to allocate memory, act %d", __func__, msg->act);
         }
         break;
     case BTC_BLE_MESH_ACT_PROVISIONER_STORE_NODE_COMP_DATA:
+        BT_DBG("%s, BTC_BLE_MESH_ACT_PROVISIONER_STORE_NODE_COMP_DATA", __func__);
         dst->store_node_comp_data.data = bt_mesh_calloc(src->store_node_comp_data.length);
         if (dst->store_node_comp_data.data) {
             memcpy(dst->store_node_comp_data.data, src->store_node_comp_data.data, src->store_node_comp_data.length);
         } else {
-            BT_ERR("%s, Out of memory, act %d", __func__, msg->act);
+            BT_ERR("%s, Failed to allocate memory, act %d", __func__, msg->act);
         }
         break;
     default:
-        BT_DBG("%s, Unknown act %d", __func__, msg->act);
+        BT_DBG("%s, Unknown deep copy act %d", __func__, msg->act);
         break;
     }
 }
@@ -158,33 +160,35 @@ void btc_ble_mesh_model_arg_deep_copy(btc_msg_t *msg, void *p_dest, void *p_src)
     switch (msg->act) {
     case BTC_BLE_MESH_ACT_SERVER_MODEL_SEND:
     case BTC_BLE_MESH_ACT_CLIENT_MODEL_SEND: {
+        BT_DBG("%s, BTC_BLE_MESH_ACT_MODEL_SEND, src->model_send.length = %d", __func__, src->model_send.length);
         dst->model_send.data = src->model_send.length ? (uint8_t *)bt_mesh_malloc(src->model_send.length) : NULL;
         dst->model_send.ctx = bt_mesh_malloc(sizeof(esp_ble_mesh_msg_ctx_t));
         if (src->model_send.length) {
             if (dst->model_send.data) {
                 memcpy(dst->model_send.data, src->model_send.data, src->model_send.length);
             } else {
-                BT_ERR("%s, Out of memory, act %d", __func__, msg->act);
+                BT_ERR("%s, Failed to allocate memory, act %d", __func__, msg->act);
             }
         }
         if (dst->model_send.ctx) {
             memcpy(dst->model_send.ctx, src->model_send.ctx, sizeof(esp_ble_mesh_msg_ctx_t));
         } else {
-            BT_ERR("%s, Out of memory, act %d", __func__, msg->act);
+            BT_ERR("%s, Failed to allocate memory, act %d", __func__, msg->act);
         }
         break;
     }
     case BTC_BLE_MESH_ACT_SERVER_MODEL_UPDATE_STATE:
+        BT_DBG("%s, BTC_BLE_MESH_ACT_SERVER_MODEL_UPDATE_STATE", __func__);
         dst->model_update_state.value = bt_mesh_malloc(sizeof(esp_ble_mesh_server_state_value_t));
         if (dst->model_update_state.value) {
             memcpy(dst->model_update_state.value, src->model_update_state.value,
                    sizeof(esp_ble_mesh_server_state_value_t));
         } else {
-            BT_ERR("%s, Out of memory, act %d", __func__, msg->act);
+            BT_ERR("%s, Failed to allocate memory, act %d", __func__, msg->act);
         }
         break;
     default:
-        BT_DBG("%s, Unknown act %d", __func__, msg->act);
+        BT_DBG("%s, Unknown deep copy act %d", __func__, msg->act);
         break;
     }
 }
@@ -240,13 +244,13 @@ static void btc_ble_mesh_model_copy_req_data(btc_msg_t *msg, void *p_dest, void 
             if (p_dest_data->model_operation.ctx) {
                 memcpy(p_dest_data->model_operation.ctx, p_src_data->model_operation.ctx, sizeof(esp_ble_mesh_msg_ctx_t));
             } else {
-                BT_ERR("%s, Out of memory, act %d", __func__, msg->act);
+                BT_ERR("%s, Failed to allocate memory, act %d", __func__, msg->act);
             }
             if (p_src_data->model_operation.length) {
                 if (p_dest_data->model_operation.msg) {
                     memcpy(p_dest_data->model_operation.msg, p_src_data->model_operation.msg, p_src_data->model_operation.length);
                 } else {
-                    BT_ERR("%s, Out of memory, act %d", __func__, msg->act);
+                    BT_ERR("%s, Failed to allocate memory, act %d", __func__, msg->act);
                 }
             }
         }
@@ -259,13 +263,13 @@ static void btc_ble_mesh_model_copy_req_data(btc_msg_t *msg, void *p_dest, void 
             if (p_dest_data->client_recv_publish_msg.ctx) {
                 memcpy(p_dest_data->client_recv_publish_msg.ctx, p_src_data->client_recv_publish_msg.ctx, sizeof(esp_ble_mesh_msg_ctx_t));
             } else {
-                BT_ERR("%s, Out of memory, act %d", __func__, msg->act);
+                BT_ERR("%s, Failed to allocate memory, act %d", __func__, msg->act);
             }
             if (p_src_data->client_recv_publish_msg.length) {
                 if (p_dest_data->client_recv_publish_msg.msg) {
                     memcpy(p_dest_data->client_recv_publish_msg.msg, p_src_data->client_recv_publish_msg.msg, p_src_data->client_recv_publish_msg.length);
                 } else {
-                    BT_ERR("%s, Out of memory, act %d", __func__, msg->act);
+                    BT_ERR("%s, Failed to allocate memory, act %d", __func__, msg->act);
                 }
             }
         }
@@ -277,7 +281,7 @@ static void btc_ble_mesh_model_copy_req_data(btc_msg_t *msg, void *p_dest, void 
             if (p_dest_data->model_send_comp.ctx) {
                 memcpy(p_dest_data->model_send_comp.ctx, p_src_data->model_send_comp.ctx, sizeof(esp_ble_mesh_msg_ctx_t));
             } else {
-                BT_ERR("%s, Out of memory, act %d", __func__, msg->act);
+                BT_ERR("%s, Failed to allocate memory, act %d", __func__, msg->act);
             }
         }
         break;
@@ -288,7 +292,7 @@ static void btc_ble_mesh_model_copy_req_data(btc_msg_t *msg, void *p_dest, void 
             if (p_dest_data->client_send_timeout.ctx) {
                 memcpy(p_dest_data->client_send_timeout.ctx, p_src_data->client_send_timeout.ctx, sizeof(esp_ble_mesh_msg_ctx_t));
             } else {
-                BT_ERR("%s, Out of memory, act %d", __func__, msg->act);
+                BT_ERR("%s, Failed to allocate memory, act %d", __func__, msg->act);
             }
         }
         break;
@@ -361,17 +365,17 @@ static bt_status_t btc_ble_mesh_model_callback(esp_ble_mesh_model_cb_param_t *pa
     msg.pid = BTC_PID_MODEL;
     msg.act = act;
 
-    ret = btc_transfer_context(&msg, param, sizeof(esp_ble_mesh_model_cb_param_t),
-                               btc_ble_mesh_model_copy_req_data);
+    ret = btc_transfer_context(&msg, param,
+                               sizeof(esp_ble_mesh_model_cb_param_t), btc_ble_mesh_model_copy_req_data);
     if (ret != BT_STATUS_SUCCESS) {
-        BT_ERR("btc_transfer_context failed");
+        BT_ERR("%s, btc_transfer_context failed", __func__);
     }
     return ret;
 }
 
 static void btc_ble_mesh_server_model_op_cb(struct bt_mesh_model *model,
-                                            struct bt_mesh_msg_ctx *ctx,
-                                            struct net_buf_simple *buf)
+        struct bt_mesh_msg_ctx *ctx,
+        struct net_buf_simple *buf)
 {
     esp_ble_mesh_model_cb_param_t mesh_param = {0};
 
@@ -386,8 +390,8 @@ static void btc_ble_mesh_server_model_op_cb(struct bt_mesh_model *model,
 }
 
 static void btc_ble_mesh_client_model_op_cb(struct bt_mesh_model *model,
-                                            struct bt_mesh_msg_ctx *ctx,
-                                            struct net_buf_simple *buf)
+        struct bt_mesh_msg_ctx *ctx,
+        struct net_buf_simple *buf)
 {
     esp_ble_mesh_model_cb_param_t mesh_param = {0};
     bt_mesh_client_node_t *node = NULL;
@@ -450,9 +454,7 @@ static void btc_ble_mesh_client_model_timeout_cb(struct k_work *work)
     return;
 }
 
-static void btc_ble_mesh_model_send_comp_cb(esp_ble_mesh_model_t *model,
-                                            esp_ble_mesh_msg_ctx_t *ctx,
-                                            u32_t opcode, int err)
+static void btc_ble_mesh_model_send_comp_cb(esp_ble_mesh_model_t *model, esp_ble_mesh_msg_ctx_t *ctx, u32_t opcode, int err)
 {
     esp_ble_mesh_model_cb_param_t mesh_param = {0};
 
@@ -490,8 +492,7 @@ static int btc_ble_mesh_model_publish_update(struct bt_mesh_model *mod)
 }
 
 static void btc_ble_mesh_server_model_update_state_comp_cb(esp_ble_mesh_model_t *model,
-                                                           esp_ble_mesh_server_state_type_t type,
-                                                           int err)
+        esp_ble_mesh_server_state_type_t type, int err)
 {
     esp_ble_mesh_model_cb_param_t mesh_param = {0};
 
@@ -521,7 +522,7 @@ static bt_status_t btc_ble_mesh_prov_callback(esp_ble_mesh_prov_cb_param_t *para
 
     ret = btc_transfer_context(&msg, param, sizeof(esp_ble_mesh_prov_cb_param_t), NULL);
     if (ret != BT_STATUS_SUCCESS) {
-        BT_ERR("btc_transfer_context failed");
+        BT_ERR("%s, btc_transfer_context failed", __func__);
     }
     return ret;
 }
@@ -601,8 +602,7 @@ static void btc_ble_mesh_link_close_cb(bt_mesh_prov_bearer_t bearer)
     return;
 }
 
-static void btc_ble_mesh_complete_cb(u16_t net_idx, const u8_t net_key[16],
-                                     u16_t addr, u8_t flags, u32_t iv_index)
+static void btc_ble_mesh_complete_cb(u16_t net_idx, const u8_t net_key[16], u16_t addr, u8_t flags, u32_t iv_index)
 {
     esp_ble_mesh_prov_cb_param_t mesh_param = {0};
 
@@ -648,10 +648,10 @@ static void btc_ble_mesh_prov_set_complete_cb(esp_ble_mesh_prov_cb_param_t *para
 }
 
 #if CONFIG_BLE_MESH_PROVISIONER
-static void btc_ble_mesh_provisioner_recv_unprov_adv_pkt_cb(const u8_t addr[6], const u8_t addr_type,
-                                                            const u8_t adv_type, const u8_t dev_uuid[16],
-                                                            u16_t oob_info, bt_mesh_prov_bearer_t bearer,
-                                                            s8_t rssi)
+static void btc_ble_mesh_provisioner_recv_unprov_adv_pkt_cb(
+    const u8_t addr[6], const u8_t addr_type,
+    const u8_t adv_type, const u8_t dev_uuid[16],
+    u16_t oob_info, bt_mesh_prov_bearer_t bearer, s8_t rssi)
 {
     esp_ble_mesh_prov_cb_param_t mesh_param = {0};
 
@@ -688,8 +688,8 @@ static int btc_ble_mesh_provisioner_prov_read_oob_pub_key_cb(u8_t link_idx)
     return (ret == BT_STATUS_SUCCESS) ? 0 : -1;
 }
 
-static int btc_ble_mesh_provisioner_prov_input_cb(u8_t method, bt_mesh_output_action_t act,
-                                                  u8_t size, u8_t link_idx)
+static int btc_ble_mesh_provisioner_prov_input_cb(u8_t method,
+        bt_mesh_output_action_t act, u8_t size, u8_t link_idx)
 {
     esp_ble_mesh_prov_cb_param_t mesh_param = {0};
     bt_status_t ret = BT_STATUS_SUCCESS;
@@ -705,8 +705,8 @@ static int btc_ble_mesh_provisioner_prov_input_cb(u8_t method, bt_mesh_output_ac
     return (ret == BT_STATUS_SUCCESS) ? 0 : -1;
 }
 
-static int btc_ble_mesh_provisioner_prov_output_cb(u8_t method, bt_mesh_input_action_t act,
-                                                   void *data, u8_t size, u8_t link_idx)
+static int btc_ble_mesh_provisioner_prov_output_cb(u8_t method,
+        bt_mesh_input_action_t act, void *data, u8_t size, u8_t link_idx)
 {
     esp_ble_mesh_prov_cb_param_t mesh_param = {0};
     bt_status_t ret = BT_STATUS_SUCCESS;
@@ -752,9 +752,10 @@ static void btc_ble_mesh_provisioner_link_close_cb(bt_mesh_prov_bearer_t bearer,
     return;
 }
 
-static void btc_ble_mesh_provisioner_prov_complete_cb(u16_t node_idx, const u8_t device_uuid[16],
-                                                      u16_t unicast_addr, u8_t element_num,
-                                                      u16_t netkey_idx)
+static void btc_ble_mesh_provisioner_prov_complete_cb(
+    u16_t node_idx, const u8_t device_uuid[16],
+    u16_t unicast_addr, u8_t element_num,
+    u16_t netkey_idx)
 {
     esp_ble_mesh_prov_cb_param_t mesh_param = {0};
 
@@ -780,20 +781,6 @@ esp_ble_mesh_node_t *btc_ble_mesh_provisioner_get_node_with_addr(uint16_t unicas
     return (esp_ble_mesh_node_t *)bt_mesh_provisioner_get_node_with_addr(unicast_addr);
 }
 
-esp_ble_mesh_node_t *btc_ble_mesh_provisioner_get_node_with_name(const char *name)
-{
-    return (esp_ble_mesh_node_t *)bt_mesh_provisioner_get_node_with_name(name);
-}
-
-u16_t btc_ble_mesh_provisioner_get_prov_node_count(void)
-{
-    return bt_mesh_provisioner_get_node_count();
-}
-
-const esp_ble_mesh_node_t **btc_ble_mesh_provisioner_get_node_table_entry(void)
-{
-    return (const esp_ble_mesh_node_t **)bt_mesh_provisioner_get_node_table_entry();
-}
 #endif /* CONFIG_BLE_MESH_PROVISIONER */
 
 static void btc_ble_mesh_heartbeat_msg_recv_cb(u8_t hops, u16_t feature)
@@ -839,7 +826,7 @@ void btc_ble_mesh_friend_cb(bool establish, u16_t lpn_addr, u8_t reason)
     BT_DBG("%s", __func__);
 
     if (!BLE_MESH_ADDR_IS_UNICAST(lpn_addr)) {
-        BT_ERR("Not a unicast lpn address 0x%04x", lpn_addr);
+        BT_ERR("%s, Not a unicast address", __func__);
         return;
     }
 
@@ -858,8 +845,8 @@ void btc_ble_mesh_friend_cb(bool establish, u16_t lpn_addr, u8_t reason)
 #endif /* CONFIG_BLE_MESH_FRIEND */
 
 #if CONFIG_BLE_MESH_GATT_PROXY_CLIENT
-static void btc_ble_mesh_proxy_client_adv_recv_cb(const bt_mesh_addr_t *addr, u8_t type,
-                                                  bt_mesh_proxy_adv_ctx_t *ctx, s8_t rssi)
+static void btc_ble_mesh_proxy_client_adv_recv_cb(const bt_mesh_addr_t *addr,
+        u8_t type, bt_mesh_proxy_adv_ctx_t *ctx, s8_t rssi)
 {
     esp_ble_mesh_prov_cb_param_t mesh_param = {0};
 
@@ -881,7 +868,7 @@ static void btc_ble_mesh_proxy_client_adv_recv_cb(const bt_mesh_addr_t *addr, u8
 }
 
 static void btc_ble_mesh_proxy_client_connect_cb(const bt_mesh_addr_t *addr,
-                                                 u8_t conn_handle, u16_t net_idx)
+        u8_t conn_handle, u16_t net_idx)
 {
     esp_ble_mesh_prov_cb_param_t mesh_param = {0};
 
@@ -901,8 +888,8 @@ static void btc_ble_mesh_proxy_client_connect_cb(const bt_mesh_addr_t *addr,
     return;
 }
 
-static void btc_ble_mesh_proxy_client_disconnect_cb(const bt_mesh_addr_t *addr, u8_t conn_handle,
-                                                    u16_t net_idx, u8_t reason)
+static void btc_ble_mesh_proxy_client_disconnect_cb(const bt_mesh_addr_t *addr,
+        u8_t conn_handle, u16_t net_idx, u8_t reason)
 {
     esp_ble_mesh_prov_cb_param_t mesh_param = {0};
 
@@ -923,8 +910,8 @@ static void btc_ble_mesh_proxy_client_disconnect_cb(const bt_mesh_addr_t *addr, 
     return;
 }
 
-static void btc_ble_mesh_proxy_client_filter_status_recv_cb(u8_t conn_handle, u16_t src, u16_t net_idx,
-                                                            u8_t filter_type, u16_t list_size)
+static void btc_ble_mesh_proxy_client_filter_status_recv_cb(u8_t conn_handle,
+        u16_t src, u16_t net_idx, u8_t filter_type, u16_t list_size)
 {
     esp_ble_mesh_prov_cb_param_t mesh_param = {0};
 
@@ -948,11 +935,6 @@ static void btc_ble_mesh_proxy_client_filter_status_recv_cb(u8_t conn_handle, u1
 
 int btc_ble_mesh_client_model_init(esp_ble_mesh_model_t *model)
 {
-    if (!bt_mesh_is_initialized()) {
-        BT_ERR("Mesh stack is not initialized!");
-        return -EINVAL;
-    }
-
     __ASSERT(model && model->op, "%s, Invalid parameter", __func__);
     esp_ble_mesh_model_op_t *op = model->op;
     while (op != NULL && op->opcode != 0) {
@@ -993,7 +975,7 @@ uint8_t btc_ble_mesh_elem_count(void)
 }
 
 esp_ble_mesh_model_t *btc_ble_mesh_model_find_vnd(const esp_ble_mesh_elem_t *elem,
-                                                  uint16_t company, uint16_t id)
+        uint16_t company, uint16_t id)
 {
     return (esp_ble_mesh_model_t *)bt_mesh_model_find_vnd((struct bt_mesh_elem *)elem, company, id);
 }
@@ -1008,118 +990,82 @@ const esp_ble_mesh_comp_t *btc_ble_mesh_comp_get(void)
     return (const esp_ble_mesh_comp_t *)bt_mesh_comp_get();
 }
 
+u16_t btc_ble_mesh_provisioner_get_prov_node_count(void)
+{
+    return bt_mesh_provisioner_get_node_count();
+}
+
 /* Configuration Models */
 extern const struct bt_mesh_model_op bt_mesh_cfg_srv_op[];
 extern const struct bt_mesh_model_op bt_mesh_cfg_cli_op[];
-extern const struct bt_mesh_model_cb bt_mesh_cfg_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_cfg_cli_cb;
 /* Health Models */
 extern const struct bt_mesh_model_op bt_mesh_health_srv_op[];
 extern const struct bt_mesh_model_op bt_mesh_health_cli_op[];
-extern const struct bt_mesh_model_cb bt_mesh_health_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_health_cli_cb;
 /* Generic Client Models */
-extern const struct bt_mesh_model_op bt_mesh_gen_onoff_cli_op[];
-extern const struct bt_mesh_model_op bt_mesh_gen_level_cli_op[];
-extern const struct bt_mesh_model_op bt_mesh_gen_def_trans_time_cli_op[];
-extern const struct bt_mesh_model_op bt_mesh_gen_power_onoff_cli_op[];
-extern const struct bt_mesh_model_op bt_mesh_gen_power_level_cli_op[];
-extern const struct bt_mesh_model_op bt_mesh_gen_battery_cli_op[];
-extern const struct bt_mesh_model_op bt_mesh_gen_location_cli_op[];
-extern const struct bt_mesh_model_op bt_mesh_gen_property_cli_op[];
-extern const struct bt_mesh_model_cb bt_mesh_generic_client_cb;
+extern const struct bt_mesh_model_op gen_onoff_cli_op[];
+extern const struct bt_mesh_model_op gen_level_cli_op[];
+extern const struct bt_mesh_model_op gen_def_trans_time_cli_op[];
+extern const struct bt_mesh_model_op gen_power_onoff_cli_op[];
+extern const struct bt_mesh_model_op gen_power_level_cli_op[];
+extern const struct bt_mesh_model_op gen_battery_cli_op[];
+extern const struct bt_mesh_model_op gen_location_cli_op[];
+extern const struct bt_mesh_model_op gen_property_cli_op[];
 /* Lighting Client Models */
-extern const struct bt_mesh_model_op bt_mesh_light_lightness_cli_op[];
-extern const struct bt_mesh_model_op bt_mesh_light_ctl_cli_op[];
-extern const struct bt_mesh_model_op bt_mesh_light_hsl_cli_op[];
-extern const struct bt_mesh_model_op bt_mesh_light_xyl_cli_op[];
-extern const struct bt_mesh_model_op bt_mesh_light_lc_cli_op[];
-extern const struct bt_mesh_model_cb bt_mesh_lighting_client_cb;
+extern const struct bt_mesh_model_op light_lightness_cli_op[];
+extern const struct bt_mesh_model_op light_ctl_cli_op[];
+extern const struct bt_mesh_model_op light_hsl_cli_op[];
+extern const struct bt_mesh_model_op light_xyl_cli_op[];
+extern const struct bt_mesh_model_op light_lc_cli_op[];
 /* Sensor Client Models */
-extern const struct bt_mesh_model_op bt_mesh_sensor_cli_op[];
-extern const struct bt_mesh_model_cb bt_mesh_sensor_client_cb;
+extern const struct bt_mesh_model_op sensor_cli_op[];
 /* Time and Scenes Client Models */
-extern const struct bt_mesh_model_op bt_mesh_time_cli_op[];
-extern const struct bt_mesh_model_op bt_mesh_scene_cli_op[];
-extern const struct bt_mesh_model_op bt_mesh_scheduler_cli_op[];
-extern const struct bt_mesh_model_cb bt_mesh_time_scene_client_cb;
+extern const struct bt_mesh_model_op time_cli_op[];
+extern const struct bt_mesh_model_op scene_cli_op[];
+extern const struct bt_mesh_model_op scheduler_cli_op[];
 /* Generic Server Models */
-extern const struct bt_mesh_model_op bt_mesh_gen_onoff_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_gen_level_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_gen_def_trans_time_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_gen_power_onoff_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_gen_power_onoff_setup_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_gen_power_level_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_gen_power_level_setup_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_gen_battery_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_gen_location_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_gen_location_setup_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_gen_user_prop_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_gen_admin_prop_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_gen_manu_prop_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_gen_client_prop_srv_op[];
-extern const struct bt_mesh_model_cb bt_mesh_gen_onoff_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_gen_level_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_gen_def_trans_time_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_gen_power_onoff_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_gen_power_onoff_setup_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_gen_power_level_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_gen_power_level_setup_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_gen_battery_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_gen_location_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_gen_location_setup_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_gen_user_prop_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_gen_admin_prop_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_gen_manu_prop_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_gen_client_prop_srv_cb;
+extern const struct bt_mesh_model_op gen_onoff_srv_op[];
+extern const struct bt_mesh_model_op gen_level_srv_op[];
+extern const struct bt_mesh_model_op gen_def_trans_time_srv_op[];
+extern const struct bt_mesh_model_op gen_power_onoff_srv_op[];
+extern const struct bt_mesh_model_op gen_power_onoff_setup_srv_op[];
+extern const struct bt_mesh_model_op gen_power_level_srv_op[];
+extern const struct bt_mesh_model_op gen_power_level_setup_srv_op[];
+extern const struct bt_mesh_model_op gen_battery_srv_op[];
+extern const struct bt_mesh_model_op gen_location_srv_op[];
+extern const struct bt_mesh_model_op gen_location_setup_srv_op[];
+extern const struct bt_mesh_model_op gen_user_prop_srv_op[];
+extern const struct bt_mesh_model_op gen_admin_prop_srv_op[];
+extern const struct bt_mesh_model_op gen_manu_prop_srv_op[];
+extern const struct bt_mesh_model_op gen_client_prop_srv_op[];
 /* Lighting Server Models */
-extern const struct bt_mesh_model_op bt_mesh_light_lightness_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_light_lightness_setup_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_light_ctl_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_light_ctl_setup_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_light_ctl_temp_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_light_hsl_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_light_hsl_hue_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_light_hsl_sat_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_light_hsl_setup_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_light_xyl_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_light_xyl_setup_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_light_lc_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_light_lc_setup_srv_op[];
-extern const struct bt_mesh_model_cb bt_mesh_light_lightness_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_light_lightness_setup_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_light_ctl_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_light_ctl_setup_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_light_ctl_temp_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_light_hsl_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_light_hsl_hue_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_light_hsl_sat_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_light_hsl_setup_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_light_xyl_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_light_xyl_setup_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_light_lc_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_light_lc_setup_srv_cb;
+extern const struct bt_mesh_model_op light_lightness_srv_op[];
+extern const struct bt_mesh_model_op light_lightness_setup_srv_op[];
+extern const struct bt_mesh_model_op light_ctl_srv_op[];
+extern const struct bt_mesh_model_op light_ctl_setup_srv_op[];
+extern const struct bt_mesh_model_op light_ctl_temp_srv_op[];
+extern const struct bt_mesh_model_op light_hsl_srv_op[];
+extern const struct bt_mesh_model_op light_hsl_hue_srv_op[];
+extern const struct bt_mesh_model_op light_hsl_sat_srv_op[];
+extern const struct bt_mesh_model_op light_hsl_setup_srv_op[];
+extern const struct bt_mesh_model_op light_xyl_srv_op[];
+extern const struct bt_mesh_model_op light_xyl_setup_srv_op[];
+extern const struct bt_mesh_model_op light_lc_srv_op[];
+extern const struct bt_mesh_model_op light_lc_setup_srv_op[];
 /* Time and Scenes Server Models */
-extern const struct bt_mesh_model_op bt_mesh_time_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_time_setup_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_scene_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_scene_setup_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_scheduler_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_scheduler_setup_srv_op[];
-extern const struct bt_mesh_model_cb bt_mesh_time_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_time_setup_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_scene_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_scene_setup_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_scheduler_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_scheduler_setup_srv_cb;
+extern const struct bt_mesh_model_op time_srv_op[];
+extern const struct bt_mesh_model_op time_setup_srv_op[];
+extern const struct bt_mesh_model_op scene_srv_op[];
+extern const struct bt_mesh_model_op scene_setup_srv_op[];
+extern const struct bt_mesh_model_op scheduler_srv_op[];
+extern const struct bt_mesh_model_op scheduler_setup_srv_op[];
 /* Sensor Server Models */
-extern const struct bt_mesh_model_op bt_mesh_sensor_srv_op[];
-extern const struct bt_mesh_model_op bt_mesh_sensor_setup_srv_op[];
-extern const struct bt_mesh_model_cb bt_mesh_sensor_srv_cb;
-extern const struct bt_mesh_model_cb bt_mesh_sensor_setup_srv_cb;
+extern const struct bt_mesh_model_op sensor_srv_op[];
+extern const struct bt_mesh_model_op sensor_setup_srv_op[];
 
-static void btc_ble_mesh_model_op_set(esp_ble_mesh_model_t *model)
+static void btc_ble_mesh_model_op_add(esp_ble_mesh_model_t *model)
 {
+    esp_ble_mesh_model_op_t *op = NULL;
+
     if (!model) {
         BT_ERR("%s, Invalid parameter", __func__);
         return;
@@ -1128,14 +1074,13 @@ static void btc_ble_mesh_model_op_set(esp_ble_mesh_model_t *model)
     /* For SIG client and server models, model->op will be NULL and initialized here.
      * For vendor models whose opcode is 3 bytes, model->op will be initialized here.
      */
-    if (model->op && BLE_MESH_MODEL_OP_LEN(model->op->opcode) == 3) {
-        goto set_vnd_op;
+    if ((model->op != NULL) && (model->op->opcode >= 0x10000)) {
+        goto add_model_op;
     }
 
     switch (model->model_id) {
     case BLE_MESH_MODEL_ID_CFG_SRV: {
         model->op = (esp_ble_mesh_model_op_t *)bt_mesh_cfg_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_cfg_srv_cb;
         struct bt_mesh_cfg_srv *srv = (struct bt_mesh_cfg_srv *)model->user_data;
         if (srv) {
             srv->hb_sub.func = btc_ble_mesh_heartbeat_msg_recv_cb;
@@ -1144,7 +1089,6 @@ static void btc_ble_mesh_model_op_set(esp_ble_mesh_model_t *model)
     }
     case BLE_MESH_MODEL_ID_CFG_CLI: {
         model->op = (esp_ble_mesh_model_op_t *)bt_mesh_cfg_cli_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_cfg_cli_cb;
         bt_mesh_config_client_t *cli = (bt_mesh_config_client_t *)model->user_data;
         if (cli != NULL) {
             cli->publish_status = btc_ble_mesh_config_client_publish_callback;
@@ -1153,7 +1097,6 @@ static void btc_ble_mesh_model_op_set(esp_ble_mesh_model_t *model)
     }
     case BLE_MESH_MODEL_ID_HEALTH_SRV: {
         model->op = (esp_ble_mesh_model_op_t *)bt_mesh_health_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_health_srv_cb;
         struct bt_mesh_health_srv *srv = (struct bt_mesh_health_srv *)model->user_data;
         if (srv) {
             srv->cb.fault_clear = btc_ble_mesh_health_server_fault_clear;
@@ -1165,7 +1108,6 @@ static void btc_ble_mesh_model_op_set(esp_ble_mesh_model_t *model)
     }
     case BLE_MESH_MODEL_ID_HEALTH_CLI: {
         model->op = (esp_ble_mesh_model_op_t *)bt_mesh_health_cli_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_health_cli_cb;
         bt_mesh_health_client_t *cli = (bt_mesh_health_client_t *)model->user_data;
         if (cli != NULL) {
             cli->publish_status = btc_ble_mesh_health_publish_callback;
@@ -1173,8 +1115,7 @@ static void btc_ble_mesh_model_op_set(esp_ble_mesh_model_t *model)
         break;
     }
     case BLE_MESH_MODEL_ID_GEN_ONOFF_CLI: {
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_gen_onoff_cli_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_generic_client_cb;
+        model->op = ((esp_ble_mesh_model_op_t *)gen_onoff_cli_op);
         bt_mesh_gen_onoff_client_t *cli = (bt_mesh_gen_onoff_client_t *)model->user_data;
         if (cli != NULL) {
             cli->publish_status = btc_ble_mesh_generic_client_publish_callback;
@@ -1182,8 +1123,7 @@ static void btc_ble_mesh_model_op_set(esp_ble_mesh_model_t *model)
         break;
     }
     case BLE_MESH_MODEL_ID_GEN_LEVEL_CLI: {
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_gen_level_cli_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_generic_client_cb;
+        model->op = ((esp_ble_mesh_model_op_t *)gen_level_cli_op);
         bt_mesh_gen_level_client_t *cli = (bt_mesh_gen_level_client_t *)model->user_data;
         if (cli != NULL) {
             cli->publish_status = btc_ble_mesh_generic_client_publish_callback;
@@ -1191,8 +1131,7 @@ static void btc_ble_mesh_model_op_set(esp_ble_mesh_model_t *model)
         break;
     }
     case BLE_MESH_MODEL_ID_GEN_DEF_TRANS_TIME_CLI: {
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_gen_def_trans_time_cli_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_generic_client_cb;
+        model->op = ((esp_ble_mesh_model_op_t *)gen_def_trans_time_cli_op);
         bt_mesh_gen_def_trans_time_client_t *cli = (bt_mesh_gen_def_trans_time_client_t *)model->user_data;
         if (cli != NULL) {
             cli->publish_status = btc_ble_mesh_generic_client_publish_callback;
@@ -1200,8 +1139,7 @@ static void btc_ble_mesh_model_op_set(esp_ble_mesh_model_t *model)
         break;
     }
     case BLE_MESH_MODEL_ID_GEN_POWER_ONOFF_CLI: {
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_gen_power_onoff_cli_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_generic_client_cb;
+        model->op = ((esp_ble_mesh_model_op_t *)gen_power_onoff_cli_op);
         bt_mesh_gen_power_onoff_client_t *cli = (bt_mesh_gen_power_onoff_client_t *)model->user_data;
         if (cli != NULL) {
             cli->publish_status = btc_ble_mesh_generic_client_publish_callback;
@@ -1209,8 +1147,7 @@ static void btc_ble_mesh_model_op_set(esp_ble_mesh_model_t *model)
         break;
     }
     case BLE_MESH_MODEL_ID_GEN_POWER_LEVEL_CLI: {
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_gen_power_level_cli_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_generic_client_cb;
+        model->op = ((esp_ble_mesh_model_op_t *)gen_power_level_cli_op);
         bt_mesh_gen_power_level_client_t *cli = (bt_mesh_gen_power_level_client_t *)model->user_data;
         if (cli != NULL) {
             cli->publish_status = btc_ble_mesh_generic_client_publish_callback;
@@ -1218,8 +1155,7 @@ static void btc_ble_mesh_model_op_set(esp_ble_mesh_model_t *model)
         break;
     }
     case BLE_MESH_MODEL_ID_GEN_BATTERY_CLI: {
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_gen_battery_cli_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_generic_client_cb;
+        model->op = ((esp_ble_mesh_model_op_t *)gen_battery_cli_op);
         bt_mesh_gen_battery_client_t *cli = (bt_mesh_gen_battery_client_t *)model->user_data;
         if (cli != NULL) {
             cli->publish_status = btc_ble_mesh_generic_client_publish_callback;
@@ -1227,8 +1163,7 @@ static void btc_ble_mesh_model_op_set(esp_ble_mesh_model_t *model)
         break;
     }
     case BLE_MESH_MODEL_ID_GEN_LOCATION_CLI: {
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_gen_location_cli_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_generic_client_cb;
+        model->op = ((esp_ble_mesh_model_op_t *)gen_location_cli_op);
         bt_mesh_gen_location_client_t *cli = (bt_mesh_gen_location_client_t *)model->user_data;
         if (cli != NULL) {
             cli->publish_status = btc_ble_mesh_generic_client_publish_callback;
@@ -1236,8 +1171,7 @@ static void btc_ble_mesh_model_op_set(esp_ble_mesh_model_t *model)
         break;
     }
     case BLE_MESH_MODEL_ID_GEN_PROP_CLI: {
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_gen_property_cli_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_generic_client_cb;
+        model->op = ((esp_ble_mesh_model_op_t *)gen_property_cli_op);
         bt_mesh_gen_property_client_t *cli = (bt_mesh_gen_property_client_t *)model->user_data;
         if (cli != NULL) {
             cli->publish_status = btc_ble_mesh_generic_client_publish_callback;
@@ -1245,8 +1179,7 @@ static void btc_ble_mesh_model_op_set(esp_ble_mesh_model_t *model)
         break;
     }
     case BLE_MESH_MODEL_ID_LIGHT_LIGHTNESS_CLI: {
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_light_lightness_cli_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_lighting_client_cb;
+        model->op = ((esp_ble_mesh_model_op_t *)light_lightness_cli_op);
         bt_mesh_light_lightness_client_t *cli = (bt_mesh_light_lightness_client_t *)model->user_data;
         if (cli != NULL) {
             cli->publish_status = btc_ble_mesh_lighting_client_publish_callback;
@@ -1254,8 +1187,7 @@ static void btc_ble_mesh_model_op_set(esp_ble_mesh_model_t *model)
         break;
     }
     case BLE_MESH_MODEL_ID_LIGHT_CTL_CLI: {
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_light_ctl_cli_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_lighting_client_cb;
+        model->op = ((esp_ble_mesh_model_op_t *)light_ctl_cli_op);
         bt_mesh_light_ctl_client_t *cli = (bt_mesh_light_ctl_client_t *)model->user_data;
         if (cli != NULL) {
             cli->publish_status = btc_ble_mesh_lighting_client_publish_callback;
@@ -1263,8 +1195,7 @@ static void btc_ble_mesh_model_op_set(esp_ble_mesh_model_t *model)
         break;
     }
     case BLE_MESH_MODEL_ID_LIGHT_HSL_CLI: {
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_light_hsl_cli_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_lighting_client_cb;
+        model->op = ((esp_ble_mesh_model_op_t *)light_hsl_cli_op);
         bt_mesh_light_hsl_client_t *cli = (bt_mesh_light_hsl_client_t *)model->user_data;
         if (cli != NULL) {
             cli->publish_status = btc_ble_mesh_lighting_client_publish_callback;
@@ -1272,8 +1203,7 @@ static void btc_ble_mesh_model_op_set(esp_ble_mesh_model_t *model)
         break;
     }
     case BLE_MESH_MODEL_ID_LIGHT_XYL_CLI: {
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_light_xyl_cli_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_lighting_client_cb;
+        model->op = ((esp_ble_mesh_model_op_t *)light_xyl_cli_op);
         bt_mesh_light_xyl_client_t *cli = (bt_mesh_light_xyl_client_t *)model->user_data;
         if (cli != NULL) {
             cli->publish_status = btc_ble_mesh_lighting_client_publish_callback;
@@ -1281,8 +1211,7 @@ static void btc_ble_mesh_model_op_set(esp_ble_mesh_model_t *model)
         break;
     }
     case BLE_MESH_MODEL_ID_LIGHT_LC_CLI: {
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_light_lc_cli_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_lighting_client_cb;
+        model->op = ((esp_ble_mesh_model_op_t *)light_lc_cli_op);
         bt_mesh_light_lc_client_t *cli = (bt_mesh_light_lc_client_t *)model->user_data;
         if (cli != NULL) {
             cli->publish_status = btc_ble_mesh_lighting_client_publish_callback;
@@ -1290,8 +1219,7 @@ static void btc_ble_mesh_model_op_set(esp_ble_mesh_model_t *model)
         break;
     }
     case BLE_MESH_MODEL_ID_SENSOR_CLI: {
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_sensor_cli_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_sensor_client_cb;
+        model->op = ((esp_ble_mesh_model_op_t *)sensor_cli_op);
         bt_mesh_sensor_client_t *cli = (bt_mesh_sensor_client_t *)model->user_data;
         if (cli != NULL) {
             cli->publish_status = btc_ble_mesh_sensor_client_publish_callback;
@@ -1299,8 +1227,7 @@ static void btc_ble_mesh_model_op_set(esp_ble_mesh_model_t *model)
         break;
     }
     case BLE_MESH_MODEL_ID_TIME_CLI: {
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_time_cli_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_time_scene_client_cb;
+        model->op = ((esp_ble_mesh_model_op_t *)time_cli_op);
         bt_mesh_time_client_t *cli = (bt_mesh_time_client_t *)model->user_data;
         if (cli != NULL) {
             cli->publish_status = btc_ble_mesh_time_scene_client_publish_callback;
@@ -1308,8 +1235,7 @@ static void btc_ble_mesh_model_op_set(esp_ble_mesh_model_t *model)
         break;
     }
     case BLE_MESH_MODEL_ID_SCENE_CLI: {
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_scene_cli_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_time_scene_client_cb;
+        model->op = ((esp_ble_mesh_model_op_t *)scene_cli_op);
         bt_mesh_scene_client_t *cli = (bt_mesh_scene_client_t *)model->user_data;
         if (cli != NULL) {
             cli->publish_status = btc_ble_mesh_time_scene_client_publish_callback;
@@ -1317,8 +1243,7 @@ static void btc_ble_mesh_model_op_set(esp_ble_mesh_model_t *model)
         break;
     }
     case BLE_MESH_MODEL_ID_SCHEDULER_CLI: {
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_scheduler_cli_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_time_scene_client_cb;
+        model->op = ((esp_ble_mesh_model_op_t *)scheduler_cli_op);
         bt_mesh_scheduler_client_t *cli = (bt_mesh_scheduler_client_t *)model->user_data;
         if (cli != NULL) {
             cli->publish_status = btc_ble_mesh_time_scene_client_publish_callback;
@@ -1326,262 +1251,227 @@ static void btc_ble_mesh_model_op_set(esp_ble_mesh_model_t *model)
         break;
     }
     case BLE_MESH_MODEL_ID_GEN_ONOFF_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_gen_onoff_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_gen_onoff_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)gen_onoff_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_GEN_LEVEL_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_gen_level_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_gen_level_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)gen_level_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_GEN_DEF_TRANS_TIME_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_gen_def_trans_time_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_gen_def_trans_time_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)gen_def_trans_time_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_GEN_POWER_ONOFF_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_gen_power_onoff_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_gen_power_onoff_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)gen_power_onoff_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_GEN_POWER_ONOFF_SETUP_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_gen_power_onoff_setup_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_gen_power_onoff_setup_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)gen_power_onoff_setup_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_GEN_POWER_LEVEL_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_gen_power_level_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_gen_power_level_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)gen_power_level_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_GEN_POWER_LEVEL_SETUP_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_gen_power_level_setup_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_gen_power_level_setup_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)gen_power_level_setup_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_GEN_BATTERY_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_gen_battery_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_gen_battery_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)gen_battery_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_GEN_LOCATION_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_gen_location_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_gen_location_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)gen_location_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_GEN_USER_PROP_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_gen_user_prop_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_gen_user_prop_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)gen_user_prop_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_GEN_ADMIN_PROP_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_gen_admin_prop_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_gen_admin_prop_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)gen_admin_prop_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_GEN_MANUFACTURER_PROP_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_gen_manu_prop_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_gen_manu_prop_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)gen_manu_prop_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_GEN_CLIENT_PROP_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_gen_client_prop_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_gen_client_prop_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)gen_client_prop_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_GEN_LOCATION_SETUP_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_gen_location_setup_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_gen_location_setup_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)gen_location_setup_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_LIGHT_LIGHTNESS_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_light_lightness_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_light_lightness_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)light_lightness_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_LIGHT_LIGHTNESS_SETUP_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_light_lightness_setup_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_light_lightness_setup_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)light_lightness_setup_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_LIGHT_CTL_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_light_ctl_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_light_ctl_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)light_ctl_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_LIGHT_CTL_SETUP_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_light_ctl_setup_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_light_ctl_setup_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)light_ctl_setup_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_LIGHT_CTL_TEMP_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_light_ctl_temp_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_light_ctl_temp_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)light_ctl_temp_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_LIGHT_HSL_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_light_hsl_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_light_hsl_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)light_hsl_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_LIGHT_HSL_HUE_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_light_hsl_hue_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_light_hsl_hue_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)light_hsl_hue_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_LIGHT_HSL_SAT_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_light_hsl_sat_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_light_hsl_sat_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)light_hsl_sat_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_LIGHT_HSL_SETUP_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_light_hsl_setup_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_light_hsl_setup_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)light_hsl_setup_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_LIGHT_XYL_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_light_xyl_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_light_xyl_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)light_xyl_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_LIGHT_XYL_SETUP_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_light_xyl_setup_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_light_xyl_setup_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)light_xyl_setup_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_LIGHT_LC_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_light_lc_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_light_lc_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)light_lc_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_LIGHT_LC_SETUP_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_light_lc_setup_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_light_lc_setup_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)light_lc_setup_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_TIME_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_time_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_time_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)time_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_TIME_SETUP_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_time_setup_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_time_setup_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)time_setup_srv_op;
         if (model->pub) {
             /* Time Setup Server model does not support subscribing nor publishing. */
-            BT_ERR("Time Setup Server shall not support publication");
+            BT_ERR("%s, Time Setup Server shall not support publication", __func__);
             return;
         }
         break;
     case BLE_MESH_MODEL_ID_SCENE_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_scene_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_scene_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)scene_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_SCENE_SETUP_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_scene_setup_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_scene_setup_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)scene_setup_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_SCHEDULER_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_scheduler_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_scheduler_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)scheduler_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_SCHEDULER_SETUP_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_scheduler_setup_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_scheduler_setup_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)scheduler_setup_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_SENSOR_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_sensor_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_sensor_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)sensor_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     case BLE_MESH_MODEL_ID_SENSOR_SETUP_SRV:
-        model->op = (esp_ble_mesh_model_op_t *)bt_mesh_sensor_setup_srv_op;
-        model->cb = (esp_ble_mesh_model_cbs_t *)&bt_mesh_sensor_setup_srv_cb;
+        model->op = (esp_ble_mesh_model_op_t *)sensor_setup_srv_op;
         if (model->pub) {
             model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
         }
         break;
     default:
-        goto set_vnd_op;
+        goto add_model_op;
     }
     return;
 
-set_vnd_op:
+add_model_op:
     if (model->pub) {
         model->pub->update = (esp_ble_mesh_cb_t)btc_ble_mesh_model_publish_update;
     }
-    esp_ble_mesh_model_op_t *op = model->op;
+    op = model->op;
     while (op != NULL && op->opcode != 0) {
         op->param_cb = (esp_ble_mesh_cb_t)btc_ble_mesh_server_model_op_cb;
         op++;
@@ -1604,27 +1494,30 @@ void btc_ble_mesh_prov_call_handler(btc_msg_t *msg)
 
     switch (msg->act) {
     case BTC_BLE_MESH_ACT_MESH_INIT: {
+        int err_code = 0;
         for (int i = 0; i < arg->mesh_init.comp->element_count; i++) {
             esp_ble_mesh_elem_t *elem = &arg->mesh_init.comp->elements[i];
-
+            /* For SIG models */
             for (int j = 0; j < elem->sig_model_count; j++) {
                 esp_ble_mesh_model_t *sig_model = &elem->sig_models[j];
-                if (sig_model->op && BLE_MESH_MODEL_OP_LEN(sig_model->op->opcode) == 3) {
-                    /* Opcode of SIG model must be 1 or 2 bytes. */
-                    btc_ble_mesh_prov_register_complete_cb(-EINVAL);
+                /* The opcode of sig model should be 1 or 2 bytes. */
+                if (sig_model && sig_model->op && (sig_model->op->opcode >= 0x10000)) {
+                    err_code = -EINVAL;
+                    btc_ble_mesh_prov_register_complete_cb(err_code);
                     return;
                 }
-                btc_ble_mesh_model_op_set(sig_model);
+                btc_ble_mesh_model_op_add(sig_model);
             }
-
+            /* For vendor models */
             for (int k = 0; k < elem->vnd_model_count; k++) {
                 esp_ble_mesh_model_t *vnd_model = &elem->vnd_models[k];
-                if (vnd_model->op && BLE_MESH_MODEL_OP_LEN(vnd_model->op->opcode) < 3) {
-                    /* Opcode of vendor model must be 3 bytes. */
-                    btc_ble_mesh_prov_register_complete_cb(-EINVAL);
+                /* The opcode of vendor model should be 3 bytes. */
+                if (vnd_model && vnd_model->op && vnd_model->op->opcode < 0x10000) {
+                    err_code = -EINVAL;
+                    btc_ble_mesh_prov_register_complete_cb(err_code);
                     return;
                 }
-                btc_ble_mesh_model_op_set(vnd_model);
+                btc_ble_mesh_model_op_add(vnd_model);
             }
         }
 #if CONFIG_BLE_MESH_NODE
@@ -1658,8 +1551,8 @@ void btc_ble_mesh_prov_call_handler(btc_msg_t *msg)
         bt_mesh_proxy_client_set_disconn_cb(btc_ble_mesh_proxy_client_disconnect_cb);
         bt_mesh_proxy_client_set_filter_status_cb(btc_ble_mesh_proxy_client_filter_status_recv_cb);
 #endif /* CONFIG_BLE_MESH_GATT_PROXY_CLIENT */
-        int err_code = bt_mesh_init((struct bt_mesh_prov *)arg->mesh_init.prov,
-                                    (struct bt_mesh_comp *)arg->mesh_init.comp);
+        err_code = bt_mesh_init((struct bt_mesh_prov *)arg->mesh_init.prov,
+                                (struct bt_mesh_comp *)arg->mesh_init.comp);
         /* Give the semaphore when BLE Mesh initialization is finished. */
         xSemaphoreGive(arg->mesh_init.semaphore);
         btc_ble_mesh_prov_register_complete_cb(err_code);
@@ -1667,14 +1560,17 @@ void btc_ble_mesh_prov_call_handler(btc_msg_t *msg)
     }
 #if CONFIG_BLE_MESH_NODE
     case BTC_BLE_MESH_ACT_PROV_ENABLE:
+        BT_DBG("%s, BTC_BLE_MESH_ACT_PROV_ENABLE, bearers = %d", __func__, arg->node_prov_enable.bearers);
         act = ESP_BLE_MESH_NODE_PROV_ENABLE_COMP_EVT;
         param.node_prov_enable_comp.err_code = bt_mesh_prov_enable(arg->node_prov_enable.bearers);
         break;
     case BTC_BLE_MESH_ACT_PROV_DISABLE:
+        BT_DBG("%s, BTC_BLE_MESH_ACT_PROV_DISABLE, bearers = %d", __func__, arg->node_prov_disable.bearers);
         act = ESP_BLE_MESH_NODE_PROV_DISABLE_COMP_EVT;
         param.node_prov_disable_comp.err_code = bt_mesh_prov_disable(arg->node_prov_disable.bearers);
         break;
     case BTC_BLE_MESH_ACT_NODE_RESET:
+        BT_DBG("%s, BTC_BLE_MESH_ACT_NODE_RESET", __func__);
         bt_mesh_node_reset();
         return;
     case BTC_BLE_MESH_ACT_SET_OOB_PUB_KEY:
@@ -1706,11 +1602,11 @@ void btc_ble_mesh_prov_call_handler(btc_msg_t *msg)
         break;
     case BTC_BLE_MESH_ACT_PROXY_GATT_ENABLE:
         act = ESP_BLE_MESH_NODE_PROXY_GATT_ENABLE_COMP_EVT;
-        param.node_proxy_gatt_enable_comp.err_code = bt_mesh_proxy_server_gatt_enable();
+        param.node_proxy_gatt_enable_comp.err_code = bt_mesh_proxy_gatt_enable();
         break;
     case BTC_BLE_MESH_ACT_PROXY_GATT_DISABLE:
         act = ESP_BLE_MESH_NODE_PROXY_GATT_DISABLE_COMP_EVT;
-        param.node_proxy_gatt_disable_comp.err_code = bt_mesh_proxy_server_gatt_disable();
+        param.node_proxy_gatt_disable_comp.err_code = bt_mesh_proxy_gatt_disable();
         break;
 #endif /* CONFIG_BLE_MESH_GATT_PROXY_SERVER */
 #endif /* (CONFIG_BLE_MESH_NODE && CONFIG_BLE_MESH_PB_GATT) || CONFIG_BLE_MESH_GATT_PROXY_SERVER */
@@ -1823,11 +1719,10 @@ void btc_ble_mesh_prov_call_handler(btc_msg_t *msg)
             app_key = arg->add_local_app_key.app_key;
         }
         act = ESP_BLE_MESH_PROVISIONER_ADD_LOCAL_APP_KEY_COMP_EVT;
+        param.provisioner_add_app_key_comp.app_idx = arg->add_local_app_key.app_idx;
         param.provisioner_add_app_key_comp.err_code =
             bt_mesh_provisioner_local_app_key_add(app_key, arg->add_local_app_key.net_idx,
                     &arg->add_local_app_key.app_idx);
-        param.provisioner_add_app_key_comp.net_idx = arg->add_local_app_key.net_idx;
-        param.provisioner_add_app_key_comp.app_idx = arg->add_local_app_key.app_idx;
         break;
     }
     case BTC_BLE_MESH_ACT_PROVISIONER_UPDATE_LOCAL_APP_KEY:
@@ -1857,9 +1752,9 @@ void btc_ble_mesh_prov_call_handler(btc_msg_t *msg)
             net_key = arg->add_local_net_key.net_key;
         }
         act = ESP_BLE_MESH_PROVISIONER_ADD_LOCAL_NET_KEY_COMP_EVT;
+        param.provisioner_add_net_key_comp.net_idx = arg->add_local_net_key.net_idx;
         param.provisioner_add_net_key_comp.err_code =
             bt_mesh_provisioner_local_net_key_add(net_key, &arg->add_local_net_key.net_idx);
-        param.provisioner_add_net_key_comp.net_idx = arg->add_local_net_key.net_idx;
         break;
     }
     case BTC_BLE_MESH_ACT_PROVISIONER_UPDATE_LOCAL_NET_KEY:
@@ -1950,7 +1845,7 @@ void btc_ble_mesh_prov_call_handler(btc_msg_t *msg)
         param.proxy_client_set_filter_type_comp.conn_handle = arg->proxy_client_set_filter_type.conn_handle;
         param.proxy_client_set_filter_type_comp.net_idx = arg->proxy_client_set_filter_type.net_idx;
         param.proxy_client_set_filter_type_comp.err_code =
-            bt_mesh_proxy_client_cfg_send(arg->proxy_client_set_filter_type.conn_handle,
+            bt_mesh_proxy_client_send_cfg(arg->proxy_client_set_filter_type.conn_handle,
                                           arg->proxy_client_set_filter_type.net_idx, &pdu);
         break;
     }
@@ -1964,7 +1859,7 @@ void btc_ble_mesh_prov_call_handler(btc_msg_t *msg)
         param.proxy_client_add_filter_addr_comp.conn_handle = arg->proxy_client_add_filter_addr.conn_handle;
         param.proxy_client_add_filter_addr_comp.net_idx = arg->proxy_client_add_filter_addr.net_idx;
         param.proxy_client_add_filter_addr_comp.err_code =
-            bt_mesh_proxy_client_cfg_send(arg->proxy_client_add_filter_addr.conn_handle,
+            bt_mesh_proxy_client_send_cfg(arg->proxy_client_add_filter_addr.conn_handle,
                                           arg->proxy_client_add_filter_addr.net_idx, &pdu);
         break;
     }
@@ -1978,7 +1873,7 @@ void btc_ble_mesh_prov_call_handler(btc_msg_t *msg)
         param.proxy_client_remove_filter_addr_comp.conn_handle = arg->proxy_client_remove_filter_addr.conn_handle;
         param.proxy_client_remove_filter_addr_comp.net_idx = arg->proxy_client_remove_filter_addr.net_idx;
         param.proxy_client_remove_filter_addr_comp.err_code =
-            bt_mesh_proxy_client_cfg_send(arg->proxy_client_remove_filter_addr.conn_handle,
+            bt_mesh_proxy_client_send_cfg(arg->proxy_client_remove_filter_addr.conn_handle,
                                           arg->proxy_client_remove_filter_addr.net_idx, &pdu);
         break;
     }
@@ -2003,36 +1898,12 @@ void btc_ble_mesh_prov_call_handler(btc_msg_t *msg)
             bt_mesh_stop_ble_advertising(arg->stop_ble_advertising.index);
         break;
 #endif /* CONFIG_BLE_MESH_SUPPORT_BLE_ADV */
-    case BTC_BLE_MESH_ACT_MODEL_SUBSCRIBE_GROUP_ADDR:
-        act = ESP_BLE_MESH_MODEL_SUBSCRIBE_GROUP_ADDR_COMP_EVT;
-        param.model_sub_group_addr_comp.element_addr = arg->model_sub_group_addr.element_addr;
-        param.model_sub_group_addr_comp.company_id = arg->model_sub_group_addr.company_id;
-        param.model_sub_group_addr_comp.model_id = arg->model_sub_group_addr.model_id;
-        param.model_sub_group_addr_comp.group_addr = arg->model_sub_group_addr.group_addr;
-        param.model_sub_group_addr_comp.err_code =
-            bt_mesh_model_subscribe_group_addr(arg->model_sub_group_addr.element_addr,
-                                               arg->model_sub_group_addr.company_id,
-                                               arg->model_sub_group_addr.model_id,
-                                               arg->model_sub_group_addr.group_addr);
-        break;
-    case BTC_BLE_MESH_ACT_MODEL_UNSUBSCRIBE_GROUP_ADDR:
-        act = ESP_BLE_MESH_MODEL_UNSUBSCRIBE_GROUP_ADDR_COMP_EVT;
-        param.model_unsub_group_addr_comp.element_addr = arg->model_unsub_group_addr.element_addr;
-        param.model_unsub_group_addr_comp.company_id = arg->model_unsub_group_addr.company_id;
-        param.model_unsub_group_addr_comp.model_id = arg->model_unsub_group_addr.model_id;
-        param.model_unsub_group_addr_comp.group_addr = arg->model_unsub_group_addr.group_addr;
-        param.model_unsub_group_addr_comp.err_code =
-            bt_mesh_model_unsubscribe_group_addr(arg->model_unsub_group_addr.element_addr,
-                                                 arg->model_unsub_group_addr.company_id,
-                                                 arg->model_unsub_group_addr.model_id,
-                                                 arg->model_unsub_group_addr.group_addr);
-        break;
     case BTC_BLE_MESH_ACT_DEINIT_MESH:
         act = ESP_BLE_MESH_DEINIT_MESH_COMP_EVT;
         param.deinit_mesh_comp.err_code = bt_mesh_deinit((struct bt_mesh_deinit_param *)&arg->mesh_deinit.param);
         break;
     default:
-        BT_WARN("%s, Unknown act %d", __func__, msg->act);
+        BT_WARN("%s, Invalid msg->act %d", __func__, msg->act);
         return;
     }
 
@@ -2059,7 +1930,7 @@ void btc_ble_mesh_prov_cb_handler(btc_msg_t *msg)
     if (msg->act < ESP_BLE_MESH_PROV_EVT_MAX) {
         btc_ble_mesh_prov_cb_to_app(msg->act, param);
     } else {
-        BT_ERR("%s, Unknown act %d", __func__, msg->act);
+        BT_ERR("%s, Unknown msg->act = %d", __func__, msg->act);
     }
 }
 
@@ -2078,12 +1949,11 @@ void btc_ble_mesh_model_call_handler(btc_msg_t *msg)
     switch (msg->act) {
     case BTC_BLE_MESH_ACT_MODEL_PUBLISH: {
         if (arg->model_publish.device_role == PROVISIONER) {
-            /* Currently Provisioner only supports client model */
-            err = bt_mesh_set_client_model_role((struct bt_mesh_model *)arg->model_publish.model,
-                                                arg->model_publish.device_role);
-            if (err) {
-                BT_ERR("Failed to set client role");
-                btc_ble_mesh_model_publish_comp_cb(arg->model_publish.model, err);
+            bt_mesh_role_param_t common = {0};
+            common.model = (struct bt_mesh_model *)(arg->model_publish.model);
+            common.role  = arg->model_publish.device_role;
+            if (bt_mesh_set_client_model_role(&common)) {
+                BT_ERR("%s, Failed to set model role", __func__);
                 break;
             }
         }
@@ -2095,15 +1965,11 @@ void btc_ble_mesh_model_call_handler(btc_msg_t *msg)
         /* arg->model_send.length contains opcode & payload, plus extra 4-bytes TransMIC */
         struct net_buf_simple *buf = bt_mesh_alloc_buf(arg->model_send.length + BLE_MESH_MIC_SHORT);
         if (!buf) {
-            BT_ERR("%s, Out of memory", __func__);
-            btc_ble_mesh_model_send_comp_cb(arg->model_send.model, arg->model_send.ctx,
-                                            arg->model_send.opcode, -ENOMEM);
+            BT_ERR("%s, Failed to allocate memory", __func__);
             break;
         }
-
         net_buf_simple_add_mem(buf, arg->model_send.data, arg->model_send.length);
         arg->model_send.ctx->srv_send = true;
-
         err = bt_mesh_model_send((struct bt_mesh_model *)arg->model_send.model,
                                  (struct bt_mesh_msg_ctx *)arg->model_send.ctx,
                                  buf, NULL, NULL);
@@ -2113,30 +1979,26 @@ void btc_ble_mesh_model_call_handler(btc_msg_t *msg)
         break;
     }
     case BTC_BLE_MESH_ACT_CLIENT_MODEL_SEND: {
+        bt_mesh_role_param_t common = {0};
         /* arg->model_send.length contains opcode & message, plus extra 4-bytes TransMIC */
         struct net_buf_simple *buf = bt_mesh_alloc_buf(arg->model_send.length + BLE_MESH_MIC_SHORT);
         if (!buf) {
-            BT_ERR("%s, Out of memory", __func__);
-            btc_ble_mesh_model_send_comp_cb(arg->model_send.model, arg->model_send.ctx,
-                                            arg->model_send.opcode, -ENOMEM);
+            BT_ERR("%s, Failed to allocate memory", __func__);
             break;
         }
-
         net_buf_simple_add_mem(buf, arg->model_send.data, arg->model_send.length);
-        bt_mesh_client_common_param_t param = {
-            .opcode = arg->model_send.opcode,
-            .model = (struct bt_mesh_model *)arg->model_send.model,
-            .ctx.net_idx = arg->model_send.ctx->net_idx,
-            .ctx.app_idx = arg->model_send.ctx->app_idx,
-            .ctx.addr = arg->model_send.ctx->addr,
-            .ctx.send_rel = arg->model_send.ctx->send_rel,
-            .ctx.send_ttl = arg->model_send.ctx->send_ttl,
-            .ctx.srv_send = false,
-            .msg_timeout = arg->model_send.msg_timeout,
-            .msg_role = arg->model_send.device_role,
-        };
-        err = bt_mesh_client_send_msg(&param, buf, arg->model_send.need_rsp,
-                                      btc_ble_mesh_client_model_timeout_cb);
+        arg->model_send.ctx->srv_send = false;
+        common.model = (struct bt_mesh_model *)(arg->model_send.model);
+        common.role  = arg->model_send.device_role;
+        if (bt_mesh_set_client_model_role(&common)) {
+            BT_ERR("%s, Failed to set model role", __func__);
+            break;
+        }
+        err = bt_mesh_client_send_msg((struct bt_mesh_model *)arg->model_send.model,
+                                      arg->model_send.opcode,
+                                      (struct bt_mesh_msg_ctx *)arg->model_send.ctx, buf,
+                                      btc_ble_mesh_client_model_timeout_cb, arg->model_send.msg_timeout,
+                                      arg->model_send.need_rsp, NULL, NULL);
         bt_mesh_free_buf(buf);
         btc_ble_mesh_model_send_comp_cb(arg->model_send.model, arg->model_send.ctx,
                                         arg->model_send.opcode, err);
@@ -2150,7 +2012,7 @@ void btc_ble_mesh_model_call_handler(btc_msg_t *msg)
                 arg->model_update_state.type, err);
         break;
     default:
-        BT_WARN("%s, Unknown act %d", __func__, msg->act);
+        BT_WARN("%s, Unknown msg->act %d", __func__, msg->act);
         break;
     }
 
@@ -2172,7 +2034,7 @@ void btc_ble_mesh_model_cb_handler(btc_msg_t *msg)
     if (msg->act < ESP_BLE_MESH_MODEL_EVT_MAX) {
         btc_ble_mesh_model_cb_to_app(msg->act, param);
     } else {
-        BT_ERR("%s, Unknown act %d", __func__, msg->act);
+        BT_ERR("%s, Unknown msg->act = %d", __func__, msg->act);
     }
 
     btc_ble_mesh_model_free_req_data(msg);

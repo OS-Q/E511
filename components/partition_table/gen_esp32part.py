@@ -241,7 +241,7 @@ class PartitionTable(list):
         return result
 
     def to_csv(self, simple_formatting=False):
-        rows = ["# ESP-IDF Partition Table",
+        rows = ["# Espressif ESP32 Partition Table",
                 "# Name, Type, SubType, Offset, Size, Flags"]
         rows += [x.to_csv(simple_formatting) for x in self]
         return "\n".join(rows) + "\n"

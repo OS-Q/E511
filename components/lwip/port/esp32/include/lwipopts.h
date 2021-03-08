@@ -157,32 +157,18 @@
    --------------------------------
 */
 /**
- * IP_REASSEMBLY==1: Reassemble incoming fragmented IP4 packets. Note that
+ * IP_REASSEMBLY==1: Reassemble incoming fragmented IP packets. Note that
  * this option does not affect outgoing packet sizes, which can be controlled
  * via IP_FRAG.
  */
-#define IP_REASSEMBLY                   CONFIG_LWIP_IP4_REASSEMBLY
+#define IP_REASSEMBLY                   CONFIG_LWIP_IP_REASSEMBLY
 
 /**
- * LWIP_IPV6_REASS==1: reassemble incoming IP6 packets that fragmented. Note that
- * this option does not affect outgoing packet sizes, which can be controlled
- * via LWIP_IPV6_FRAG.
- */
-#define LWIP_IPV6_REASS                 CONFIG_LWIP_IP6_REASSEMBLY
-
-/**
- * IP_FRAG==1: Fragment outgoing IP4 packets if their size exceeds MTU. Note
+ * IP_FRAG==1: Fragment outgoing IP packets if their size exceeds MTU. Note
  * that this option does not affect incoming packet sizes, which can be
  * controlled via IP_REASSEMBLY.
  */
-#define IP_FRAG                         CONFIG_LWIP_IP4_FRAG
-
-/**
- * LWIP_IPV6_FRAG==1: Fragment outgoing IP6 packets if their size exceeds MTU. Note
- * that this option does not affect incoming packet sizes, which can be
- * controlled via IP_REASSEMBLY.
- */
-#define LWIP_IPV6_FRAG                  CONFIG_LWIP_IP6_FRAG
+#define IP_FRAG                         CONFIG_LWIP_IP_FRAG
 
 /**
  * IP_REASS_MAXAGE: Maximum time (in multiples of IP_TMR_INTERVAL - so seconds, normally)
@@ -198,20 +184,6 @@
  * packets even if the maximum amount of fragments is enqueued for reassembly!
  */
 #define IP_REASS_MAX_PBUFS              10
-
-/**
- * IP_FORWARD==1: Enables the ability to forward IP packets across network
- * interfaces. If you are going to run lwIP on a device with only one network
- * interface, define this to 0.
- */
-#define IP_FORWARD                      CONFIG_LWIP_IP_FORWARD
-
-/**
- * IP_NAPT==1: Enables IPv4 Network Address and Port Translation.
- * Note that both CONFIG_LWIP_IP_FORWARD and CONFIG_LWIP_L2_TO_L3_COPY options
- * need to be enabled in system configuration for the NAPT to work on ESP platform
- */
-#define IP_NAPT                         CONFIG_LWIP_IPV4_NAPT
 
 /*
    ----------------------------------
@@ -413,12 +385,6 @@
 #define LWIP_WND_SCALE                  1
 #define TCP_RCV_SCALE                   CONFIG_LWIP_TCP_RCV_SCALE
 #endif
-
-/**
- * LWIP_TCP_RTO_TIME: TCP rto time.
- * Default is 3 second.
- */
-#define LWIP_TCP_RTO_TIME             CONFIG_LWIP_TCP_RTO_TIME
 
 /*
    ----------------------------------
@@ -700,8 +666,6 @@
 
 #if PPP_DEBUG_ON
 #define PPP_DEBUG                       LWIP_DBG_ON
-#define PRINTPKT_SUPPORT                1
-#define PPP_PROTOCOLNAME                1
 #else
 #define PPP_DEBUG                       LWIP_DBG_OFF
 #endif
@@ -723,16 +687,6 @@
  * LWIP_IPV6==1: Enable IPv6
  */
 #define LWIP_IPV6                       1
-
-/**
- * MEMP_NUM_ND6_QUEUE: Max number of IPv6 packets to queue during MAC resolution.
- */
-#define MEMP_NUM_ND6_QUEUE              CONFIG_LWIP_IPV6_MEMP_NUM_ND6_QUEUE
-
-/**
- * LWIP_ND6_NUM_NEIGHBORS: Number of entries in IPv6 neighbor cache
- */
-#define LWIP_ND6_NUM_NEIGHBORS          CONFIG_LWIP_IPV6_ND6_NUM_NEIGHBORS
 
 /*
    ---------------------------------------

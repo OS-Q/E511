@@ -4,6 +4,6 @@ endif()
 
 idf_component_register(SRC_DIRS "."
                        EXCLUDE_SRCS "${exclude_srcs}"
-                       PRIV_INCLUDE_DIRS "."
-                       PRIV_REQUIRES unity test_utils spi_flash bootloader_support app_update)
+                       INCLUDE_DIRS "."
+                       REQUIRES unity test_utils spi_flash bootloader_support app_update)
 

@@ -91,11 +91,6 @@ static i2c_config_t i2c_slave_init(void)
     return conf_slave;
 }
 
-TEST_CASE("I2C i2c_set_pin() fails if sda and scl gpios are same", "[i2c]")
-{
-    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, i2c_set_pin(0, 0, 0, true, true , I2C_MODE_SLAVE));
-}
-
 TEST_CASE("I2C config test", "[i2c]")
 {
     // master test
@@ -247,7 +242,7 @@ TEST_CASE("I2C driver memory leaking check", "[i2c]")
     TEST_ASSERT_INT_WITHIN(100, size, esp_get_free_heap_size());
 }
 
-#if !TEMPORARY_DISABLED_FOR_TARGETS(ESP32S2)
+#if !TEMPORARY_DISABLED_FOR_TARGETS(ESP32S2BETA)
 
 // print the reading buffer
 static void disp_buf(uint8_t *buf, int len)
@@ -377,7 +372,7 @@ static void slave_write_buffer_test(void)
 
 TEST_CASE_MULTIPLE_DEVICES("I2C master read slave test", "[i2c][test_env=UT_T2_I2C][timeout=150]", master_read_slave_test, slave_write_buffer_test);
 
-#if !TEMPORARY_DISABLED_FOR_TARGETS(ESP32S2, ESP32)
+#if !TEMPORARY_DISABLED_FOR_TARGETS(ESP32S2BETA, ESP32)
 static void i2c_master_write_read_test(void)
 {
     uint8_t *data_rd = (uint8_t *) malloc(DATA_LENGTH);
@@ -518,8 +513,8 @@ static void i2c_slave_repeat_read(void)
 TEST_CASE_MULTIPLE_DEVICES("I2C repeat write test", "[i2c][test_env=UT_T2_I2C][timeout=150]", i2c_master_repeat_write, i2c_slave_repeat_read);
 
 
-#endif  //DISABLED_FOR_TARGET(ESP32S2, ESP32)
-#endif  //DISABLED_FOR_TARGET(ESP32S2)
+#endif  //DISABLED_FOR_TARGET(ESP32S2BETA, ESP32)
+#endif  //DISABLED_FOR_TARGET(ESP32S2BETA)
 
 static volatile bool exit_flag;
 static bool test_read_func;

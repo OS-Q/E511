@@ -1365,6 +1365,7 @@ static int x509_digest_oid(struct asn1_oid *oid)
 		oid->oid[4] == 2 /* digestAlgorithm */;
 }
 
+
 static int x509_sha1_oid(struct asn1_oid *oid)
 {
 	return oid->len == 6 &&
@@ -1375,6 +1376,7 @@ static int x509_sha1_oid(struct asn1_oid *oid)
 		oid->oid[4] == 2 /* algorithms */ &&
 		oid->oid[5] == 26 /* id-sha1 */;
 }
+
 
 static int x509_sha256_oid(struct asn1_oid *oid)
 {

@@ -1,12 +1,16 @@
 {
-    "name": "N52",
-    "description": "Espressif IoT Development Framework with the ESP32",
-    "keywords": [
-        "OS-Q",
-        "esp32",
-        "esp32s2",
-        "espressif"
-    ],
-    "url": "https://github.com/OS-Q/N52",
-    "version": "3.40200.210118"
+  "name": "E52",
+  "version": "3.40100.20210308",
+  "description": "Espressif IoT Development Framework. Official development framework for ESP32 chip",
+  "keywords": [
+    "framework",
+    "esp32",
+    "espressif"
+  ],
+  "homepage": "https://docs.espressif.com/projects/esp-idf/en/latest/esp32/",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/espressif/esp-idf"
+  }
 }

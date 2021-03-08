@@ -21,7 +21,7 @@ NVSPartitionManager* NVSPartitionManager::instance = nullptr;
 NVSPartitionManager* NVSPartitionManager::get_instance()
 {
     if (!instance) {
-        instance = new (std::nothrow) NVSPartitionManager();
+        instance = new NVSPartitionManager();
     }
 
     return instance;
@@ -57,10 +57,7 @@ esp_err_t NVSPartitionManager::init_custom(const char *partName, uint32_t baseSe
     Storage* new_storage = NULL;
     Storage* storage = lookup_storage_from_name(partName);
     if (storage == NULL) {
-        new_storage = new (std::nothrow) Storage((const char *)partName);
-
-        if (!new_storage) return ESP_ERR_NO_MEM;
-
+        new_storage = new Storage((const char *)partName);
         storage = new_storage;
     }
 
@@ -162,10 +159,7 @@ esp_err_t NVSPartitionManager::open_handle(const char *part_name,
         return err;
     }
 
-    *handle = new (std::nothrow) NVSHandleSimple(open_mode==NVS_READONLY, nsIndex, sHandle);
-
-    if (!handle) return ESP_ERR_NO_MEM;
-
+    *handle = new NVSHandleSimple(open_mode==NVS_READONLY, nsIndex, sHandle);
     nvs_handles.push_back(*handle);
 
     return ESP_OK;

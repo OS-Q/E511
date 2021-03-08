@@ -60,10 +60,6 @@ static const char *TAG = "esp-tls";
 #define _esp_tls_read                       esp_wolfssl_read
 #define _esp_tls_write                      esp_wolfssl_write
 #define _esp_tls_conn_delete                esp_wolfssl_conn_delete
-#ifdef CONFIG_ESP_TLS_SERVER
-#define _esp_tls_server_session_create      esp_wolfssl_server_session_create
-#define _esp_tls_server_session_delete      esp_wolfssl_server_session_delete
-#endif  /* CONFIG_ESP_TLS_SERVER */
 #define _esp_tls_get_bytes_avail            esp_wolfssl_get_bytes_avail
 #define _esp_tls_init_global_ca_store       esp_wolfssl_init_global_ca_store
 #define _esp_tls_set_global_ca_store        esp_wolfssl_set_global_ca_store                 /*!< Callback function for setting global CA store data for TLS/SSL */
@@ -97,22 +93,14 @@ static ssize_t tcp_write(esp_tls_t *tls, const char *data, size_t datalen)
  */
 void esp_tls_conn_delete(esp_tls_t *tls)
 {
-    esp_tls_conn_destroy(tls);
-}
-
-int esp_tls_conn_destroy(esp_tls_t *tls)
-{
     if (tls != NULL) {
-        int ret = 0;
         _esp_tls_conn_delete(tls);
         if (tls->sockfd >= 0) {
-            ret = close(tls->sockfd);
+            close(tls->sockfd);
         }
-        free(tls->error_handle);
-        free(tls);
-        return ret;
+    free(tls->error_handle);
+    free(tls);
     }
-    return -1; // invalid argument
 }
 
 esp_tls_t *esp_tls_init(void)
@@ -127,9 +115,8 @@ esp_tls_t *esp_tls_init(void)
         return NULL;
     }
 #ifdef CONFIG_ESP_TLS_USING_MBEDTLS
-    tls->server_fd.fd = -1;
+    tls->server_fd.fd = tls->sockfd = -1;
 #endif
-    tls->sockfd = -1;
     return tls;
 }
 
@@ -322,7 +309,7 @@ static int esp_tls_low_level_conn(const char *hostname, int hostlen, int port, c
  */
 esp_tls_t *esp_tls_conn_new(const char *hostname, int hostlen, int port, const esp_tls_cfg_t *cfg)
 {
-    esp_tls_t *tls = esp_tls_init();
+    esp_tls_t *tls = (esp_tls_t *)calloc(1, sizeof(esp_tls_t));
     if (!tls) {
         return NULL;
     }
@@ -441,7 +428,6 @@ mbedtls_x509_crt *esp_tls_get_global_ca_store(void)
     return _esp_tls_get_global_ca_store();
 }
 
-#endif /* CONFIG_ESP_TLS_USING_MBEDTLS */
 #ifdef CONFIG_ESP_TLS_SERVER
 /**
  * @brief      Create a server side TLS/SSL connection
@@ -458,20 +444,11 @@ void esp_tls_server_session_delete(esp_tls_t *tls)
     return _esp_tls_server_session_delete(tls);
 }
 #endif /* CONFIG_ESP_TLS_SERVER */
+#endif /* CONFIG_ESP_TLS_USING_MBEDTLS */
 
 ssize_t esp_tls_get_bytes_avail(esp_tls_t *tls)
 {
     return _esp_tls_get_bytes_avail(tls);
-}
-
-esp_err_t esp_tls_get_conn_sockfd(esp_tls_t *tls, int *sockfd)
-{
-    if (!tls || !sockfd) {
-        ESP_LOGE(TAG, "Invalid arguments passed");
-        return ESP_ERR_INVALID_ARG;
-    }
-    *sockfd = tls->sockfd;
-    return ESP_OK;
 }
 
 esp_err_t esp_tls_get_and_clear_last_error(esp_tls_error_handle_t h, int *esp_tls_code, int *esp_tls_flags)
