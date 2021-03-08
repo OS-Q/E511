@@ -130,8 +130,8 @@ macro(expat_install)
 endmacro()
 
 expat_install(TARGETS expat RUNTIME DESTINATION bin
-                      LIBRARY DESTINATION lib
-                      ARCHIVE DESTINATION lib)
+                        LIBRARY DESTINATION lib
+                        ARCHIVE DESTINATION lib)
 
 set(prefix ${CMAKE_INSTALL_PREFIX})
 set(exec_prefix "\${prefix}/bin")
