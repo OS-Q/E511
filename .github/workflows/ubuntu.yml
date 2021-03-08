@@ -22,6 +22,7 @@ jobs:
         tests:
           - "tests/blink"
           - "tests/ulp-adc"
+          - "tests/ulp-pulse"
           - "tests/hello-world"
 
 

@@ -22,8 +22,8 @@ jobs:
         tests:
           - "tests/blink"
           - "tests/ulp-adc"
+          - "tests/ulp-pulse"
           - "tests/hello-world"
-
 
     steps:
       - uses: actions/checkout@v2
