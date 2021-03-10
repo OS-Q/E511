@@ -46,5 +46,5 @@ jobs:
 
       - uses: actions/upload-artifact@v2
         with:
-          name: macos-build-E52
+          name: macos-build-E52A
           path: ${{ matrix.tests }}/build
