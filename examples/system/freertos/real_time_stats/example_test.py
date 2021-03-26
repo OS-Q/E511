@@ -3,10 +3,10 @@ from __future__ import print_function
 import ttfw_idf
 
 STATS_TASK_ITERS = 3
-STATS_TASK_EXPECT = "Real time stats obtained"
+STATS_TASK_EXPECT = 'Real time stats obtained'
 
 
-@ttfw_idf.idf_example_test(env_tag='Example_WIFI')
+@ttfw_idf.idf_example_test(env_tag='Example_GENERIC')
 def test_real_time_stats_example(env, extra_data):
     dut = env.get_dut('real_time_stats', 'examples/system/freertos/real_time_stats', dut_class=ttfw_idf.ESP32DUT)
     dut.start_app()

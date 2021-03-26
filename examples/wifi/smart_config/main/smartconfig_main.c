@@ -33,7 +33,7 @@ static const char *TAG = "smartconfig_example";
 
 static void smartconfig_example_task(void * parm);
 
-static void event_handler(void* arg, esp_event_base_t event_base, 
+static void event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)
 {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
@@ -54,6 +54,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
         wifi_config_t wifi_config;
         uint8_t ssid[33] = { 0 };
         uint8_t password[65] = { 0 };
+        uint8_t rvd_data[33] = { 0 };
 
         bzero(&wifi_config, sizeof(wifi_config_t));
         memcpy(wifi_config.sta.ssid, evt->ssid, sizeof(wifi_config.sta.ssid));
@@ -67,10 +68,18 @@ static void event_handler(void* arg, esp_event_base_t event_base,
         memcpy(password, evt->password, sizeof(evt->password));
         ESP_LOGI(TAG, "SSID:%s", ssid);
         ESP_LOGI(TAG, "PASSWORD:%s", password);
+        if (evt->type == SC_TYPE_ESPTOUCH_V2) {
+            ESP_ERROR_CHECK( esp_smartconfig_get_rvd_data(rvd_data, sizeof(rvd_data)) );
+            ESP_LOGI(TAG, "RVD_DATA:");
+            for (int i=0; i<33; i++) {
+                printf("%02x ", rvd_data[i]);
+            }
+            printf("\n");
+        }
 
         ESP_ERROR_CHECK( esp_wifi_disconnect() );
-        ESP_ERROR_CHECK( esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config) );
-        ESP_ERROR_CHECK( esp_wifi_connect() );
+        ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
+        esp_wifi_connect();
     } else if (event_base == SC_EVENT && event_id == SC_EVENT_SEND_ACK_DONE) {
         xEventGroupSetBits(s_wifi_event_group, ESPTOUCH_DONE_BIT);
     }
@@ -102,7 +111,7 @@ static void smartconfig_example_task(void * parm)
     smartconfig_start_config_t cfg = SMARTCONFIG_START_CONFIG_DEFAULT();
     ESP_ERROR_CHECK( esp_smartconfig_start(&cfg) );
     while (1) {
-        uxBits = xEventGroupWaitBits(s_wifi_event_group, CONNECTED_BIT | ESPTOUCH_DONE_BIT, true, false, portMAX_DELAY); 
+        uxBits = xEventGroupWaitBits(s_wifi_event_group, CONNECTED_BIT | ESPTOUCH_DONE_BIT, true, false, portMAX_DELAY);
         if(uxBits & CONNECTED_BIT) {
             ESP_LOGI(TAG, "WiFi Connected to ap");
         }
@@ -119,4 +128,3 @@ void app_main(void)
     ESP_ERROR_CHECK( nvs_flash_init() );
     initialise_wifi();
 }
-

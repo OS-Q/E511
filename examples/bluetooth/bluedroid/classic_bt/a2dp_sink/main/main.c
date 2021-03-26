@@ -61,7 +61,7 @@ void app_main(void)
         .sample_rate = 44100,
         .bits_per_sample = 16,
         .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,                           //2-channels
-        .communication_format = I2S_COMM_FORMAT_I2S_MSB,
+        .communication_format = I2S_COMM_FORMAT_STAND_MSB,
         .dma_buf_count = 6,
         .dma_buf_len = 60,
         .intr_alloc_flags = 0,                                                  //Default interrupt priority
@@ -160,6 +160,10 @@ void bt_app_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param)
         ESP_LOGI(BT_AV_TAG, "ESP_BT_GAP_KEY_REQ_EVT Please enter passkey!");
         break;
 #endif
+
+    case ESP_BT_GAP_MODE_CHG_EVT:
+        ESP_LOGI(BT_AV_TAG, "ESP_BT_GAP_MODE_CHG_EVT mode:%d", param->mode_chg.mode);
+        break;
 
     default: {
         ESP_LOGI(BT_AV_TAG, "event: %d", event);

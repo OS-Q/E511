@@ -1,18 +1,11 @@
 menu "Example Connection Configuration"
-    choice EXAMPLE_CONNECT_INTERFACE
-        prompt "Connect using"
-        default EXAMPLE_CONNECT_WIFI
+
+    config EXAMPLE_CONNECT_WIFI
+        bool "connect using WiFi interface"
+        default y
         help
-            Protocol examples can use Wi-Fi or Ethernet to connect to the network.
-            Choose which interface to use.
-
-        config EXAMPLE_CONNECT_WIFI
-            bool "Wi-Fi"
-
-        config EXAMPLE_CONNECT_ETHERNET
-            bool "Ethernet"
-
-    endchoice
+            Protocol examples can use Wi-Fi and/or Ethernet to connect to the network.
+            Choose this option to connect with WiFi
 
     if EXAMPLE_CONNECT_WIFI
         config EXAMPLE_WIFI_SSID
@@ -29,11 +22,21 @@ menu "Example Connection Configuration"
                 Can be left blank if the network has no security set.
     endif
 
+    config EXAMPLE_CONNECT_ETHERNET
+        bool "connect using Ethernet interface"
+        default n
+        help
+            Protocol examples can use Wi-Fi and/or Ethernet to connect to the network.
+            Choose this option to connect with Ethernet
+
     if EXAMPLE_CONNECT_ETHERNET
-        choice EXAMPLE_USE_ETHERNET
+        config EXAMPLE_USE_SPI_ETHERNET
+            bool
+
+        choice EXAMPLE_ETHERNET_TYPE
             prompt "Ethernet Type"
             default EXAMPLE_USE_INTERNAL_ETHERNET if IDF_TARGET_ESP32
-            default EXAMPLE_USE_DM9051 if !IDF_TARGET_ESP32
+            default EXAMPLE_USE_W5500
             help
                 Select which kind of Ethernet will be used in the example.
 
@@ -46,10 +49,19 @@ menu "Example Connection Configuration"
 
             config EXAMPLE_USE_DM9051
                 bool "DM9051 Module"
+                select EXAMPLE_USE_SPI_ETHERNET
                 select ETH_USE_SPI_ETHERNET
                 select ETH_SPI_ETHERNET_DM9051
                 help
                     Select external SPI-Ethernet module.
+
+            config EXAMPLE_USE_W5500
+                bool "W5500 Module"
+                select EXAMPLE_USE_SPI_ETHERNET
+                select ETH_USE_SPI_ETHERNET
+                select ETH_SPI_ETHERNET_W5500
+                help
+                    Select external SPI-Ethernet module (W5500).
 
             config EXAMPLE_USE_OPENETH
                 bool "OpenCores Ethernet MAC (EXPERIMENTAL)"
@@ -61,7 +73,7 @@ menu "Example Connection Configuration"
                     not officially supported. Examples built with this option enabled
                     will not run on a real ESP32 chip.
 
-        endchoice
+        endchoice # EXAMPLE_ETHERNET_TYPE
 
         if EXAMPLE_USE_INTERNAL_ETHERNET
             choice EXAMPLE_ETH_PHY_MODEL
@@ -108,55 +120,55 @@ menu "Example Connection Configuration"
                     Set the GPIO number used by SMI MDIO.
         endif
 
-        if EXAMPLE_USE_DM9051
-            config EXAMPLE_DM9051_SPI_HOST
+        if EXAMPLE_USE_SPI_ETHERNET
+            config EXAMPLE_ETH_SPI_HOST
                 int "SPI Host Number"
                 range 0 2
                 default 1
                 help
-                    Set the SPI host used to communicate with DM9051.
+                    Set the SPI host used to communicate with the SPI Ethernet Controller.
 
-            config EXAMPLE_DM9051_SCLK_GPIO
+            config EXAMPLE_ETH_SPI_SCLK_GPIO
                 int "SPI SCLK GPIO number"
                 range 0 33
-                default 19
+                default 20
                 help
                     Set the GPIO number used by SPI SCLK.
 
-            config EXAMPLE_DM9051_MOSI_GPIO
+            config EXAMPLE_ETH_SPI_MOSI_GPIO
                 int "SPI MOSI GPIO number"
                 range 0 33
-                default 23
+                default 19
                 help
                     Set the GPIO number used by SPI MOSI.
 
-            config EXAMPLE_DM9051_MISO_GPIO
+            config EXAMPLE_ETH_SPI_MISO_GPIO
                 int "SPI MISO GPIO number"
                 range 0 33
-                default 25
+                default 18
                 help
                     Set the GPIO number used by SPI MISO.
 
-            config EXAMPLE_DM9051_CS_GPIO
+            config EXAMPLE_ETH_SPI_CS_GPIO
                 int "SPI CS GPIO number"
                 range 0 33
-                default 22
+                default 21
                 help
                     Set the GPIO number used by SPI CS.
 
-            config EXAMPLE_DM9051_SPI_CLOCK_MHZ
+            config EXAMPLE_ETH_SPI_CLOCK_MHZ
                 int "SPI clock speed (MHz)"
                 range 20 80
-                default 20
+                default 36
                 help
                     Set the clock speed (MHz) of SPI interface.
 
-            config EXAMPLE_DM9051_INT_GPIO
+            config EXAMPLE_ETH_SPI_INT_GPIO
                 int "Interrupt GPIO number"
                 default 4
                 help
-                    Set the GPIO number used by DM9051 interrupt.
-        endif
+                    Set the GPIO number used by the SPI Ethernet module interrupt line.
+        endif # EXAMPLE_USE_SPI_ETHERNET
 
         config EXAMPLE_ETH_PHY_RST_GPIO
             int "PHY Reset GPIO number"
@@ -168,18 +180,53 @@ menu "Example Connection Configuration"
         config EXAMPLE_ETH_PHY_ADDR
             int "PHY Address"
             range 0 31 if EXAMPLE_USE_INTERNAL_ETHERNET
-            range 1 1 if !EXAMPLE_USE_INTERNAL_ETHERNET
             default 1
             help
                 Set PHY address according your board schematic.
-    endif
+    endif # EXAMPLE_CONNECT_ETHERNET
 
     config EXAMPLE_CONNECT_IPV6
-        bool "Obtain IPv6 link-local address"
-        depends on IDF_TARGET_ESP32
-        # ToDo: remove once IPV6 is supported on esp32s2
+        bool "Obtain IPv6 address"
         default y
+        depends on EXAMPLE_CONNECT_WIFI || EXAMPLE_CONNECT_ETHERNET
+        select LWIP_IPV6
         help
-            By default, examples will wait until IPv4 and IPv6 addresses are obtained.
+            By default, examples will wait until IPv4 and IPv6 local link addresses are obtained.
             Disable this option if the network does not support IPv6.
+            Choose the preferred IPv6 address type if the connection code should wait until other than
+            the local link address gets assigned.
+            Consider enabling IPv6 stateless address autoconfiguration (SLAAC) in the LWIP component.
+
+    if EXAMPLE_CONNECT_IPV6
+        choice EXAMPLE_CONNECT_PREFERRED_IPV6
+            prompt "Preferred IPv6 Type"
+            default EXAMPLE_CONNECT_IPV6_PREF_LOCAL_LINK
+            help
+                Select which kind of IPv6 address the connect logic waits for.
+
+            config EXAMPLE_CONNECT_IPV6_PREF_LOCAL_LINK
+                bool "Local Link Address"
+                help
+                    Blocks until Local link address assigned.
+
+            config EXAMPLE_CONNECT_IPV6_PREF_GLOBAL
+                bool "Global Address"
+                help
+                    Blocks until Global address assigned.
+
+            config EXAMPLE_CONNECT_IPV6_PREF_SITE_LOCAL
+                bool "Site Local Address"
+                help
+                    Blocks until Site link address assigned.
+
+            config EXAMPLE_CONNECT_IPV6_PREF_UNIQUE_LOCAL
+                bool "Unique Local Link Address"
+                help
+                    Blocks until Unique local address assigned.
+
+        endchoice
+
+    endif
+
+
 endmenu

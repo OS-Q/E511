@@ -98,6 +98,12 @@ static void esp_spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param)
         ESP_LOGI(SPP_TAG, "ESP_SPP_SRV_OPEN_EVT");
         gettimeofday(&time_old, NULL);
         break;
+    case ESP_SPP_SRV_STOP_EVT:
+        ESP_LOGI(SPP_TAG, "ESP_SPP_SRV_STOP_EVT");
+        break;
+    case ESP_SPP_UNINIT_EVT:
+        ESP_LOGI(SPP_TAG, "ESP_SPP_UNINIT_EVT");
+        break;
     default:
         break;
     }
@@ -145,6 +151,10 @@ void esp_bt_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param)
         ESP_LOGI(SPP_TAG, "ESP_BT_GAP_KEY_REQ_EVT Please enter passkey!");
         break;
 #endif
+
+    case ESP_BT_GAP_MODE_CHG_EVT:
+        ESP_LOGI(SPP_TAG, "ESP_BT_GAP_MODE_CHG_EVT mode:%d", param->mode_chg.mode);
+        break;
 
     default: {
         ESP_LOGI(SPP_TAG, "event: %d", event);
@@ -216,4 +226,3 @@ void app_main(void)
     esp_bt_pin_code_t pin_code;
     esp_bt_gap_set_pin(pin_type, 0, pin_code);
 }
-

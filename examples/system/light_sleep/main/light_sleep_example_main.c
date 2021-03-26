@@ -17,12 +17,17 @@
 #include "esp_sleep.h"
 #include "esp_log.h"
 #include "driver/uart.h"
-#include "driver/rtc_io.h"
+#include "driver/gpio.h"
+#include "esp_timer.h"
 
 /* Most development boards have "boot" button attached to GPIO0.
  * You can also change this to another pin.
  */
+#if CONFIG_IDF_TARGET_ESP32C3
+#define BUTTON_GPIO_NUM_DEFAULT     9
+#else
 #define BUTTON_GPIO_NUM_DEFAULT     0
+#endif
 
 /* "Boot" button on GPIO0 is active low */
 #define BUTTON_WAKEUP_LEVEL_DEFAULT     0
@@ -46,11 +51,11 @@ void app_main(void)
         esp_sleep_enable_gpio_wakeup();
 
         /* Wait until GPIO goes high */
-        if (rtc_gpio_get_level(button_gpio_num) == wakeup_level) {
+        if (gpio_get_level(button_gpio_num) == wakeup_level) {
             printf("Waiting for GPIO%d to go high...\n", button_gpio_num);
             do {
                 vTaskDelay(pdMS_TO_TICKS(10));
-            } while (rtc_gpio_get_level(button_gpio_num) == wakeup_level);
+            } while (gpio_get_level(button_gpio_num) == wakeup_level);
         }
 
         printf("Entering light sleep\n");

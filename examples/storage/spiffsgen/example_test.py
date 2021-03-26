@@ -1,11 +1,12 @@
 from __future__ import print_function
-import os
+
 import hashlib
+import os
 
 import ttfw_idf
 
 
-@ttfw_idf.idf_example_test(env_tag='Example_WIFI')
+@ttfw_idf.idf_example_test(env_tag='Example_GENERIC')
 def test_examples_spiffsgen(env, extra_data):
     # Test with default build configurations
     dut = env.get_dut('spiffsgen', 'examples/storage/spiffsgen', dut_class=ttfw_idf.ESP32DUT)
@@ -15,7 +16,7 @@ def test_examples_spiffsgen(env, extra_data):
 
     # Expect hello.txt is read successfully
     with open(os.path.join(base_dir, 'hello.txt'), 'r') as hello_txt:
-        dut.expect('Read from hello.txt: ' + hello_txt.read())
+        dut.expect('Read from hello.txt: ' + hello_txt.read().rstrip())
 
     # Expect alice.txt MD5 hash is computed accurately
     with open(os.path.join(base_dir, 'sub', 'alice.txt'), 'rb') as alice_txt:

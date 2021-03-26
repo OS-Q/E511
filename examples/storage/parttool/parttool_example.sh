@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Demonstrates command-line interface of Partition Tool, parttool.py
 #
@@ -25,7 +25,7 @@ function assert_file_same()
     sz_a=$(stat -c %s $1)
     sz_b=$(stat -c %s $2)
     sz=$((sz_a < sz_b ? sz_a : sz_b))
-    res=$(cmp -s -n $sz $1 $2) || 
+    res=$(cmp -s -n $sz $1 $2) ||
         (echo "!!!!!!!!!!!!!!!!!!!"
         echo "FAILURE: $3"
         echo "!!!!!!!!!!!!!!!!!!!")

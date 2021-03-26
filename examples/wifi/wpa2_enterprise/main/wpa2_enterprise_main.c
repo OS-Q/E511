@@ -80,7 +80,11 @@ extern uint8_t client_key_start[] asm("_binary_wpa2_client_key_start");
 extern uint8_t client_key_end[]   asm("_binary_wpa2_client_key_end");
 #endif /* CONFIG_EXAMPLE_EAP_METHOD_TLS */
 
-static void event_handler(void* arg, esp_event_base_t event_base, 
+#if defined CONFIG_EXAMPLE_EAP_METHOD_TTLS
+esp_eap_ttls_phase2_types TTLS_PHASE2_METHOD = CONFIG_EXAMPLE_EAP_METHOD_TTLS_PHASE_2;
+#endif /* CONFIG_EXAMPLE_EAP_METHOD_TTLS */
+
+static void event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)
 {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
@@ -122,7 +126,7 @@ static void initialise_wifi(void)
     };
     ESP_LOGI(TAG, "Setting WiFi configuration SSID %s...", wifi_config.sta.ssid);
     ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
-    ESP_ERROR_CHECK( esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config) );
+    ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
     ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_identity((uint8_t *)EXAMPLE_EAP_ID, strlen(EXAMPLE_EAP_ID)) );
 
 #ifdef CONFIG_EXAMPLE_VALIDATE_SERVER_CERT
@@ -138,7 +142,11 @@ static void initialise_wifi(void)
     ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_username((uint8_t *)EXAMPLE_EAP_USERNAME, strlen(EXAMPLE_EAP_USERNAME)) );
     ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_password((uint8_t *)EXAMPLE_EAP_PASSWORD, strlen(EXAMPLE_EAP_PASSWORD)) );
 #endif /* CONFIG_EXAMPLE_EAP_METHOD_PEAP || CONFIG_EXAMPLE_EAP_METHOD_TTLS */
-   
+
+#if defined CONFIG_EXAMPLE_EAP_METHOD_TTLS
+    ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_set_ttls_phase2_method(TTLS_PHASE2_METHOD) );
+#endif /* CONFIG_EXAMPLE_EAP_METHOD_TTLS */
+
     ESP_ERROR_CHECK( esp_wifi_sta_wpa2_ent_enable() );
     ESP_ERROR_CHECK( esp_wifi_start() );
 }

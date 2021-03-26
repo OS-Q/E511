@@ -20,6 +20,7 @@
 #include "esp_gap_bt_api.h"
 #include "esp_bt_device.h"
 #include "esp_spp_api.h"
+#include "console_uart.h"
 
 #include "time.h"
 #include "sys/time.h"
@@ -39,7 +40,7 @@ static long data_num = 0;
 static const esp_spp_sec_t sec_mask = ESP_SPP_SEC_AUTHENTICATE;
 static const esp_spp_role_t role_master = ESP_SPP_ROLE_MASTER;
 
-static esp_bd_addr_t peer_bd_addr;
+esp_bd_addr_t peer_bd_addr = {0};
 static uint8_t peer_bdname_len;
 static char peer_bdname[ESP_BT_GAP_MAX_BDNAME_LEN + 1];
 static const char remote_device_name[] = "ESP_SPP_ACCEPTOR";
@@ -116,7 +117,7 @@ static void esp_spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param)
         break;
     case ESP_SPP_OPEN_EVT:
         ESP_LOGI(SPP_TAG, "ESP_SPP_OPEN_EVT");
-        esp_spp_write(param->srv_open.handle, SPP_DATA_LEN, spp_data);
+        esp_spp_write(param->open.handle, SPP_DATA_LEN, spp_data);
         gettimeofday(&time_old, NULL);
         break;
     case ESP_SPP_CLOSE_EVT:
@@ -156,6 +157,9 @@ static void esp_spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param)
         break;
     case ESP_SPP_SRV_OPEN_EVT:
         ESP_LOGI(SPP_TAG, "ESP_SPP_SRV_OPEN_EVT");
+        break;
+    case ESP_SPP_UNINIT_EVT:
+        ESP_LOGI(SPP_TAG, "ESP_SPP_UNINIT_EVT");
         break;
     default:
         break;
@@ -220,15 +224,21 @@ static void esp_bt_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *pa
 #if (CONFIG_BT_SSP_ENABLED == true)
     case ESP_BT_GAP_CFM_REQ_EVT:
         ESP_LOGI(SPP_TAG, "ESP_BT_GAP_CFM_REQ_EVT Please compare the numeric value: %d", param->cfm_req.num_val);
-        esp_bt_gap_ssp_confirm_reply(param->cfm_req.bda, true);
+        ESP_LOGW(SPP_TAG, "To confirm the value, type `spp ok;`");
         break;
     case ESP_BT_GAP_KEY_NOTIF_EVT:
         ESP_LOGI(SPP_TAG, "ESP_BT_GAP_KEY_NOTIF_EVT passkey:%d", param->key_notif.passkey);
+        ESP_LOGW(SPP_TAG, "Waiting responce...");
         break;
     case ESP_BT_GAP_KEY_REQ_EVT:
         ESP_LOGI(SPP_TAG, "ESP_BT_GAP_KEY_REQ_EVT Please enter passkey!");
+        ESP_LOGW(SPP_TAG, "To input the key, type `spp key xxxxxx;`");
         break;
 #endif
+
+    case ESP_BT_GAP_MODE_CHG_EVT:
+        ESP_LOGI(SPP_TAG, "ESP_BT_GAP_MODE_CHG_EVT mode:%d", param->mode_chg.mode);
+        break;
 
     default:
         break;
@@ -289,8 +299,11 @@ void app_main(void)
 #if (CONFIG_BT_SSP_ENABLED == true)
     /* Set default parameters for Secure Simple Pairing */
     esp_bt_sp_param_t param_type = ESP_BT_SP_IOCAP_MODE;
-    esp_bt_io_cap_t iocap = ESP_BT_IO_CAP_IO;
+    esp_bt_io_cap_t iocap = ESP_BT_IO_CAP_IN;
     esp_bt_gap_set_security_param(param_type, &iocap, sizeof(uint8_t));
+    if (iocap == ESP_BT_IO_CAP_IN || iocap == ESP_BT_IO_CAP_IO) {
+        console_uart_init();
+    }
 #endif
 
     /*
@@ -301,4 +314,3 @@ void app_main(void)
     esp_bt_pin_code_t pin_code;
     esp_bt_gap_set_pin(pin_type, 0, pin_code);
 }
-

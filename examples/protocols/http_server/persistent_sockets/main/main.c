@@ -23,7 +23,7 @@
  */
 
 static const char *TAG = "example";
- 
+
 /* Function to free context */
 static void adder_free_func(void *ctx)
 {
@@ -71,7 +71,7 @@ static esp_err_t adder_post_handler(httpd_req_t *req)
 
     /* Respond with the accumulated value */
     snprintf(outbuf, sizeof(outbuf),"%d", *adder);
-    httpd_resp_send(req, outbuf, strlen(outbuf));
+    httpd_resp_send(req, outbuf, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
@@ -95,7 +95,7 @@ static esp_err_t adder_get_handler(httpd_req_t *req)
 
     /* Respond with the accumulated value */
     snprintf(outbuf, sizeof(outbuf),"%d", *((int *)req->sess_ctx));
-    httpd_resp_send(req, outbuf, strlen(outbuf));
+    httpd_resp_send(req, outbuf, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
@@ -133,7 +133,7 @@ static esp_err_t adder_put_handler(httpd_req_t *req)
 
     /* Respond with the reset value */
     snprintf(outbuf, sizeof(outbuf),"%d", *((int *)req->sess_ctx));
-    httpd_resp_send(req, outbuf, strlen(outbuf));
+    httpd_resp_send(req, outbuf, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
@@ -189,7 +189,7 @@ static void stop_webserver(httpd_handle_t server)
 }
 
 
-static void disconnect_handler(void* arg, esp_event_base_t event_base, 
+static void disconnect_handler(void* arg, esp_event_base_t event_base,
                                int32_t event_id, void* event_data)
 {
     httpd_handle_t* server = (httpd_handle_t*) arg;
@@ -200,7 +200,7 @@ static void disconnect_handler(void* arg, esp_event_base_t event_base,
     }
 }
 
-static void connect_handler(void* arg, esp_event_base_t event_base, 
+static void connect_handler(void* arg, esp_event_base_t event_base,
                             int32_t event_id, void* event_data)
 {
     httpd_handle_t* server = (httpd_handle_t*) arg;

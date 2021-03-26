@@ -16,6 +16,7 @@
 #include "esp_partition.h"
 #include "esp_flash_encrypt.h"
 #include "esp_efuse_table.h"
+#include "nvs_flash.h"
 
 static void example_print_chip_info(void);
 static void example_print_flash_encryption_status(void);
@@ -23,6 +24,13 @@ static void example_read_write_flash(void);
 
 static const char* TAG = "example";
 
+#if CONFIG_IDF_TARGET_ESP32
+#define TARGET_CRYPT_CNT_EFUSE  ESP_EFUSE_FLASH_CRYPT_CNT
+#define TARGET_CRYPT_CNT_WIDTH  7
+#elif CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32C3
+#define TARGET_CRYPT_CNT_EFUSE ESP_EFUSE_SPI_BOOT_CRYPT_CNT
+#define TARGET_CRYPT_CNT_WIDTH  3
+#endif
 
 void app_main(void)
 {
@@ -31,6 +39,13 @@ void app_main(void)
     example_print_chip_info();
     example_print_flash_encryption_status();
     example_read_write_flash();
+    /* Initialize the default NVS partition */
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
 }
 
 
@@ -39,7 +54,8 @@ static void example_print_chip_info(void)
     /* Print chip information */
     esp_chip_info_t chip_info;
     esp_chip_info(&chip_info);
-    printf("This is ESP32 chip with %d CPU cores, WiFi%s%s, ",
+    printf("This is %s chip with %d CPU core(s), WiFi%s%s, ",
+            CONFIG_IDF_TARGET,
             chip_info.cores,
             (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
             (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
@@ -54,7 +70,7 @@ static void example_print_chip_info(void)
 static void example_print_flash_encryption_status(void)
 {
     uint32_t flash_crypt_cnt = 0;
-    esp_efuse_read_field_blob(ESP_EFUSE_FLASH_CRYPT_CNT, &flash_crypt_cnt, 7);
+    esp_efuse_read_field_blob(TARGET_CRYPT_CNT_EFUSE, &flash_crypt_cnt, TARGET_CRYPT_CNT_WIDTH);
     printf("FLASH_CRYPT_CNT eFuse value is %d\n", flash_crypt_cnt);
 
     esp_flash_enc_mode_t mode = esp_get_flash_encryption_mode();
