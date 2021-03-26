@@ -17,7 +17,7 @@ idf_export_main() {
     # Doing this in case someone tries to chmod +x it and execute...
 
     # shellcheck disable=SC2128,SC2169,SC2039 # ignore array expansion warning
-    if [ -n "${BASH_SOURCE}" ] && [ "${BASH_SOURCE[0]}" = "${0}" ]
+    if [ -n "${BASH_SOURCE-}" ] && [ "${BASH_SOURCE[0]}" = "${0}" ]
     then
         echo "This script should be sourced, not executed:"
         # shellcheck disable=SC2039  # reachable only with bash
@@ -32,10 +32,10 @@ idf_export_main() {
         self_path=""
 
         # shellcheck disable=SC2128  # ignore array expansion warning
-        if [ -n "${BASH_SOURCE}" ]
+        if [ -n "${BASH_SOURCE-}" ]
         then
             self_path="${BASH_SOURCE}"
-        elif [ -n "${ZSH_VERSION}" ]
+        elif [ -n "${ZSH_VERSION-}" ]
         then
             self_path="${(%):-%x}"
         else
@@ -79,13 +79,17 @@ idf_export_main() {
 
     old_path="$PATH"
 
+    echo "Detecting the Python interpreter"
+    . "${IDF_PATH}/tools/detect_python.sh"
+
     echo "Adding ESP-IDF tools to PATH..."
     # Call idf_tools.py to export tool paths
     export IDF_TOOLS_EXPORT_CMD=${IDF_PATH}/export.sh
     export IDF_TOOLS_INSTALL_CMD=${IDF_PATH}/install.sh
-    idf_exports=$("${IDF_PATH}/tools/idf_tools.py" export) || return 1
+    idf_exports=$("$ESP_PYTHON" "${IDF_PATH}/tools/idf_tools.py" export) || return 1
     eval "${idf_exports}"
 
+    echo "Using Python interpreter in $(which python)"
     echo "Checking if Python packages are up to date..."
     python "${IDF_PATH}/tools/check_python_dependencies.py" || return 1
 
@@ -94,7 +98,8 @@ idf_export_main() {
     # ${IDF_PATH}/tools is already added by 'idf_tools.py export'
     IDF_ADD_PATHS_EXTRAS="${IDF_PATH}/components/esptool_py/esptool"
     IDF_ADD_PATHS_EXTRAS="${IDF_ADD_PATHS_EXTRAS}:${IDF_PATH}/components/espcoredump"
-    IDF_ADD_PATHS_EXTRAS="${IDF_ADD_PATHS_EXTRAS}:${IDF_PATH}/components/partition_table/"
+    IDF_ADD_PATHS_EXTRAS="${IDF_ADD_PATHS_EXTRAS}:${IDF_PATH}/components/partition_table"
+    IDF_ADD_PATHS_EXTRAS="${IDF_ADD_PATHS_EXTRAS}:${IDF_PATH}/components/app_update"
     export PATH="${IDF_ADD_PATHS_EXTRAS}:${PATH}"
 
     if [ -n "$BASH" ]
@@ -123,6 +128,7 @@ idf_export_main() {
     unset path_entry
     unset IDF_ADD_PATHS_EXTRAS
     unset idf_exports
+    unset ESP_PYTHON
 
     # Not unsetting IDF_PYTHON_ENV_PATH, it can be used by IDF build system
     # to check whether we are using a private Python environment
@@ -134,7 +140,20 @@ idf_export_main() {
     echo ""
 }
 
+enable_autocomplete() {
+    if [ -n "${ZSH_VERSION-}" ]
+    then
+        autoload -Uz compinit && compinit -u
+        eval "$(env _IDF.PY_COMPLETE=source_zsh idf.py)" || echo "WARNING: Failed to load shell autocompletion!"
+    elif [ -n "${BASH_SOURCE-}" ]
+    then
+        eval "$(env _IDF.PY_COMPLETE=source_bash idf.py)"  || echo "WARNING: Failed to load shell autocompletion!"
+    fi
+}
+
 idf_export_main
+enable_autocomplete
 
 unset realpath_int
 unset idf_export_main
+unset enable_autocomplete
