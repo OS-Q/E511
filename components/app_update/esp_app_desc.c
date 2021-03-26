@@ -80,7 +80,7 @@ __attribute__((constructor)) void esp_ota_init_app_elf_sha256(void)
 /* The esp_app_desc.app_elf_sha256 should be possible to print in panic handler during cache is disabled.
  * But because the cache is disabled the reading esp_app_desc.app_elf_sha256 is not right and
  * can lead to a complete lock-up of the CPU.
- * For this reason we do a reading of esp_app_desc.app_elf_sha256 while start up in esp_ota_init_app_elf_sha256() 
+ * For this reason we do a reading of esp_app_desc.app_elf_sha256 while start up in esp_ota_init_app_elf_sha256()
  * and keep it in the static s_app_elf_sha256 value.
  */
 int IRAM_ATTR esp_ota_get_app_elf_sha256(char* dst, size_t size)
@@ -89,7 +89,10 @@ int IRAM_ATTR esp_ota_get_app_elf_sha256(char* dst, size_t size)
     static bool first_call = true;
     if (first_call) {
         first_call = false;
-        const uint8_t* src = esp_app_desc.app_elf_sha256;
+        // At -O2 optimization level, GCC optimizes out the copying of the first byte of the app_elf_sha256,
+        // because it is zero at compile time, and only modified afterwards by esptool.
+        // Casting to volatile disables the optimization.
+        const volatile uint8_t* src = (const volatile uint8_t*)esp_app_desc.app_elf_sha256;
         for (size_t i = 0; i < sizeof(s_app_elf_sha256); ++i) {
             s_app_elf_sha256[i] = src[i];
         }

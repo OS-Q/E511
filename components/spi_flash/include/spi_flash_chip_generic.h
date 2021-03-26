@@ -72,6 +72,7 @@ esp_err_t spi_flash_chip_generic_detect_size(esp_flash_t *chip, uint32_t *size);
  *
  * @return
  *      - ESP_OK if success
+ *      - ESP_ERR_NOT_SUPPORTED if the chip is not able to perform the operation. This is indicated by WREN = 1 after the command is sent.
  *      - or other error passed from the ``set_write_protect``, ``wait_idle`` or ``erase_chip`` function of host driver
  */
 esp_err_t spi_flash_chip_generic_erase_chip(esp_flash_t *chip);
@@ -84,6 +85,7 @@ esp_err_t spi_flash_chip_generic_erase_chip(esp_flash_t *chip);
  *
  * @return
  *      - ESP_OK if success
+ *      - ESP_ERR_NOT_SUPPORTED if the chip is not able to perform the operation. This is indicated by WREN = 1 after the command is sent.
  *      - or other error passed from the ``set_write_protect``, ``wait_idle`` or ``erase_sector`` function of host driver
  */
 esp_err_t spi_flash_chip_generic_erase_sector(esp_flash_t *chip, uint32_t start_address);
@@ -96,6 +98,7 @@ esp_err_t spi_flash_chip_generic_erase_sector(esp_flash_t *chip, uint32_t start_
  *
  * @return
  *      - ESP_OK if success
+ *      - ESP_ERR_NOT_SUPPORTED if the chip is not able to perform the operation. This is indicated by WREN = 1 after the command is sent.
  *      - or other error passed from the ``set_write_protect``, ``wait_idle`` or ``erase_block`` function of host driver
  */
 esp_err_t spi_flash_chip_generic_erase_block(esp_flash_t *chip, uint32_t start_address);
@@ -129,6 +132,7 @@ esp_err_t spi_flash_chip_generic_read(esp_flash_t *chip, void *buffer, uint32_t 
  *
  * @return
  *      - ESP_OK if success
+ *      - ESP_ERR_NOT_SUPPORTED if the chip is not able to perform the operation. This is indicated by WREN = 1 after the command is sent.
  *      - or other error passed from the ``wait_idle`` or ``program_page`` function of host driver
  */
 esp_err_t
@@ -188,19 +192,30 @@ esp_err_t spi_flash_chip_generic_set_write_protect(esp_flash_t *chip, bool write
  */
 esp_err_t spi_flash_chip_generic_get_write_protect(esp_flash_t *chip, bool *out_write_protect);
 
+#define ESP_FLASH_CHIP_GENERIC_NO_TIMEOUT -1
+/**
+ * @brief Send commands to read one of the reg of the chip
+ *
+ * @param chip Pointer to SPI flash chip to use. If NULL, esp_flash_default_chip is substituted.
+ * @param reg_id     Type of the register to read
+ * @param out_reg    Output of the register value
+ * @return esp_err_t Error code passed from the ``read_status`` function of host driver.
+ */
+esp_err_t spi_flash_chip_generic_read_reg(esp_flash_t* chip, spi_flash_register_t reg_id, uint32_t* out_reg);
+
 /**
  * @brief Read flash status via the RDSR command and wait for bit 0 (write in
  * progress bit) to be cleared.
  *
  * @param chip Pointer to SPI flash chip to use. If NULL, esp_flash_default_chip is substituted.
- * @param timeout_ms Time to wait before timeout, in ms.
+ * @param timeout_us Time to wait before timeout, in us.
  *
  * @return
  *      - ESP_OK if success
  *      - ESP_ERR_TIMEOUT if not idle before timeout
  *      - or other error passed from the ``wait_idle`` or ``read_status`` function of host driver
  */
-esp_err_t spi_flash_chip_generic_wait_idle(esp_flash_t *chip, uint32_t timeout_ms);
+esp_err_t spi_flash_chip_generic_wait_idle(esp_flash_t *chip, uint32_t timeout_us);
 
 /**
  * @brief Set the specified SPI read mode according to the data in the chip
@@ -239,24 +254,6 @@ extern const spi_flash_chip_t esp_flash_chip_generic;
 /*******************************************************************************
  *  Utilities
 *******************************************************************************/
-
-/**
- * @brief Wait for the SPI host hardware state machine to be idle.
- *
- * This isn't a flash chip_drv operation, but it's called by
- * spi_flash_chip_generic_wait_idle() and may be useful when implementing
- * alternative drivers.
- *
- * timeout_ms will be decremented if the function needs to wait until the host hardware is idle.
- *
- * @param chip Pointer to SPI flash chip to use. If NULL, esp_flash_default_chip is substituted.
- *
- * @return
- *      - ESP_OK if success
- *      - ESP_ERR_TIMEOUT if not idle before timeout
- *      - or other error passed from the ``set_write_protect`` or ``common_command`` function of host driver
- */
-esp_err_t spi_flash_generic_wait_host_idle(esp_flash_t *chip, uint32_t *timeout_ms);
 
 /// Function pointer type for reading status register with QE bit.
 typedef esp_err_t (*esp_flash_rdsr_func_t)(esp_flash_t* chip, uint32_t* out_sr);
@@ -361,10 +358,31 @@ esp_err_t spi_flash_common_set_io_mode(esp_flash_t *chip, esp_flash_wrsr_func_t 
  * transactions. Also prepare the command to be sent in read functions.
  *
  * @param chip Pointer to SPI flash chip to use. If NULL, esp_flash_default_chip is substituted.
+ * @param addr_32bit Whether 32 bit commands will be used (Currently only W25Q256 is supported)
  *
  * @return
  *      - ESP_OK if success
  *      - ESP_ERR_FLASH_NOT_INITIALISED if chip not initialized properly
  *      - or other error passed from the ``configure_host_mode`` function of host driver
  */
-esp_err_t spi_flash_chip_generic_config_host_io_mode(esp_flash_t *chip);
+esp_err_t spi_flash_chip_generic_config_host_io_mode(esp_flash_t *chip, bool addr_32bit);
+
+/**
+ * @brief Handle explicit yield requests
+ *
+ * @param chip Pointer to SPI flash chip to use. If NULL, esp_flash_default_chip is substituted.
+ * @param wip  Write (erase) in progress, `true` if this function is called during waiting idle of a erase/write command; else `false`.
+ * @return ESP_OK if success, otherwise failed.
+ */
+esp_err_t spi_flash_chip_generic_yield(esp_flash_t* chip, uint32_t wip);
+
+/**
+ * @brief Setup for flash suspend command configuration.
+ *
+ * @param chip Pointer to SPI flash chip to use. If NULL, esp_flash_default_chip is substituted.
+ * @return ESP_OK
+ */
+esp_err_t spi_flash_chip_generic_suspend_cmd_conf(esp_flash_t *chip);
+
+/// Default timeout configuration used by most chips
+const flash_chip_op_timeout_t spi_flash_chip_generic_timeout;

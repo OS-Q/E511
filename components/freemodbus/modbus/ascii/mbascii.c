@@ -1,4 +1,4 @@
-/* 
+/*
  * FreeModbus Libary: A portable Modbus implementation for Modbus ASCII/RTU.
  * Copyright (c) 2006 Christian Walter <wolti@sil.at>
  * All rights reserved.
@@ -101,7 +101,7 @@ eMBASCIIInit( UCHAR ucSlaveAddress, UCHAR ucPort, ULONG ulBaudRate, eMBParity eP
 {
     eMBErrorCode    eStatus = MB_ENOERR;
     ( void )ucSlaveAddress;
-    
+
     ENTER_CRITICAL_SECTION(  );
     ucMBLFCharacter = MB_ASCII_DEFAULT_LF;
 
@@ -382,8 +382,6 @@ xMBASCIITransmitFSM( void )
         eSndState = STATE_TX_IDLE;
         xMBPortEventPost( EV_FRAME_TRANSMIT );
         xNeedPoll = FALSE;
-
-        eSndState = STATE_TX_IDLE;
         break;
 
         /* We should not get a transmitter event if the transmitter is in
@@ -395,7 +393,8 @@ xMBASCIITransmitFSM( void )
     return xNeedPoll;
 }
 
-BOOL MB_PORT_ISR_ATTR xMBASCIITimerT1SExpired( void )
+BOOL MB_PORT_ISR_ATTR
+xMBASCIITimerT1SExpired( void )
 {
     switch ( eRcvState )
     {

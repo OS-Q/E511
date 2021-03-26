@@ -32,6 +32,8 @@ void *hostap_init(void)
     struct hostapd_data *hapd = NULL;
     struct wpa_auth_config *auth_conf;
     u8 mac[6];
+    u16 spp_attrubute = 0;
+    u8 pairwise_cipher;
 
     hapd = (struct hostapd_data *)os_zalloc(sizeof(struct hostapd_data));
 
@@ -64,11 +66,31 @@ void *hostap_init(void)
         auth_conf->wpa = WPA_PROTO_RSN | WPA_PROTO_WPA;
     }
 
-    auth_conf->wpa_group = WPA_CIPHER_TKIP;
-    auth_conf->wpa_pairwise = WPA_CIPHER_CCMP | WPA_CIPHER_TKIP;
-    auth_conf->rsn_pairwise = WPA_CIPHER_CCMP | WPA_CIPHER_TKIP;
+    pairwise_cipher = esp_wifi_ap_get_prof_pairwise_cipher_internal();
+    /* TKIP is compulsory in WPA Mode */
+    if (auth_conf->wpa == WPA_PROTO_WPA && pairwise_cipher == WIFI_CIPHER_TYPE_CCMP) {
+        pairwise_cipher = WIFI_CIPHER_TYPE_TKIP_CCMP;
+    }
+    if (pairwise_cipher == WIFI_CIPHER_TYPE_TKIP) {
+        auth_conf->wpa_group = WPA_CIPHER_TKIP;
+        auth_conf->wpa_pairwise = WPA_CIPHER_TKIP;
+        auth_conf->rsn_pairwise = WPA_CIPHER_TKIP;
+    } else if (pairwise_cipher == WIFI_CIPHER_TYPE_CCMP) {
+        auth_conf->wpa_group = WPA_CIPHER_CCMP;
+        auth_conf->wpa_pairwise = WPA_CIPHER_CCMP;
+        auth_conf->rsn_pairwise = WPA_CIPHER_CCMP;
+    } else {
+        auth_conf->wpa_group = WPA_CIPHER_TKIP;
+        auth_conf->wpa_pairwise = WPA_CIPHER_CCMP | WPA_CIPHER_TKIP;
+        auth_conf->rsn_pairwise = WPA_CIPHER_CCMP | WPA_CIPHER_TKIP;
+    }
+
     auth_conf->wpa_key_mgmt = WPA_KEY_MGMT_PSK;
     auth_conf->eapol_version = EAPOL_VERSION;
+
+    spp_attrubute = esp_wifi_get_spp_attrubute_internal(WIFI_IF_AP);
+    auth_conf->spp_sup.capable = ((spp_attrubute & WPA_CAPABILITY_SPP_CAPABLE) ? SPP_AMSDU_CAP_ENABLE : SPP_AMSDU_CAP_DISABLE);
+    auth_conf->spp_sup.require = ((spp_attrubute & WPA_CAPABILITY_SPP_REQUIRED) ? SPP_AMSDU_CAP_ENABLE : SPP_AMSDU_REQ_DISABLE);
 
     memcpy(hapd->conf->ssid.ssid, ssid->ssid, ssid->len);
     hapd->conf->ssid.ssid_len = ssid->len;
@@ -88,7 +110,7 @@ void *hostap_init(void)
     esp_wifi_get_macaddr_internal(WIFI_IF_AP, mac);
 
     hapd->wpa_auth = wpa_init(mac, auth_conf, NULL);
-    esp_wifi_set_appie_internal(WIFI_APPIE_WPA, hapd->wpa_auth->wpa_ie, (uint16_t)hapd->wpa_auth->wpa_ie_len, 0); //michael ML
+    esp_wifi_set_appie_internal(WIFI_APPIE_WPA, hapd->wpa_auth->wpa_ie, (uint16_t)hapd->wpa_auth->wpa_ie_len, 0);
     os_free(auth_conf);
 
     return (void *)hapd;
@@ -129,6 +151,8 @@ bool hostap_deinit(void *data)
     if (hapd != NULL) {
         os_free(hapd);
     }
+
+    esp_wifi_unset_appie_internal(WIFI_APPIE_WPA);
 
     return true;
 }

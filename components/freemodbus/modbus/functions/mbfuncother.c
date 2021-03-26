@@ -1,4 +1,4 @@
-/* 
+/*
  * FreeModbus Libary: A portable Modbus implementation for Modbus ASCII/RTU.
  * Copyright (c) 2006 Christian Walter <wolti@sil.at>
  * All rights reserved.
@@ -41,7 +41,7 @@
 #include "mbproto.h"
 #include "mbconfig.h"
 
-#if MB_SLAVE_RTU_ENABLED || MB_SLAVE_ASCII_ENABLED
+#if MB_SLAVE_RTU_ENABLED || MB_SLAVE_ASCII_ENABLED || MB_TCP_ENABLED
 
 #if MB_FUNC_OTHER_REP_SLAVEID_ENABLED
 

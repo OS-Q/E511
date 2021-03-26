@@ -185,7 +185,7 @@ BOOLEAN btm_add_dev_to_controller (BOOLEAN to_add, BD_ADDR bd_addr, tBLE_ADDR_TY
             }
             p_dev_rec->ble.in_controller_list &= ~BTM_WHITE_LIST_BIT;
         }
-    }    // if not a known device, shall we add it? 
+    }    // if not a known device, shall we add it?
     else {
         BTM_ReadDevInfo(bd_addr, &dev_type, &addr_type);
 
@@ -285,6 +285,20 @@ BOOLEAN btm_update_dev_to_white_list(BOOLEAN to_add, BD_ADDR bd_addr, tBLE_ADDR_
         }
         return FALSE;
     }
+
+    BD_ADDR invalid_rand_addr_a, invalid_rand_addr_b;
+    memset(invalid_rand_addr_a, 0xff, sizeof(BD_ADDR));
+    memset(invalid_rand_addr_b, 0x00, sizeof(BD_ADDR));
+
+    // look for public address information
+    tBTM_SEC_DEV_REC *p_dev_rec = btm_find_dev(bd_addr);
+    // p_dev_rec is created at bluetooth initialization, p_dev_rec->ble.static_addr maybe be all 0 before pairing
+    if(p_dev_rec && memcmp(invalid_rand_addr_b, p_dev_rec->ble.static_addr, BD_ADDR_LEN) != 0) {
+        memcpy(bd_addr, p_dev_rec->ble.static_addr, BD_ADDR_LEN);
+        addr_type = p_dev_rec->ble.static_addr_type;
+    }
+
+    // white list must be public address or static random address
     if(addr_type == BLE_ADDR_RANDOM) {
         /*
         A static address is a 48-bit randomly generated address and shall meet the following requirements:
@@ -292,9 +306,6 @@ BOOLEAN btm_update_dev_to_white_list(BOOLEAN to_add, BD_ADDR bd_addr, tBLE_ADDR_
         • All bits of the random part of the address shall not be equal to 1
         • All bits of the random part of the address shall not be equal to 0
         */
-        BD_ADDR invalid_rand_addr_a, invalid_rand_addr_b;
-        memset(invalid_rand_addr_a, 0xff, sizeof(BD_ADDR));
-        memset(invalid_rand_addr_b, 0x00, sizeof(BD_ADDR));
         invalid_rand_addr_b[0] = invalid_rand_addr_b[0] | BT_STATIC_RAND_ADDR_MASK;
         if((bd_addr[0] & BT_STATIC_RAND_ADDR_MASK) == BT_STATIC_RAND_ADDR_MASK
             && memcmp(invalid_rand_addr_a, bd_addr, BD_ADDR_LEN) != 0
@@ -385,6 +396,8 @@ void btm_ble_clear_white_list_complete(UINT8 *p_data, UINT16 evt_len)
 
     if (status == HCI_SUCCESS) {
         p_cb->white_list_avail_size = controller_get_interface()->get_ble_white_list_size();
+    } else {
+        BTM_TRACE_ERROR ("%s failed, status 0x%x\n", __func__, status);
     }
 }
 
@@ -622,7 +635,7 @@ void btm_ble_initiate_select_conn(BD_ADDR bda)
     BTM_TRACE_EVENT ("btm_ble_initiate_select_conn");
 
     /* use direct connection procedure to initiate connection */
-    if (!L2CA_ConnectFixedChnl(L2CAP_ATT_CID, bda, BLE_ADDR_UNKNOWN_TYPE)) {
+    if (!L2CA_ConnectFixedChnl(L2CAP_ATT_CID, bda, BLE_ADDR_UNKNOWN_TYPE, FALSE)) {
         BTM_TRACE_ERROR("btm_ble_initiate_select_conn failed");
     }
 }
@@ -812,5 +825,3 @@ BOOLEAN btm_send_pending_direct_conn(void)
 }
 
 #endif
-
-

@@ -128,7 +128,7 @@ static void btc_gattc_copy_req_data(btc_msg_t *msg, void *p_dest, void *p_src)
     // Allocate buffer for request data if necessary
     switch (msg->act) {
         case BTA_GATTC_READ_DESCR_EVT:
-        case BTA_GATTC_READ_CHAR_EVT: 
+        case BTA_GATTC_READ_CHAR_EVT:
         case BTA_GATTC_READ_MULTIPLE_EVT: {
             if (p_src_data->read.p_value && p_src_data->read.p_value->p_value) {
                 p_dest_data->read.p_value = (tBTA_GATT_UNFMT  *)osi_malloc(sizeof(tBTA_GATT_UNFMT) + p_src_data->read.p_value->len);
@@ -164,7 +164,7 @@ static void btc_gattc_free_req_data(btc_msg_t *msg)
     tBTA_GATTC *arg = (tBTA_GATTC *)(msg->arg);
     switch (msg->act) {
         case BTA_GATTC_READ_DESCR_EVT:
-        case BTA_GATTC_READ_CHAR_EVT: 
+        case BTA_GATTC_READ_CHAR_EVT:
         case BTA_GATTC_READ_MULTIPLE_EVT: {
             if (arg->read.p_value) {
                 osi_free(arg->read.p_value);
@@ -214,7 +214,9 @@ static void btc_gattc_app_unregister(btc_ble_gattc_args_t *arg)
 static void btc_gattc_open(btc_ble_gattc_args_t *arg)
 {
     tBTA_GATT_TRANSPORT transport = BTA_GATT_TRANSPORT_LE;
-    BTA_GATTC_Open(arg->open.gattc_if, arg->open.remote_bda, arg->open.remote_addr_type, arg->open.is_direct, transport);
+    BTA_GATTC_Open(arg->open.gattc_if, arg->open.remote_bda,
+                   arg->open.remote_addr_type, arg->open.is_direct,
+                   transport, arg->open.is_aux);
 }
 
 static void btc_gattc_close(btc_ble_gattc_args_t *arg)
@@ -613,6 +615,13 @@ static void btc_gattc_read_char_descr(btc_ble_gattc_args_t *arg)
     BTA_GATTC_ReadCharDescr(arg->read_descr.conn_id, arg->read_descr.handle, arg->read_descr.auth_req);
 }
 
+static void btc_gattc_read_by_type(btc_ble_gattc_args_t *arg)
+{
+    tBT_UUID uuid;
+    btc_to_bta_uuid(&uuid, &(arg->read_by_type.uuid));
+    BTA_GATTC_Read_by_type(arg->read_by_type.conn_id, arg->read_by_type.s_handle, arg->read_by_type.e_handle, &uuid, arg->read_by_type.auth_req);
+}
+
 static void btc_gattc_write_char(btc_ble_gattc_args_t *arg)
 {
     BTA_GATTC_WriteCharValue(arg->write_char.conn_id,
@@ -704,6 +713,9 @@ void btc_gattc_call_handler(btc_msg_t *msg)
         btc_gattc_app_unregister(arg);
         break;
     case BTC_GATTC_ACT_OPEN:
+#if (BLE_50_FEATURE_SUPPORT == TRUE)
+    case BTC_GATTC_ACT_AUX_OPEN:
+#endif // #if (BLE_50_FEATURE_SUPPORT == TRUE)
         btc_gattc_open(arg);
         break;
     case BTC_GATTC_ACT_CLOSE:
@@ -723,6 +735,9 @@ void btc_gattc_call_handler(btc_msg_t *msg)
         break;
     case BTC_GATTC_ACT_READ_CHAR_DESCR:
         btc_gattc_read_char_descr(arg);
+        break;
+    case BTC_GATTC_ACT_READ_BY_TYPE:
+        btc_gattc_read_by_type(arg);
         break;
     case BTC_GATTC_ACT_WRITE_CHAR:
         btc_gattc_write_char(arg);
@@ -900,6 +915,7 @@ void btc_gattc_cb_handler(btc_msg_t *msg)
 
         gattc_if = connect->client_if;
         param.connect.conn_id = BTC_GATT_GET_CONN_ID(connect->conn_id);
+        param.connect.link_role = connect->link_role;
         memcpy(param.connect.remote_bda, connect->remote_bda, sizeof(esp_bd_addr_t));
         param.connect.conn_params.interval = connect->conn_params.interval;
         param.connect.conn_params.latency = connect->conn_params.latency;
@@ -999,6 +1015,18 @@ void btc_gattc_cb_handler(btc_msg_t *msg)
 
     // free the deep-copied data
     btc_gattc_free_req_data(msg);
+}
+
+void btc_gattc_congest_callback(tBTA_GATTC *param)
+{
+    esp_ble_gattc_cb_param_t esp_param = {0};
+    memset(&esp_param, 0, sizeof(esp_ble_gattc_cb_param_t));
+
+    uint8_t gattc_if = BTC_GATT_GET_GATT_IF(param->congest.conn_id);
+    esp_param.congest.conn_id = BTC_GATT_GET_CONN_ID(param->congest.conn_id);
+    esp_param.congest.congested = (param->congest.congested == TRUE) ? true : false;
+    btc_gattc_cb_to_app(ESP_GATTC_CONGEST_EVT, gattc_if, &esp_param);
+
 }
 
 #endif  ///GATTC_INCLUDED == TRUE

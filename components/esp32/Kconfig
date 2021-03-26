@@ -4,6 +4,11 @@ menu "ESP32-specific"
     # not working so we just hide all items here
     visible if IDF_TARGET_ESP32
 
+    config ESP32_ECO3_CACHE_LOCK_FIX
+        bool
+        default y
+        depends on !FREERTOS_UNICORE && ESP32_SPIRAM_SUPPORT
+
     choice ESP32_REV_MIN
         prompt "Minimum Supported ESP32 Revision"
         default ESP32_REV_MIN_0
@@ -19,6 +24,7 @@ menu "ESP32-specific"
             bool "Rev 2"
         config ESP32_REV_MIN_3
             bool "Rev 3"
+            select ESP_INT_WDT if ESP32_ECO3_CACHE_LOCK_FIX
     endchoice
 
     config ESP32_REV_MIN
@@ -72,6 +78,9 @@ menu "ESP32-specific"
             config SPIRAM_TYPE_AUTO
                 bool "Auto-detect"
 
+            config SPIRAM_TYPE_ESPPSRAM16
+                bool "ESP-PSRAM16 or APS1604"
+
             config SPIRAM_TYPE_ESPPSRAM32
                 bool "ESP-PSRAM32 or IS25WP032"
 
@@ -83,6 +92,7 @@ menu "ESP32-specific"
         config SPIRAM_SIZE
             int
             default -1 if SPIRAM_TYPE_AUTO
+            default 2097152 if SPIRAM_TYPE_ESPPSRAM16
             default 4194304 if SPIRAM_TYPE_ESPPSRAM32
             default 8388608 if SPIRAM_TYPE_ESPPSRAM64
             default 0
@@ -112,7 +122,7 @@ menu "ESP32-specific"
         endchoice
 
         # insert non-chip-specific items here
-        source "$IDF_PATH/components/esp_common/Kconfig.spiram.common"
+        source "$IDF_PATH/components/esp_hw_support/Kconfig.spiram.common"
 
         config SPIRAM_CACHE_WORKAROUND
             bool "Enable workaround for bug in SPI RAM cache for Rev1 ESP32s"
@@ -279,23 +289,37 @@ menu "ESP32-specific"
 
         endmenu
 
+        config SPIRAM_CUSTOM_SPIWP_SD3_PIN
+            bool "Use custom SPI PSRAM WP(SD3) Pin when flash pins set in eFuse (read help)"
+            depends on IDF_TARGET_ESP32 && (ESPTOOLPY_FLASHMODE_DIO || ESPTOOLPY_FLASHMODE_DOUT)
+            default y if SPIRAM_SPIWP_SD3_PIN != 7  # backwards compatibility, can remove in IDF 5
+            default n
+            help
+                This setting is only used if the SPI flash pins have been overridden by setting the eFuses
+                SPI_PAD_CONFIG_xxx, and the SPI flash mode is DIO or DOUT.
+
+                When this is the case, the eFuse config only defines 3 of the 4 Quad I/O data pins. The WP pin (aka
+                ESP32 pin "SD_DATA_3" or SPI flash pin "IO2") is not specified in eFuse. The psram only has QPI
+                mode, so a WP pin setting is necessary.
+
+                If this config item is set to N (default), the correct WP pin will be automatically used for any
+                Espressif chip or module with integrated flash. If a custom setting is needed, set this config item
+                to Y and specify the GPIO number connected to the WP pin.
+
+                When flash mode is set to QIO or QOUT, the PSRAM WP pin will be set the same as the SPI Flash WP pin
+                configured in the bootloader.
+
         config SPIRAM_SPIWP_SD3_PIN
-            int "SPI PSRAM WP(SD3) Pin when customising pins via eFuse (read help)"
-            depends on ESPTOOLPY_FLASHMODE_DIO || ESPTOOLPY_FLASHMODE_DOUT
+            int "Custom SPI PSRAM WP(SD3) Pin"
+            depends on IDF_TARGET_ESP32 && (ESPTOOLPY_FLASHMODE_DIO || ESPTOOLPY_FLASHMODE_DOUT)
+            #depends on SPIRAM_CUSTOM_SPIWP_SD3_PIN  # backwards compatibility, can uncomment in IDF 5
             range 0 33
             default 7
             help
-                This value is ignored unless flash mode is set to DIO or DOUT and the SPI flash pins have been
-                overriden by setting the eFuses SPI_PAD_CONFIG_xxx.
+                The option "Use custom SPI PSRAM WP(SD3) pin" must be set or this value is ignored
 
-                When this is the case, the eFuse config only defines 3 of the 4 Quad I/O data pins. The WP pin (aka
-                ESP32 pin "SD_DATA_3" or SPI flash pin "IO2") is not specified in eFuse. And the psram only has QPI
-                mode, the WP pin is necessary, so we need to configure this value here.
-
-                When flash mode is set to QIO or QOUT, the PSRAM WP pin will be set as the value configured in
-                bootloader.
-
-                For ESP32-PICO chip, the default value of this config should be 7.
+                If burning a customized set of SPI flash pins in eFuse and using DIO or DOUT mode for flash, set this
+                value to the GPIO number of the SPIRAM WP pin.
 
         config SPIRAM_2T_MODE
             bool "Enable SPI PSRAM 2T mode"
@@ -354,7 +378,7 @@ menu "ESP32-specific"
         default ESP32_UNIVERSAL_MAC_ADDRESSES_FOUR
         help
             Configure the number of universally administered (by IEEE) MAC addresses.
-            During initialisation, MAC addresses for each network interface are generated or derived from a
+            During initialization, MAC addresses for each network interface are generated or derived from a
             single base MAC address.
             If the number of universal MAC addresses is four, all four interfaces (WiFi station, WiFi softap,
             Bluetooth and Ethernet) receive a universally administered MAC address. These are generated
@@ -370,8 +394,15 @@ menu "ESP32-specific"
 
         config ESP32_UNIVERSAL_MAC_ADDRESSES_TWO
             bool "Two"
+            select ESP_MAC_ADDR_UNIVERSE_WIFI_STA
+            select ESP_MAC_ADDR_UNIVERSE_BT
+
         config ESP32_UNIVERSAL_MAC_ADDRESSES_FOUR
             bool "Four"
+            select ESP_MAC_ADDR_UNIVERSE_WIFI_STA
+            select ESP_MAC_ADDR_UNIVERSE_WIFI_AP
+            select ESP_MAC_ADDR_UNIVERSE_BT
+            select ESP_MAC_ADDR_UNIVERSE_ETH
     endchoice
 
     config ESP32_UNIVERSAL_MAC_ADDRESSES
@@ -399,38 +430,6 @@ menu "ESP32-specific"
             Bytes of memory to reserve for ULP coprocessor firmware & data.
 
             Data is reserved at the beginning of RTC slow memory.
-
-    choice ESP32_PANIC
-        prompt "Panic handler behaviour"
-        default ESP32_PANIC_PRINT_REBOOT
-        help
-            If FreeRTOS detects unexpected behaviour or an unhandled exception, the panic handler is
-            invoked. Configure the panic handlers action here.
-
-        config ESP32_PANIC_PRINT_HALT
-            bool "Print registers and halt"
-            help
-                Outputs the relevant registers over the serial port and halt the
-                processor. Needs a manual reset to restart.
-
-        config ESP32_PANIC_PRINT_REBOOT
-            bool "Print registers and reboot"
-            help
-                Outputs the relevant registers over the serial port and immediately
-                reset the processor.
-
-        config ESP32_PANIC_SILENT_REBOOT
-            bool "Silent reboot"
-            help
-                Just resets the processor without outputting anything
-
-        config ESP32_PANIC_GDBSTUB
-            bool "Invoke GDBStub"
-            select ESP_GDBSTUB_ENABLED
-            help
-                Invoke gdbstub on the serial port, allowing for gdb to attach to it to do a postmortem
-                of the crash.
-    endchoice
 
     config ESP32_DEBUG_OCDAWARE
         bool "Make exception and panic handlers JTAG/OCD aware"
@@ -498,8 +497,7 @@ menu "ESP32-specific"
             When brownout reset occurs, reduce PHY TX power to keep the code running
 
             # Note about the use of "FRC1" name: currently FRC1 timer is not used for
-            # high resolution timekeeping anymore. Instead the esp_timer API, implemented
-            # using FRC2 timer, is used.
+            # high resolution timekeeping anymore. Instead the esp_timer API is used.
             # FRC1 name in the option name is kept for compatibility.
     choice ESP32_TIME_SYSCALL
         prompt "Timers used for gettimeofday function"
@@ -525,12 +523,17 @@ menu "ESP32-specific"
 
         config ESP32_TIME_SYSCALL_USE_RTC_FRC1
             bool "RTC and high-resolution timer"
+            select ESP_TIME_FUNCS_USE_RTC_TIMER
+            select ESP_TIME_FUNCS_USE_ESP_TIMER
         config ESP32_TIME_SYSCALL_USE_RTC
             bool "RTC"
+            select ESP_TIME_FUNCS_USE_RTC_TIMER
         config ESP32_TIME_SYSCALL_USE_FRC1
             bool "High-resolution timer"
+            select ESP_TIME_FUNCS_USE_ESP_TIMER
         config ESP32_TIME_SYSCALL_USE_NONE
             bool "None"
+            select ESP_TIME_FUNCS_USE_NONE
     endchoice
 
     choice ESP32_RTC_CLK_SRC
@@ -547,11 +550,11 @@ menu "ESP32-specific"
               expense of slightly higher (1uA) deep sleep current consumption.
             - "External 32kHz oscillator" allows using 32kHz clock generated by an
               external circuit. In this case, external clock signal must be connected
-              to 32K_XP pin. Amplitude should be <1.2V in case of sine wave signal,
+              to 32K_XN pin. Amplitude should be <1.2V in case of sine wave signal,
               and <1V in case of square wave signal. Common mode voltage should be
               0.1 < Vcm < 0.5Vamp, where Vamp is the signal amplitude.
-              Additionally, 1nF capacitor must be connected between 32K_XN pin and
-              ground. 32K_XN pin can not be used as a GPIO in this case.
+              Additionally, 1nF capacitor must be connected between 32K_XP pin and
+              ground. 32K_XP pin can not be used as a GPIO in this case.
             - "Internal 8.5MHz oscillator divided by 256" option results in higher
               deep sleep current (by 5uA) but has better frequency stability than
               the internal 150kHz oscillator. It does not require external components.
@@ -560,28 +563,46 @@ menu "ESP32-specific"
             bool "Internal 150kHz RC oscillator"
         config ESP32_RTC_CLK_SRC_EXT_CRYS
             bool "External 32kHz crystal"
+            select ESP_SYSTEM_RTC_EXT_XTAL
         config ESP32_RTC_CLK_SRC_EXT_OSC
-            bool "External 32kHz oscillator at 32K_XP pin"
+            bool "External 32kHz oscillator at 32K_XN pin"
         config ESP32_RTC_CLK_SRC_INT_8MD256
             bool "Internal 8.5MHz oscillator, divided by 256 (~33kHz)"
     endchoice
 
-    config ESP32_RTC_EXT_CRYST_ADDIT_CURRENT
-        bool "Additional current for external 32kHz crystal"
+    choice ESP32_RTC_EXT_CRYST_ADDIT_CURRENT_METHOD
+        prompt "Additional current for external 32kHz crystal"
         depends on ESP32_RTC_CLK_SRC_EXT_CRYS
-        default "n"
+        depends on ESP32_REV_MIN <= 1
+        default ESP32_RTC_EXT_CRYST_ADDIT_CURRENT_NONE
         help
-            Choose which additional current is used for rtc external crystal.
+            With some 32kHz crystal configurations, the X32N and X32P pins may not have enough
+            drive strength to keep the crystal oscillating. Choose the method to provide
+            additional current from touchpad 9 to the external 32kHz crystal. Note that
+            the deep sleep current is slightly high (4-5uA) and the touchpad and the
+            wakeup sources of both touchpad and ULP are not available in method 1 and method 2.
 
-            - With some 32kHz crystal configurations, the X32N and X32P pins may not
-              have enough drive strength to keep the crystal oscillating during deep sleep.
-              If this option is enabled, additional current from touchpad 9 is provided
-              internally to drive the 32kHz crystal. If this option is enabled, deep sleep current
-              is slightly higher (4-5uA) and the touchpad and ULP wakeup sources are not available.
+            This problem is fixed in ESP32 ECO 3, so this workaround is not needed. Setting the
+            project configuration to minimum revision ECO3 will disable this option, , allow
+            all wakeup sources, and save some code size.
+
+            - "None" option will not provide additional current to external crystal
+            - "Method 1" option can't ensure 100% to solve the external 32k crystal start failed
+              issue, but the touchpad can work in this method.
+            - "Method 2" option can solve the external 32k issue, but the touchpad can't work
+              in this method.
+
+        config ESP32_RTC_EXT_CRYST_ADDIT_CURRENT_NONE
+            bool "None"
+        config ESP32_RTC_EXT_CRYST_ADDIT_CURRENT
+            bool "Method 1"
+        config ESP32_RTC_EXT_CRYST_ADDIT_CURRENT_V2
+            bool "Method 2"
+    endchoice
 
     config ESP32_RTC_CLK_CAL_CYCLES
         int "Number of cycles for RTC_SLOW_CLK calibration"
-        default 3000 if ESP32_RTC_CLK_SRC_EXT_CRYS
+        default 3000 if ESP32_RTC_CLK_SRC_EXT_CRYS || ESP32_RTC_CLK_SRC_EXT_OSC || ESP32_RTC_CLK_SRC_INT_8MD256
         default 1024 if ESP32_RTC_CLK_SRC_INT_RC
         range 0 27000 if ESP32_RTC_CLK_SRC_EXT_CRYS || ESP32_RTC_CLK_SRC_EXT_OSC || ESP32_RTC_CLK_SRC_INT_8MD256
         range 0 32766 if ESP32_RTC_CLK_SRC_INT_RC
@@ -610,23 +631,6 @@ menu "ESP32-specific"
             before giving up and switching to the internal RC.
             Increase this option if the 32k crystal oscillator
             does not start and switches to internal RC.
-
-    config ESP32_RTC_XTAL_BOOTSTRAP_CYCLES
-        int "Bootstrap cycles for external 32kHz crystal"
-        depends on ESP32_RTC_CLK_SRC_EXT_CRYS
-        default 5
-        range 0 32768
-        help
-            To reduce the startup time of an external RTC crystal,
-            we bootstrap it with a 32kHz square wave for a fixed number of cycles.
-            Setting 0 will disable bootstrapping (if disabled, the crystal may take
-            longer to start up or fail to oscillate under some conditions).
-
-            If this value is too high, a faulty crystal may initially start and then fail.
-            If this value is too low, an otherwise good crystal may not start.
-
-            To accurately determine if the crystal has started,
-            set a larger "Number of cycles for RTC_SLOW_CLK calibration" (about 3000).
 
     config ESP32_DEEP_SLEEP_WAKEUP_DELAY
         int "Extra delay in deep sleep wake stub (in us)"
@@ -755,72 +759,14 @@ menu "ESP32-specific"
             To prevent interrupting DPORT workarounds,
             need to disable interrupt with a maximum used level in the system.
 
+    config ESP32_IRAM_AS_8BIT_ACCESSIBLE_MEMORY
+        bool "Enable IRAM as 8 bit accessible memory"
+        depends on FREERTOS_UNICORE
+        help
+            If enabled, application can use IRAM as byte accessible region for storing data
+            (Note: IRAM region cannot be used as task stack)
+
+            This is possible due to handling of exceptions `LoadStoreError (3)` and `LoadStoreAlignmentError (9)`
+            Each unaligned read/write access will incur a penalty of maximum of 167 CPU cycles.
+
 endmenu  # ESP32-Specific
-
-menu "Power Management"
-    # TODO: this component simply shouldn't be included
-    # in the build at the CMake level, but this is currently
-    # not working so we just hide all items here
-    visible if IDF_TARGET_ESP32
-
-    config PM_ENABLE
-        bool "Support for power management"
-        default n
-        help
-            If enabled, application is compiled with support for power management.
-            This option has run-time overhead (increased interrupt latency,
-            longer time to enter idle state), and it also reduces accuracy of
-            RTOS ticks and timers used for timekeeping.
-            Enable this option if application uses power management APIs.
-
-    config PM_DFS_INIT_AUTO
-        bool "Enable dynamic frequency scaling (DFS) at startup"
-        depends on PM_ENABLE
-        default n
-        help
-            If enabled, startup code configures dynamic frequency scaling.
-            Max CPU frequency is set to CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ setting,
-            min frequency is set to XTAL frequency.
-            If disabled, DFS will not be active until the application
-            configures it using esp_pm_configure function.
-
-    config PM_USE_RTC_TIMER_REF
-        bool "Use RTC timer to prevent time drift (EXPERIMENTAL)"
-        depends on PM_ENABLE && (ESP32_TIME_SYSCALL_USE_RTC || ESP32_TIME_SYSCALL_USE_RTC_FRC1)
-        default n
-        help
-            When APB clock frequency changes, high-resolution timer (esp_timer)
-            scale and base value need to be adjusted. Each adjustment may cause
-            small error, and over time such small errors may cause time drift.
-            If this option is enabled, RTC timer will be used as a reference to
-            compensate for the drift.
-            It is recommended that this option is only used if 32k XTAL is selected
-            as RTC clock source.
-
-    config PM_PROFILING
-        bool "Enable profiling counters for PM locks"
-        depends on PM_ENABLE
-        default n
-        help
-            If enabled, esp_pm_* functions will keep track of the amount of time
-            each of the power management locks has been held, and esp_pm_dump_locks
-            function will print this information.
-            This feature can be used to analyze which locks are preventing the chip
-            from going into a lower power state, and see what time the chip spends
-            in each power saving mode. This feature does incur some run-time
-            overhead, so should typically be disabled in production builds.
-
-    config PM_TRACE
-        bool "Enable debug tracing of PM using GPIOs"
-        depends on PM_ENABLE
-        default n
-        help
-            If enabled, some GPIOs will be used to signal events such as RTOS ticks,
-            frequency switching, entry/exit from idle state. Refer to pm_trace.c
-            file for the list of GPIOs.
-            This feature is intended to be used when analyzing/debugging behavior
-            of power management implementation, and should be kept disabled in
-            applications.
-
-
-endmenu # "Power Management"

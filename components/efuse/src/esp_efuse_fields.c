@@ -26,12 +26,6 @@
 #include "soc/apb_ctrl_reg.h"
 #include "sys/param.h"
 
-#if CONFIG_IDF_TARGET_ESP32
-#include "esp32/rom/efuse.h"
-#elif CONFIG_IDF_TARGET_ESP32S2BETA
-#include "esp32s2beta/rom/efuse.h"
-#endif
-
 static __attribute__((unused)) const char *TAG = "efuse";
 // Permanently update values written to the efuse write registers
 void esp_efuse_burn_new_values(void)
@@ -47,7 +41,7 @@ void esp_efuse_reset(void)
 
 #ifdef CONFIG_BOOTLOADER_EFUSE_SECURE_VERSION_EMULATE
 
-#include "../include_bootloader/bootloader_flash.h"
+#include "../include_bootloader/bootloader_flash_priv.h"
 #include "esp_flash_encrypt.h"
 
 static uint32_t esp_efuse_flash_offset = 0;
@@ -162,4 +156,3 @@ esp_err_t esp_efuse_update_secure_version(uint32_t secure_version)
 #endif
     return ESP_OK;
 }
-

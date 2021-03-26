@@ -13,22 +13,20 @@
 #include <freertos/semphr.h>
 #include "soc/soc_caps.h"
 
-#if !TEMPORARY_DISABLED_FOR_TARGETS(ESP32S2BETA)
+#if !TEMPORARY_DISABLED_FOR_TARGETS(ESP32S2, ESP32C3)
 
 //Function just extern, need not test
-#ifdef SOC_BT_SUPPORTED
+#if SOC_BT_SUPPORTED
 extern void bt_bb_init_cmplx(void);
 #endif
 extern void IRAM_ATTR spi_flash_disable_interrupts_caches_and_other_cpu(void);
 extern void IRAM_ATTR spi_flash_enable_interrupts_caches_and_other_cpu(void);
 
 //Functions in librtc.a called by WIFI or Blutooth directly in ISR
-#ifdef SOC_BT_SUPPORTED
-extern void bt_bb_init_cmplx_reg(void);
+#if SOC_BT_SUPPORTED
 extern void bt_track_pll_cap(void);
 #endif
-extern void force_wifi_mode(int);
-extern void unforce_wifi_mode(void);
+
 
 static const char* TAG = "test_phy_rtc";
 
@@ -45,10 +43,7 @@ static void test_phy_rtc_init(void)
     }
     TEST_ESP_OK(ret);
 
-#ifdef SOC_BT_SUPPORTED
-    esp_phy_load_cal_and_init(PHY_BT_MODULE);
-#endif
-    esp_phy_load_cal_and_init(PHY_WIFI_MODULE);
+    esp_phy_enable();
 
     //must run here, not blocking in above code
     TEST_ASSERT(1);
@@ -58,6 +53,10 @@ static void test_phy_rtc_init(void)
 static IRAM_ATTR void test_phy_rtc_cache_task(void *arg)
 {
     test_phy_rtc_init();
+
+#if CONFIG_IDF_TARGET_ESP32
+    extern void force_wifi_mode(int);
+    extern void unforce_wifi_mode(void);
 
     for (int i = 0; i < 2; i++) {
         ESP_LOGI(TAG, "Test force_wifi_mode(%d)...", i);
@@ -70,18 +69,38 @@ static IRAM_ATTR void test_phy_rtc_cache_task(void *arg)
         unforce_wifi_mode();
         spi_flash_enable_interrupts_caches_and_other_cpu();
     }
+#endif //CONFIG_IDF_TARGET_ESP32
 
-#ifdef SOC_BT_SUPPORTED
-    ESP_LOGI(TAG, "Test bt_bb_init_cmplx_reg()...");
-    spi_flash_disable_interrupts_caches_and_other_cpu();
-    bt_bb_init_cmplx_reg();
-    spi_flash_enable_interrupts_caches_and_other_cpu();
+#if SOC_BT_SUPPORTED
 
     ESP_LOGI(TAG, "Test bt_track_pll_cap()...");
     spi_flash_disable_interrupts_caches_and_other_cpu();
     bt_track_pll_cap();
     spi_flash_enable_interrupts_caches_and_other_cpu();
-#endif
+
+#if CONFIG_IDF_TARGET_ESP32
+    extern void bt_bb_init_cmplx_reg(void);
+    ESP_LOGI(TAG, "Test bt_bb_init_cmplx_reg()...");
+    spi_flash_disable_interrupts_caches_and_other_cpu();
+    bt_bb_init_cmplx_reg();
+    spi_flash_enable_interrupts_caches_and_other_cpu();
+#endif //CONFIG_IDF_TARGET_ESP32
+
+#if CONFIG_IDF_TARGET_ESP32C3
+    extern void bt_bb_v2_init_cmplx(int print_version);
+    ESP_LOGI(TAG, "Test bt_bb_v2_init_cmplx()...");
+    spi_flash_disable_interrupts_caches_and_other_cpu();
+    bt_bb_v2_init_cmplx(0);
+    spi_flash_enable_interrupts_caches_and_other_cpu();
+
+    extern void coex_pti_v2(void);
+    ESP_LOGI(TAG, "Test coex_pti_v2()...");
+    spi_flash_disable_interrupts_caches_and_other_cpu();
+    coex_pti_v2();
+    spi_flash_enable_interrupts_caches_and_other_cpu();
+#endif //CONFIG_IDF_TARGET_ESP32C3
+
+#endif //SOC_BT_SUPPORTED
 
     TEST_ASSERT( xSemaphoreGive(semphr_done) );
 
@@ -92,12 +111,11 @@ TEST_CASE("Test PHY/RTC functions called when cache is disabled", "[phy_rtc][cac
 {
     semphr_done = xSemaphoreCreateCounting(1, 0);
 
-    xTaskCreatePinnedToCore(test_phy_rtc_cache_task, "phy_rtc_test_task", 2048,
+    xTaskCreatePinnedToCore(test_phy_rtc_cache_task, "phy_rtc_test_task", 3072,
                             NULL, configMAX_PRIORITIES-1, NULL, 0);
 
     TEST_ASSERT( xSemaphoreTake(semphr_done, portMAX_DELAY) );
 
     vSemaphoreDelete(semphr_done);
 }
-
-#endif
+#endif //!TEMPORARY_DISABLED_FOR_TARGETS(ESP32S2)

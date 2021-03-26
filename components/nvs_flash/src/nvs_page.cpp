@@ -12,34 +12,39 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "nvs_page.hpp"
-#if defined(ESP_PLATFORM)
-#include <esp32/rom/crc.h>
-#else
+#if defined(LINUX_TARGET)
 #include "crc.h"
+#else
+#include <esp_rom_crc.h>
 #endif
 #include <cstdio>
 #include <cstring>
 
-#include "nvs_ops.hpp"
-
 namespace nvs
 {
 
+Page::Page() : mPartition(nullptr) { }
+
 uint32_t Page::Header::calculateCrc32()
 {
-    return crc32_le(0xffffffff,
+    return esp_rom_crc32_le(0xffffffff,
                     reinterpret_cast<uint8_t*>(this) + offsetof(Header, mSeqNumber),
                     offsetof(Header, mCrc32) - offsetof(Header, mSeqNumber));
 }
 
-esp_err_t Page::load(uint32_t sectorNumber)
+esp_err_t Page::load(Partition *partition, uint32_t sectorNumber)
 {
+    if (partition == nullptr) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    mPartition = partition;
     mBaseAddress = sectorNumber * SEC_SIZE;
     mUsedEntryCount = 0;
     mErasedEntryCount = 0;
 
     Header header;
-    auto rc = spi_flash_read(mBaseAddress, &header, sizeof(header));
+    auto rc = mPartition->read_raw(mBaseAddress, &header, sizeof(header));
     if (rc != ESP_OK) {
         mState = PageState::INVALID;
         return rc;
@@ -49,9 +54,12 @@ esp_err_t Page::load(uint32_t sectorNumber)
         // check if the whole page is really empty
         // reading the whole page takes ~40 times less than erasing it
         const int BLOCK_SIZE = 128;
-        uint32_t* block = new uint32_t[BLOCK_SIZE];
+        uint32_t* block = new (std::nothrow) uint32_t[BLOCK_SIZE];
+
+        if (!block) return ESP_ERR_NO_MEM;
+
         for (uint32_t i = 0; i < SPI_FLASH_SEC_SIZE; i += 4 * BLOCK_SIZE) {
-            rc = spi_flash_read(mBaseAddress + i, block, 4 * BLOCK_SIZE);
+            rc = mPartition->read_raw(mBaseAddress + i, block, 4 * BLOCK_SIZE);
             if (rc != ESP_OK) {
                 mState = PageState::INVALID;
                 delete[] block;
@@ -98,7 +106,7 @@ esp_err_t Page::writeEntry(const Item& item)
 {
     esp_err_t err;
 
-    err = nvs_flash_write(getEntryAddress(mNextFreeEntry), &item, sizeof(item));
+    err = mPartition->write(getEntryAddress(mNextFreeEntry), &item, sizeof(item));
 
     if (err != ESP_OK) {
         mState = PageState::INVALID;
@@ -129,7 +137,8 @@ esp_err_t Page::writeEntryData(const uint8_t* data, size_t size)
 
     const uint8_t* buf = data;
 
-#ifdef ESP_PLATFORM
+#if !defined LINUX_TARGET
+    // TODO: check whether still necessary with esp_partition* API
     /* On the ESP32, data can come from DROM, which is not accessible by spi_flash_write
      * function. To work around this, we copy the data to heap if it came from DROM.
      * Hopefully this won't happen very often in practice. For data from DRAM, we should
@@ -144,15 +153,15 @@ esp_err_t Page::writeEntryData(const uint8_t* data, size_t size)
         }
         memcpy((void*)buf, data, size);
     }
-#endif //ESP_PLATFORM
+#endif // ! LINUX_TARGET
 
-    auto rc = nvs_flash_write(getEntryAddress(mNextFreeEntry), buf, size);
+    auto rc = mPartition->write(getEntryAddress(mNextFreeEntry), buf, size);
 
-#ifdef ESP_PLATFORM
+#if !defined LINUX_TARGET
     if (buf != data) {
         free((void*)buf);
     }
-#endif //ESP_PLATFORM
+#endif // ! LINUX_TARGET
     if (rc != ESP_OK) {
         mState = PageState::INVALID;
         return rc;
@@ -215,7 +224,11 @@ esp_err_t Page::writeItem(uint8_t nsIndex, ItemType datatype, const char* key, c
     // write first item
     size_t span = (totalSize + ENTRY_SIZE - 1) / ENTRY_SIZE;
     item = Item(nsIndex, datatype, span, key, chunkIdx);
-    mHashList.insert(item, mNextFreeEntry);
+    err = mHashList.insert(item, mNextFreeEntry);
+
+    if (err != ESP_OK) {
+        return err;
+    }
 
     if (!isVariableLengthType(datatype)) {
         memcpy(item.data, data, dataSize);
@@ -478,7 +491,11 @@ esp_err_t Page::copyItems(Page& other)
             return err;
         }
 
-        other.mHashList.insert(entry, other.mNextFreeEntry);
+        err = other.mHashList.insert(entry, other.mNextFreeEntry);
+        if (err != ESP_OK) {
+            return err;
+        }
+
         err = other.writeEntry(entry);
         if (err != ESP_OK) {
             return err;
@@ -507,7 +524,7 @@ esp_err_t Page::mLoadEntryTable()
     if (mState == PageState::ACTIVE ||
             mState == PageState::FULL ||
             mState == PageState::FREEING) {
-        auto rc = spi_flash_read(mBaseAddress + ENTRY_TABLE_OFFSET, mEntryTable.data(),
+        auto rc = mPartition->read_raw(mBaseAddress + ENTRY_TABLE_OFFSET, mEntryTable.data(),
                                  mEntryTable.byteSize());
         if (rc != ESP_OK) {
             mState = PageState::INVALID;
@@ -546,7 +563,7 @@ esp_err_t Page::mLoadEntryTable()
         while (mNextFreeEntry < ENTRY_COUNT) {
             uint32_t entryAddress = getEntryAddress(mNextFreeEntry);
             uint32_t header;
-            auto rc = spi_flash_read(entryAddress, &header, sizeof(header));
+            auto rc = mPartition->read_raw(entryAddress, &header, sizeof(header));
             if (rc != ESP_OK) {
                 mState = PageState::INVALID;
                 return rc;
@@ -601,7 +618,11 @@ esp_err_t Page::mLoadEntryTable()
                 continue;
             }
 
-            mHashList.insert(item, i);
+            err = mHashList.insert(item, i);
+            if (err != ESP_OK) {
+                mState = PageState::INVALID;
+                return err;
+            }
 
             // search for potential duplicate item
             size_t duplicateIndex = mHashList.find(0, item);
@@ -671,7 +692,11 @@ esp_err_t Page::mLoadEntryTable()
 
             assert(item.span > 0);
 
-            mHashList.insert(item, i);
+            err = mHashList.insert(item, i);
+            if (err != ESP_OK) {
+                mState = PageState::INVALID;
+                return err;
+            }
 
             size_t span = item.span;
 
@@ -703,7 +728,7 @@ esp_err_t Page::initialize()
     header.mVersion = mVersion;
     header.mCrc32 = header.calculateCrc32();
 
-    auto rc = spi_flash_write(mBaseAddress, &header, sizeof(header));
+    auto rc = mPartition->write_raw(mBaseAddress, &header, sizeof(header));
     if (rc != ESP_OK) {
         mState = PageState::INVALID;
         return rc;
@@ -720,7 +745,7 @@ esp_err_t Page::alterEntryState(size_t index, EntryState state)
     mEntryTable.set(index, state);
     size_t wordToWrite = mEntryTable.getWordIndex(index);
     uint32_t word = mEntryTable.data()[wordToWrite];
-    auto rc = spi_flash_write(mBaseAddress + ENTRY_TABLE_OFFSET + static_cast<uint32_t>(wordToWrite) * 4,
+    auto rc = mPartition->write_raw(mBaseAddress + ENTRY_TABLE_OFFSET + static_cast<uint32_t>(wordToWrite) * 4,
             &word, sizeof(word));
     if (rc != ESP_OK) {
         mState = PageState::INVALID;
@@ -744,7 +769,7 @@ esp_err_t Page::alterEntryRangeState(size_t begin, size_t end, EntryState state)
         }
         if (nextWordIndex != wordIndex) {
             uint32_t word = mEntryTable.data()[wordIndex];
-            auto rc = spi_flash_write(mBaseAddress + ENTRY_TABLE_OFFSET + static_cast<uint32_t>(wordIndex) * 4,
+            auto rc = mPartition->write_raw(mBaseAddress + ENTRY_TABLE_OFFSET + static_cast<uint32_t>(wordIndex) * 4,
                     &word, 4);
             if (rc != ESP_OK) {
                 return rc;
@@ -758,7 +783,7 @@ esp_err_t Page::alterEntryRangeState(size_t begin, size_t end, EntryState state)
 esp_err_t Page::alterPageState(PageState state)
 {
     uint32_t state_val = static_cast<uint32_t>(state);
-    auto rc = spi_flash_write(mBaseAddress, &state_val, sizeof(state));
+    auto rc = mPartition->write_raw(mBaseAddress, &state_val, sizeof(state));
     if (rc != ESP_OK) {
         mState = PageState::INVALID;
         return rc;
@@ -769,7 +794,7 @@ esp_err_t Page::alterPageState(PageState state)
 
 esp_err_t Page::readEntry(size_t index, Item& dst) const
 {
-    auto rc = nvs_flash_read(getEntryAddress(index), &dst, sizeof(dst));
+    auto rc = mPartition->read(getEntryAddress(index), &dst, sizeof(dst));
     if (rc != ESP_OK) {
         return rc;
     }
@@ -906,8 +931,7 @@ esp_err_t Page::setVersion(uint8_t ver)
 
 esp_err_t Page::erase()
 {
-    auto sector = mBaseAddress / SPI_FLASH_SEC_SIZE;
-    auto rc = spi_flash_erase_sector(sector);
+    auto rc = mPartition->erase_range(mBaseAddress, SPI_FLASH_SEC_SIZE);
     if (rc != ESP_OK) {
         mState = PageState::INVALID;
         return rc;
@@ -944,7 +968,7 @@ size_t Page::getVarDataTailroom() const
     } else if (mState == PageState::FULL) {
         return 0;
     }
-    /* Skip one entry for header*/
+    /* Skip one entry for blob data item precessing the data */
     return ((mNextFreeEntry < (ENTRY_COUNT-1)) ? ((ENTRY_COUNT - mNextFreeEntry - 1) * ENTRY_SIZE): 0);
 }
 

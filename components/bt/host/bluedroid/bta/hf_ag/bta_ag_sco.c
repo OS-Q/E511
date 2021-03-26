@@ -176,13 +176,13 @@ static void bta_ag_sco_conn_cback(UINT16 sco_idx)
     if (handle != 0)
     {
         BTM_ReadEScoLinkParms(sco_idx, &sco_data);
-        
+
         p_scb->link_type = sco_data.link_type;
         p_scb->tx_interval = sco_data.tx_interval;
         p_scb->retrans_window = sco_data.retrans_window;
         p_scb->air_mode = sco_data.air_mode;
-        
-        if (sco_data.air_mode == BTM_SCO_AIR_MODE_CVSD) 
+
+        if (sco_data.air_mode == BTM_SCO_AIR_MODE_CVSD)
         {
             p_scb->out_pkt_len = sco_data.tx_pkt_len * 2;
             p_scb->in_pkt_len = sco_data.rx_pkt_len * 2;
@@ -572,7 +572,7 @@ static void bta_ag_create_sco(tBTA_AG_SCB *p_scb, BOOLEAN is_orig)
             p_scb->retry_with_sco_only = FALSE;
             BTM_SetEScoMode(BTM_LINK_TYPE_SCO, &params);
         }
- 
+
         bta_ag_cb.sco.p_curr_scb = p_scb;
         /* tell sys to stop av if any */
         bta_sys_sco_use(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
@@ -618,7 +618,8 @@ static void bta_ag_create_sco(tBTA_AG_SCB *p_scb, BOOLEAN is_orig)
 
     p_bd_addr = p_scb->peer_addr;
 
-    status = BTM_CreateSco(p_bd_addr, is_orig, params.packet_types, &p_scb->sco_idx,  bta_ag_sco_conn_cback, bta_ag_sco_disc_cback);
+    status = BTM_CreateSco(p_bd_addr, is_orig, params.packet_types, &p_scb->sco_idx, bta_ag_sco_conn_cback,
+                           bta_ag_sco_disc_cback);
 
     if (status == BTM_CMD_STARTED)
     {
@@ -740,8 +741,8 @@ static void bta_ag_sco_event(tBTA_AG_SCB *p_scb, UINT8 event)
     tBTA_AG_SCB *p_cn_scb = NULL;   /* For codec negotiation */
 #endif
     UINT8   in_state = p_sco->state;
-    APPL_TRACE_EVENT("BTA ag sco evt (hdl 0x%04x): State %d (%s), Event %d (%s)", 
-                        p_scb->sco_idx, p_sco->state, 
+    APPL_TRACE_EVENT("BTA ag sco evt (hdl 0x%04x): State %d (%s), Event %d (%s)",
+                        p_scb->sco_idx, p_sco->state,
                         bta_ag_sco_state_str(p_sco->state), event, bta_ag_sco_evt_str(event));
 
 #if (BTM_SCO_HCI_INCLUDED == TRUE)
@@ -760,21 +761,18 @@ static void bta_ag_sco_event(tBTA_AG_SCB *p_scb, UINT8 event)
             p_buf->offset = pkt_offset;
             len_to_send = bta_ag_sco_co_out_data(p_buf->data + pkt_offset);
             p_buf->len = len_to_send;
-            if (len_to_send == p_scb->out_pkt_len)
-            {
+            if (len_to_send == p_scb->out_pkt_len) {
                 if (p_sco->state == BTA_AG_SCO_OPEN_ST) {
                     tBTM_STATUS write_stat = BTM_WriteScoData(p_sco->p_curr_scb->sco_idx, p_buf);
                     if (write_stat != BTM_SUCCESS) {
                         break;
                     }
-                    else {
-                        osi_free(p_buf);
-                    }
-                }
-                else {
+                } else {
                     osi_free(p_buf);
-                    break;
                 }
+            } else {
+                osi_free(p_buf);
+                break;
             }
         }
         return;
@@ -782,7 +780,7 @@ static void bta_ag_sco_event(tBTA_AG_SCB *p_scb, UINT8 event)
 #endif
 
     /* State Machine Start */
-    switch (p_sco->state) 
+    switch (p_sco->state)
     {
         case BTA_AG_SCO_SHUTDOWN_ST:
             switch (event)
@@ -1288,7 +1286,7 @@ static void bta_ag_sco_event(tBTA_AG_SCB *p_scb, UINT8 event)
         default:
             break;
     }
-    
+
     if (p_sco->state != in_state)
     {
         APPL_TRACE_EVENT("BTA AG SCO State Change: [%s] -> [%s] after Event [%s]",
@@ -1363,7 +1361,7 @@ void bta_ag_sco_listen(tBTA_AG_SCB *p_scb, tBTA_AG_DATA *p_data)
 **
 ** Function         bta_ag_sco_open
 **
-** Description      
+** Description
 **
 **
 ** Returns          void
@@ -1484,12 +1482,19 @@ void bta_ag_sco_conn_open(tBTA_AG_SCB *p_scb, tBTA_AG_DATA *p_data)
     bta_ag_sco_audio_state(bta_ag_scb_to_idx(p_scb), p_scb->app_id, SCO_STATE_ON);
 #endif
     /* open SCO codec if SCO is routed through transport */
-    bta_ag_sco_co_open(bta_ag_scb_to_idx(p_scb), p_scb->air_mode, BTA_HFP_SCO_OUT_PKT_SIZE, BTA_AG_CI_SCO_DATA_EVT);
+    bta_ag_sco_co_open(bta_ag_scb_to_idx(p_scb), p_scb->air_mode, p_scb->out_pkt_len, BTA_AG_CI_SCO_DATA_EVT);
 #endif
 
+#if (BTM_WBS_INCLUDED == TRUE)
     /* call app callback */
+    if (p_scb->sco_codec == BTA_AG_CODEC_MSBC) {
+        bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_MSBC_OPEN_EVT);
+    } else {
+        bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_OPEN_EVT);
+    }
+#else
     bta_ag_cback_sco(p_scb, BTA_AG_AUDIO_OPEN_EVT);
-
+#endif
     p_scb->retry_with_sco_only = FALSE;
 #if (BTM_WBS_INCLUDED == TRUE)
     /* reset to mSBC T2 settings as the preferred */

@@ -11,11 +11,13 @@
 #include "freertos/task.h"
 #include <freertos/semphr.h>
 #include "driver/timer.h"
+#ifndef CONFIG_FREERTOS_UNICORE
 #include "esp_ipc.h"
+#endif
 #include "unity.h"
 #include "test_utils.h"
 
-#ifdef CONFIG_IDF_TARGET_ESP32S2BETA
+#ifdef CONFIG_IDF_TARGET_ESP32S2
 #define int_clr_timers int_clr
 #define update update.update
 #define int_st_timers int_st
@@ -187,7 +189,7 @@ TEST_CASE("Test Task_Notify", "[freertos]")
 
             xSemaphoreGive(trigger_send_semphr);    //Trigger sender task
             for(int k = 0; k < NO_OF_TASKS; k++){             //Wait for sender and receiver task deletion
-                xSemaphoreTake(task_delete_semphr, portMAX_DELAY);
+                TEST_ASSERT( xSemaphoreTake(task_delete_semphr, 1000 / portTICK_PERIOD_MS) );
             }
             vTaskDelay(5);      //Give time tasks to delete
 
@@ -207,5 +209,3 @@ TEST_CASE("Test Task_Notify", "[freertos]")
     isr_handle_1 = NULL;
 #endif
 }
-
-

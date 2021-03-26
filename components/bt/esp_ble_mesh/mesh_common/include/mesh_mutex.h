@@ -25,7 +25,7 @@ extern "C" {
 
 typedef struct {
     SemaphoreHandle_t mutex;
-#if CONFIG_SPIRAM_USE_MALLOC
+#if CONFIG_BLE_MESH_FREERTOS_STATIC_ALLOC
     StaticQueue_t *buffer;
 #endif
 } bt_mesh_mutex_t;
@@ -55,4 +55,3 @@ void bt_mesh_mutex_deinit(void);
 #endif
 
 #endif /* _BLE_MESH_MUTEX_H_ */
-

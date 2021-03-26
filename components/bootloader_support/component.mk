@@ -16,11 +16,22 @@ COMPONENT_SRCDIRS += src/$(IDF_TARGET)  # one sub-dir per chip
 endif
 
 ifndef IS_BOOTLOADER_BUILD
-COMPONENT_OBJEXCLUDE := src/bootloader_init.o
+COMPONENT_OBJEXCLUDE := src/bootloader_init.o \
+			src/bootloader_panic.o \
+			src/bootloader_clock_loader.o \
+			src/bootloader_console.o \
+			src/bootloader_console_loader.o
 endif
 
-COMPONENT_OBJEXCLUDE += src/bootloader_flash_config_esp32s2beta.o \
-			src/bootloader_efuse_esp32s2beta.o
+COMPONENT_OBJEXCLUDE += src/bootloader_flash_config_esp32s2.o \
+			src/bootloader_flash_config_esp32s3.o \
+			src/bootloader_flash_config_esp32c3.o \
+			src/bootloader_efuse_esp32s2.o \
+			src/bootloader_efuse_esp32s3.o \
+			src/bootloader_efuse_esp32c3.o \
+			src/bootloader_random_esp32s2.o \
+			src/bootloader_random_esp32s3.o \
+			src/bootloader_random_esp32c3.o
 
 ifndef CONFIG_SECURE_SIGNED_APPS_ECDSA_SCHEME
 ifndef CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME

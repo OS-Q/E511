@@ -16,7 +16,6 @@
 #define _DRIVER_SDIO_SLAVE_H_
 
 #include "freertos/FreeRTOS.h"
-#include "freertos/portmacro.h"
 #include "esp_err.h"
 #include "sys/queue.h"
 
@@ -276,5 +275,3 @@ esp_err_t sdio_slave_wait_int(int pos, TickType_t wait);
 #endif
 
 #endif /*_DRIVER_SDIO_SLAVE_H */
-
-

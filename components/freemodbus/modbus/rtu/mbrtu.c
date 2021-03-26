@@ -1,4 +1,4 @@
-/* 
+/*
  * FreeModbus Libary: A portable Modbus implementation for Modbus ASCII/RTU.
  * Copyright (c) 2006 Christian Walter <wolti@sil.at>
  * All rights reserved.
@@ -265,7 +265,9 @@ xMBRTUReceiveFSM( void )
     case STATE_RX_RCV:
         if( usRcvBufferPos < MB_SER_PDU_SIZE_MAX )
         {
-            ucRTUBuf[usRcvBufferPos++] = ucByte;
+            if ( xStatus ) {
+                ucRTUBuf[usRcvBufferPos++] = ucByte;
+            }
         }
         else
         {

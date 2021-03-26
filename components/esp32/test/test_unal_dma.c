@@ -3,9 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "esp32/rom/ets_sys.h"
 #include "esp32/rom/lldesc.h"
-#include "esp32/rom/gpio.h"
 #include "driver/periph_ctrl.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -198,4 +196,3 @@ TEST_CASE("Unaligned DMA test (needs I2S)", "[hw][ignore]")
     dmaMemcpy(src, dest + 1, 2048 + 2);
     TEST_ASSERT(mymemcmp(src, dest + 1, 2048) == 0);
 }
-

@@ -13,9 +13,10 @@
 #include "lwip/netdb.h"
 #include "lwip/sockets.h"
 #include "ping/ping_sock.h"
-#include "esp32/rom/md5_hash.h"
+#include "esp_rom_md5.h"
+#include "soc/soc_caps.h"
 
-#if !TEMPORARY_DISABLED_FOR_TARGETS(ESP32S2BETA)
+#if SOC_EMAC_SUPPORTED
 
 static const char *TAG = "esp32_eth_test";
 
@@ -34,8 +35,13 @@ static const char *TAG = "esp32_eth_test";
 #define ETH_PING_DURATION_MS (5000)
 #define ETH_PING_END_TIMEOUT_MS (ETH_PING_DURATION_MS * 2)
 
+#define TEST_ICMP_DESTINATION_DOMAIN_NAME "127.0.0.1"
+
+extern const char dl_espressif_com_root_cert_pem_start[] asm("_binary_dl_espressif_com_root_cert_pem_start");
+extern const char dl_espressif_com_root_cert_pem_end[]   asm("_binary_dl_espressif_com_root_cert_pem_end");
+
 // compute md5 of download file
-static struct MD5Context md5_context;
+static md5_context_t md5_context;
 static uint8_t digest[16];
 
 /** Event handler for Ethernet events */
@@ -140,6 +146,7 @@ static esp_err_t test_uninstall_driver(esp_eth_handle_t eth_hdl, uint32_t ms_to_
 TEST_CASE("esp32 ethernet io test", "[ethernet][test_env=UT_T2_Ethernet]")
 {
     eth_mac_config_t mac_config = ETH_MAC_DEFAULT_CONFIG();
+    mac_config.flags = ETH_MAC_FLAG_PIN_TO_CORE; // pin to core
     esp_eth_mac_t *mac = esp_eth_mac_new_esp32(&mac_config);
     eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG();
     // auto detect PHY address
@@ -341,12 +348,13 @@ TEST_CASE("esp32 ethernet icmp test", "[ethernet][test_env=UT_T2_Ethernet]")
     memset(&hint, 0, sizeof(hint));
     memset(&target_addr, 0, sizeof(target_addr));
     /* convert URL to IP */
-    TEST_ASSERT(getaddrinfo("www.baidu.com", NULL, &hint, &res) == 0);
+    TEST_ASSERT(getaddrinfo(TEST_ICMP_DESTINATION_DOMAIN_NAME, NULL, &hint, &res) == 0);
     struct in_addr addr4 = ((struct sockaddr_in *)(res->ai_addr))->sin_addr;
     inet_addr_to_ip4addr(ip_2_ip4(&target_addr), &addr4);
     freeaddrinfo(res);
 
     esp_ping_config_t ping_config = ESP_PING_DEFAULT_CONFIG();
+    ping_config.timeout_ms = 2000;
     ping_config.target_addr = target_addr;
     ping_config.count = 0; // ping in infinite mode
     /* set callback functions */
@@ -409,7 +417,7 @@ esp_err_t http_event_handle(esp_http_client_event_t *evt)
         ESP_LOGI(TAG, "HTTP_EVENT_ON_HEADER");
         break;
     case HTTP_EVENT_ON_DATA:
-        MD5Update(&md5_context, evt->data, evt->data_len);
+        esp_rom_md5_update(&md5_context, evt->data, evt->data_len);
         break;
     case HTTP_EVENT_ON_FINISH:
         ESP_LOGI(TAG, "HTTP_EVENT_ON_FINISH");
@@ -424,9 +432,10 @@ esp_err_t http_event_handle(esp_http_client_event_t *evt)
 static void eth_download_task(void *param)
 {
     EventGroupHandle_t eth_event_group = (EventGroupHandle_t)param;
-    MD5Init(&md5_context);
+    esp_rom_md5_init(&md5_context);
     esp_http_client_config_t config = {
         .url = "https://dl.espressif.com/dl/misc/2MB.bin",
+        .cert_pem = dl_espressif_com_root_cert_pem_start,
         .event_handler = http_event_handle,
         .buffer_size = 5120
     };
@@ -434,7 +443,7 @@ static void eth_download_task(void *param)
     TEST_ASSERT_NOT_NULL(client);
     TEST_ESP_OK(esp_http_client_perform(client));
     TEST_ESP_OK(esp_http_client_cleanup(client));
-    MD5Final(digest, &md5_context);
+    esp_rom_md5_final(digest, &md5_context);
     xEventGroupSetBits(eth_event_group, ETH_DOWNLOAD_END_BIT);
     vTaskDelete(NULL);
 }
@@ -503,4 +512,4 @@ TEST_CASE("esp32 ethernet download test", "[ethernet][test_env=UT_T2_Ethernet][t
     vEventGroupDelete(eth_event_group);
 }
 
-#endif
+#endif // SOC_EMAC_SUPPORTED

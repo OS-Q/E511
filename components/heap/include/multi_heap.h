@@ -30,8 +30,8 @@ extern "C" {
 typedef struct multi_heap_info *multi_heap_handle_t;
 
 /**
- * @brief allocate a chunk of memory with specific alignment 
- * 
+ * @brief allocate a chunk of memory with specific alignment
+ *
  * @param heap  Handle to a registered heap.
  * @param size  size in bytes of memory chunk
  * @param alignment  how the memory must be aligned
@@ -55,9 +55,9 @@ void *multi_heap_malloc(multi_heap_handle_t heap, size_t size);
  *
  * @param heap Handle to a registered heap.
  * @param p NULL, or a pointer previously returned from multi_heap_aligned_alloc() for the same heap.
+ * @note This function is deprecated, consider using  multi_heap_free() instead
  */
-void multi_heap_aligned_free(multi_heap_handle_t heap, void *p);
-
+void __attribute__((deprecated)) multi_heap_aligned_free(multi_heap_handle_t heap, void *p);
 
 /** @brief free() a buffer in a given heap.
  *

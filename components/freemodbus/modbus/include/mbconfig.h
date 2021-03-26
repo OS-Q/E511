@@ -1,4 +1,4 @@
-/* 
+/*
  * FreeModbus Libary: A portable Modbus implementation for Modbus ASCII/RTU.
  * Copyright (c) 2006 Christian Walter <wolti@sil.at>
  * All rights reserved.
@@ -54,15 +54,16 @@ PR_BEGIN_EXTERN_C
 /*! \brief If Modbus Master RTU support is enabled. */
 #define MB_MASTER_RTU_ENABLED                   (  CONFIG_FMB_COMM_MODE_RTU_EN )
 /*! \brief If Modbus Master TCP support is enabled. */
-#define MB_MASTER_TCP_ENABLED                   (  0 )
+#define MB_MASTER_TCP_ENABLED                   (  CONFIG_FMB_COMM_MODE_TCP_EN )
 /*! \brief If Modbus Slave ASCII support is enabled. */
 #define MB_SLAVE_ASCII_ENABLED                  (  CONFIG_FMB_COMM_MODE_ASCII_EN )
 /*! \brief If Modbus Slave RTU support is enabled. */
 #define MB_SLAVE_RTU_ENABLED                    (  CONFIG_FMB_COMM_MODE_RTU_EN )
 /*! \brief If Modbus Slave TCP support is enabled. */
-#define MB_TCP_ENABLED                          (  1 )
-#if !CONFIG_FMB_COMM_MODE_ASCII_EN && !CONFIG_FMB_COMM_MODE_RTU_EN
-#error "None of Modbus communication mode is enabled. Please enable one of ASCII or RTU mode in Kconfig."
+#define MB_TCP_ENABLED                          (  CONFIG_FMB_COMM_MODE_TCP_EN )
+
+#if !CONFIG_FMB_COMM_MODE_ASCII_EN && !CONFIG_FMB_COMM_MODE_RTU_EN && !MB_MASTER_TCP_ENABLED && !MB_TCP_ENABLED
+#error "None of Modbus communication mode is enabled. Please enable one of (ASCII, RTU, TCP) mode in Kconfig."
 #endif
 
 /*! \brief This option defines the number of data bits per ASCII character.
@@ -89,7 +90,7 @@ PR_BEGIN_EXTERN_C
  * MB_ASCII_TIMEOUT_WAIT_BEFORE_SEND_MS to allow for a delay before
  * the serial transmitter is enabled. This is required because some
  * targets are so fast that there is no time between receiving and
- * transmitting the frame. If the master is to slow with enabling its 
+ * transmitting the frame. If the master is to slow with enabling its
  * receiver then he will not receive the response correctly.
  */
 #ifndef MB_ASCII_TIMEOUT_WAIT_BEFORE_SEND_MS
@@ -153,7 +154,7 @@ PR_BEGIN_EXTERN_C
     PR_END_EXTERN_C
 #endif
 
-#if MB_MASTER_RTU_ENABLED || MB_MASTER_ASCII_ENABLED
+#if MB_MASTER_RTU_ENABLED || MB_MASTER_ASCII_ENABLED || MB_MASTER_TCP_ENABLED
 /*! \brief If master send a broadcast frame, the master will wait time of convert to delay,
  * then master can send other frame */
 #define MB_MASTER_DELAY_MS_CONVERT              ( CONFIG_FMB_MASTER_DELAY_MS_CONVERT )

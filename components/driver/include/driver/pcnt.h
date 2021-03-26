@@ -176,6 +176,33 @@ esp_err_t pcnt_set_event_value(pcnt_unit_t unit, pcnt_evt_type_t evt_type, int16
 esp_err_t pcnt_get_event_value(pcnt_unit_t unit, pcnt_evt_type_t evt_type, int16_t *value);
 
 /**
+ * @brief Get PCNT event status of PCNT unit
+ *
+ * @param unit PCNT unit number
+ * @param status Pointer to accept event status word
+ * @return
+ *
+ *      - ESP_OK Success
+ *      - ESP_ERR_INVALID_STATE pcnt driver has not been initialized
+ *      - ESP_ERR_INVALID_ARG Parameter error
+ */
+esp_err_t pcnt_get_event_status(pcnt_unit_t unit, uint32_t *status);
+
+/**
+ * @brief Unregister PCNT interrupt handler (registered by pcnt_isr_register), the handler is an ISR.
+ *        The handler will be attached to the same CPU core that this function is running on.
+ *        If the interrupt service is registered by pcnt_isr_service_install, please call pcnt_isr_service_uninstall instead
+ *
+ * @param handle handle to unregister the ISR service.
+ *
+ * @return
+ *     - ESP_OK Success
+ *     - ESP_ERR_NOT_FOUND Can not find the interrupt that matches the flags.
+ *     - ESP_ERR_INVALID_ARG Function pointer error.
+ */
+esp_err_t pcnt_isr_unregister(pcnt_isr_handle_t handle);
+
+/**
  * @brief Register PCNT interrupt handler, the handler is an ISR.
  *        The handler will be attached to the same CPU core that this function is running on.
  *        Please do not use pcnt_isr_service_install if this function was called.
@@ -185,7 +212,7 @@ esp_err_t pcnt_get_event_value(pcnt_unit_t unit, pcnt_evt_type_t evt_type, int16
  * @param intr_alloc_flags Flags used to allocate the interrupt. One or multiple (ORred)
  *        ESP_INTR_FLAG_* values. See esp_intr_alloc.h for more info.
  * @param handle Pointer to return handle. If non-NULL, a handle for the interrupt will
- *        be returned here. Calling esp_intr_free to unregister this ISR service if needed,
+ *        be returned here. Calling pcnt_isr_unregister to unregister this ISR service if needed,
  *        but only if the handle is not NULL.
  *
  * @return

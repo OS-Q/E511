@@ -42,7 +42,7 @@ config BT_BLUEDROID_MEM_DEBUG
 
 config BT_CLASSIC_ENABLED
     bool "Classic Bluetooth"
-    depends on BT_BLUEDROID_ENABLED
+    depends on BT_BLUEDROID_ENABLED && BT_CTRL_ESP32
     default n
     help
         For now this option needs "SMP_ENABLE" to be set to yes
@@ -99,6 +99,13 @@ config BT_HFP_WBS_ENABLE
         This enables Wide Band Speech. Should disable it when SCO data path is PCM.
         Otherwise there will be no data transmited via GPIOs.
 
+config BT_HID_HOST_ENABLED
+    bool "Classic BT HID Host"
+    depends on BT_CLASSIC_ENABLED
+    default n
+    help
+        This enables the BT HID Host
+
 config BT_SSP_ENABLED
     bool "Secure Simple Pairing"
     depends on BT_CLASSIC_ENABLED
@@ -128,6 +135,13 @@ config BT_GATTS_PPCP_CHAR_GAP
     help
         This enables "Peripheral Preferred Connection Parameters" characteristic (UUID: 0x2A04) in GAP service that has
         connection parameters like min/max connection interval, slave latency and supervision timeout multiplier
+
+config BT_BLE_BLUFI_ENABLE
+    bool "Include blufi function"
+    depends on BT_GATTS_ENABLE
+    default n
+    help
+        This option can be close when the app does not require blufi function.
 
 choice BT_GATTS_SEND_SERVICE_CHANGE_MODE
     prompt "GATTS Service Change Mode"
@@ -987,6 +1001,27 @@ config BT_BLE_ESTAB_LINK_CONN_TOUT
     help
         Bluetooth Connection establishment maximum time, if connection time exceeds this value, the connection
         establishment fails, ESP_GATTC_OPEN_EVT or ESP_GATTS_OPEN_EVT is triggered.
+
+config BT_BLE_RPA_SUPPORTED
+    bool "Update RPA to Controller"
+    depends on (BT_BLUEDROID_ENABLED && (IDF_TARGET_ESP32C3 || IDF_TARGET_ESP32S3))
+    default y
+    help
+        This enables controller RPA list function.
+
+config BT_BLE_50_FEATURES_SUPPORTED
+    bool "Enable BLE 5.0 features"
+    depends on (BT_BLUEDROID_ENABLED && (IDF_TARGET_ESP32C3 || IDF_TARGET_ESP32S3))
+    default y
+    help
+        This enables BLE 5.0 features, this option only support esp32c3/esp32s3 chip
+
+config BT_BLE_42_FEATURES_SUPPORTED
+    bool "Enable BLE 4.2 features"
+    depends on (BT_BLUEDROID_ENABLED && (IDF_TARGET_ESP32C3 || IDF_TARGET_ESP32S3))
+    default n
+    help
+        This enables BLE 4.2 features.
 
 config BT_RESERVE_DRAM
     hex

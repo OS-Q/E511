@@ -63,7 +63,7 @@ static UINT8 bta_dm_authorize_cback (BD_ADDR bd_addr, DEV_CLASS dev_class, BD_NA
 #if (CLASSIC_BT_INCLUDED == TRUE)
 static UINT8 bta_dm_pin_cback (BD_ADDR bd_addr, DEV_CLASS dev_class, BD_NAME bd_name, BOOLEAN min_16_digit);
 #endif /// CLASSIC_BT_INCLUDED == TRUE
-static UINT8 bta_dm_new_link_key_cback(BD_ADDR bd_addr, DEV_CLASS dev_class, BD_NAME bd_name, LINK_KEY key, UINT8 key_type);
+static UINT8 bta_dm_new_link_key_cback(BD_ADDR bd_addr, DEV_CLASS dev_class, BD_NAME bd_name, LINK_KEY key, UINT8 key_type, BOOLEAN sc_support);
 static UINT8 bta_dm_authentication_complete_cback(BD_ADDR bd_addr, DEV_CLASS dev_class, BD_NAME bd_name, int result);
 #endif  ///SMP_INCLUDED == TRUE
 static void bta_dm_local_name_cback(BD_ADDR bd_addr);
@@ -77,8 +77,9 @@ static void bta_dm_policy_cback(tBTA_SYS_CONN_STATUS status, UINT8 id, UINT8 app
 #if (BT_SSP_INCLUDED == TRUE && SMP_INCLUDED == TRUE)
 static UINT8 bta_dm_sp_cback (tBTM_SP_EVT event, tBTM_SP_EVT_DATA *p_data);
 #endif /* (BT_SSP_INCLUDED == TRUE) */
-
+#if (CLASSIC_BT_INCLUDED == TRUE)
 static void bta_dm_set_eir (char *local_name);
+#endif
 #if (SDP_INCLUDED == TRUE)
 static void bta_dm_eir_search_services( tBTM_INQ_RESULTS  *p_result,
                                         tBTA_SERVICE_MASK *p_services_to_search,
@@ -477,9 +478,10 @@ static void bta_dm_sys_hw_cback( tBTA_SYS_HW_EVT status )
         memset(&bta_dm_search_cb, 0x00, sizeof(bta_dm_search_cb));
         memset(&bta_dm_conn_srvcs, 0x00, sizeof(bta_dm_conn_srvcs));
         memset(&bta_dm_di_cb, 0, sizeof(tBTA_DM_DI_CB));
-
         memcpy(dev_class, p_bta_dm_cfg->dev_class, sizeof(dev_class));
+#if CLASSIC_BT_INCLUDED
         BTM_SetDeviceClass (dev_class);
+#endif
 
 #if (defined BLE_INCLUDED && BLE_INCLUDED == TRUE)
 #if (GATTC_INCLUDED == TRUE && GATTC_CACHE_NVS == TRUE)
@@ -503,9 +505,11 @@ static void bta_dm_sys_hw_cback( tBTA_SYS_HW_EVT status )
         BTM_SecRegister((tBTM_APPL_INFO *)&bta_security);
 #endif  ///SMP_INCLUDED == TRUE
         BTM_SetDefaultLinkSuperTout(p_bta_dm_cfg->link_timeout);
+#if CLASSIC_BT_INCLUDED
         BTM_WritePageTimeout(p_bta_dm_cfg->page_timeout);
         bta_dm_cb.cur_policy = p_bta_dm_cfg->policy_settings;
         BTM_SetDefaultLinkPolicy(bta_dm_cb.cur_policy);
+#endif
         BTM_RegBusyLevelNotif (bta_dm_bl_change_cback, NULL, BTM_BL_UPDATE_MASK | BTM_BL_ROLE_CHG_MASK);
 
 #if BLE_VND_INCLUDED == TRUE
@@ -559,9 +563,10 @@ void bta_dm_disable (tBTA_DM_MSG *p_data)
 
     /* disable all active subsystems */
     bta_sys_disable(BTA_SYS_HW_BLUETOOTH);
-
+#if CLASSIC_BT_INCLUDED
     BTM_SetDiscoverability(BTM_NON_DISCOVERABLE, 0, 0);
     BTM_SetConnectability(BTM_NON_CONNECTABLE, 0, 0);
+#endif // #if CLASSIC_BT_INCLUDED
 
 #if (BTA_DM_PM_INCLUDED == TRUE)
     bta_dm_disable_pm();
@@ -754,6 +759,7 @@ void bta_dm_read_rmt_name(tBTA_DM_MSG *p_data)
 }
 #endif  ///SDP_INCLUDED == TRUE
 
+#if (CLASSIC_BT_INCLUDED == TRUE)
 void bta_dm_config_eir (tBTA_DM_MSG *p_data)
 {
     tBTA_DM_API_CONFIG_EIR *config_eir = &p_data->config_eir;
@@ -795,7 +801,7 @@ void bta_dm_config_eir (tBTA_DM_MSG *p_data)
 
     bta_dm_set_eir(NULL);
 }
-
+#endif
 /*******************************************************************************
 **
 ** Function         bta_dm_ble_set_channels
@@ -820,6 +826,13 @@ void bta_dm_update_white_list(tBTA_DM_MSG *p_data)
 #endif  ///BLE_INCLUDED == TRUE
 }
 
+void bta_dm_clear_white_list(tBTA_DM_MSG *p_data)
+{
+#if (BLE_INCLUDED == TRUE)
+    BTM_BleClearWhitelist();
+#endif
+}
+
 void bta_dm_ble_read_adv_tx_power(tBTA_DM_MSG *p_data)
 {
 #if (BLE_INCLUDED == TRUE)
@@ -831,15 +844,13 @@ void bta_dm_ble_read_adv_tx_power(tBTA_DM_MSG *p_data)
 #endif  ///BLE_INCLUDED == TRUE
 }
 
-void bta_dm_ble_read_rssi(tBTA_DM_MSG *p_data)
+void bta_dm_read_rssi(tBTA_DM_MSG *p_data)
 {
-#if (BLE_INCLUDED == TRUE)
     if (p_data->rssi.read_rssi_cb != NULL) {
         BTM_ReadRSSI(p_data->rssi.remote_addr, p_data->rssi.transport, p_data->rssi.read_rssi_cb);
     } else {
         APPL_TRACE_ERROR("%s(), the callback function can't be NULL.", __func__);
     }
-#endif  ///BLE_INCLUDED == TRUE
 }
 
 /*******************************************************************************
@@ -990,11 +1001,14 @@ void bta_dm_remove_device(tBTA_DM_MSG *p_data)
         /* Take the link down first, and mark the device for removal when disconnected */
         for (int i = 0; i < bta_dm_cb.device_list.count; i++) {
             if (!bdcmp(bta_dm_cb.device_list.peer_device[i].peer_bdaddr, p_dev->bd_addr)
-                && bta_dm_cb.device_list.peer_device[i].transport == transport) {
+#if BLE_INCLUDED == TRUE
+                && bta_dm_cb.device_list.peer_device[i].transport == transport
+#endif
+            ) {
+
                 bta_dm_cb.device_list.peer_device[i].conn_state = BTA_DM_UNPAIRING;
-                btm_remove_acl( p_dev->bd_addr, bta_dm_cb.device_list.peer_device[i].transport);
-                APPL_TRACE_DEBUG("%s:transport = %d", __func__,
-                                 bta_dm_cb.device_list.peer_device[i].transport);
+                btm_remove_acl( p_dev->bd_addr, transport);
+                APPL_TRACE_DEBUG("%s:transport = %d", __func__, transport);
                 break;
             }
         }
@@ -1056,7 +1070,7 @@ void bta_dm_add_device (tBTA_DM_MSG *p_data)
 
     if (!BTM_SecAddDevice (p_dev->bd_addr, p_dc, p_dev->bd_name, p_dev->features,
                            trusted_services_mask, p_lc, p_dev->key_type, p_dev->io_cap,
-                           p_dev->pin_length)) {
+                           p_dev->pin_length, p_dev->sc_support)) {
         APPL_TRACE_ERROR ("BTA_DM: Error adding device %08x%04x",
                           (p_dev->bd_addr[0] << 24) + (p_dev->bd_addr[1] << 16) + (p_dev->bd_addr[2] << 8) + p_dev->bd_addr[3],
                           (p_dev->bd_addr[4] << 8) + p_dev->bd_addr[5]);
@@ -2981,7 +2995,8 @@ static UINT8 bta_dm_pin_cback (BD_ADDR bd_addr, DEV_CLASS dev_class, BD_NAME bd_
 **
 *******************************************************************************/
 static UINT8  bta_dm_new_link_key_cback(BD_ADDR bd_addr, DEV_CLASS dev_class,
-                                        BD_NAME bd_name, LINK_KEY key, UINT8 key_type)
+                                        BD_NAME bd_name, LINK_KEY key, UINT8 key_type,
+                                        BOOLEAN sc_support)
 {
     tBTA_DM_SEC sec_event;
     tBTA_DM_AUTH_CMPL *p_auth_cmpl;
@@ -3003,6 +3018,7 @@ static UINT8  bta_dm_new_link_key_cback(BD_ADDR bd_addr, DEV_CLASS dev_class,
         p_auth_cmpl->key_present = TRUE;
         p_auth_cmpl->key_type = key_type;
         p_auth_cmpl->success = TRUE;
+        p_auth_cmpl->sc_support = sc_support;
 
         memcpy(p_auth_cmpl->key, key, LINK_KEY_LEN);
         sec_event.auth_cmpl.fail_reason = HCI_SUCCESS;
@@ -3280,6 +3296,7 @@ static void bta_dm_bl_change_cback (tBTM_BL_EVENT_DATA *p_data)
 
         switch (p_msg->event) {
         case BTM_BL_CONN_EVT:
+            p_msg->sc_downgrade = p_data->conn.sc_downgrade;
             p_msg->is_new = TRUE;
             bdcpy(p_msg->bd_addr, p_data->conn.p_bda);
 #if BLE_INCLUDED == TRUE
@@ -3506,6 +3523,7 @@ void bta_dm_acl_change(tBTA_DM_MSG *p_data)
         APPL_TRACE_DEBUG("%s info: 0x%x", __func__, bta_dm_cb.device_list.peer_device[i].info);
 
         if (bta_dm_cb.p_sec_cback) {
+            conn.link_up.sc_downgrade = p_data->acl_change.sc_downgrade;
             bta_dm_cb.p_sec_cback(BTA_DM_LINK_UP_EVT, (tBTA_DM_SEC *)&conn);
         }
     } else {
@@ -3815,9 +3833,9 @@ static void bta_dm_adjust_roles(BOOLEAN delay_role_switch)
                         BTM_SwitchRole (bta_dm_cb.device_list.peer_device[i].peer_bdaddr,
                                         HCI_ROLE_MASTER, NULL);
                     } else {
-                        bta_dm_cb.switch_delay_timer.p_cback =
+                        bta_dm_cb.switch_delay_timer[i].p_cback =
                             (TIMER_CBACK *)&bta_dm_delay_role_switch_cback;
-                        bta_sys_start_timer(&bta_dm_cb.switch_delay_timer, 0, 500);
+                        bta_sys_start_timer(&bta_dm_cb.switch_delay_timer[i], 0, 500);
                     }
                 }
 
@@ -3899,6 +3917,7 @@ static void bta_dm_bond_cancel_complete_cback(tBTM_STATUS result)
 ** Returns          None
 **
 *******************************************************************************/
+#if (CLASSIC_BT_INCLUDED == TRUE)
 static void bta_dm_set_eir (char *local_name)
 {
     BT_HDR   *p_buf;
@@ -4220,6 +4239,7 @@ static void bta_dm_set_eir (char *local_name)
         p_bta_dm_eir_cfg->config_eir_callback(status, eir_type_num, eir_type);
     }
 }
+#endif
 
 /*******************************************************************************
 **
@@ -4317,8 +4337,9 @@ void bta_dm_eir_update_uuid(UINT16 uuid16, BOOLEAN adding)
 
         BTM_RemoveEirService( bta_dm_cb.eir_uuid, uuid16 );
     }
-
+#if CLASSIC_BT_INCLUDED
     bta_dm_set_eir (NULL);
+#endif
 
     APPL_TRACE_EVENT("bta_dm_eir_update_uuid UUID bit mask=0x%08X %08X",
                      bta_dm_cb.eir_uuid[1], bta_dm_cb.eir_uuid[0] );
@@ -5489,7 +5510,186 @@ void btm_dm_ble_multi_adv_disable(tBTA_DM_MSG *p_data)
                                     p_data->ble_multi_adv_disable.inst_id, p_ref, BTA_FAILURE);
     }
 }
+#if (BLE_50_FEATURE_SUPPORT == TRUE)
+void bta_dm_ble_gap_read_phy(tBTA_DM_MSG *p_data)
+{
+    //tBTM_STATUS btm_status = 0;
+    UINT8 tx_phy = 0, rx_phy = 0;
 
+    BTM_BleReadPhy(p_data->ble_read_phy.bd_addr, &tx_phy, &rx_phy);
+
+}
+
+void bta_dm_ble_gap_set_prefer_default_phy(tBTA_DM_MSG *p_data)
+{
+    APPL_TRACE_API("%s, tx_phy_mask = %d, rx_phy_mask = %d", __func__, p_data->ble_set_per_def_phy.tx_phy_mask, p_data->ble_set_per_def_phy.rx_phy_mask);
+    BTM_BleSetPreferDefaultPhy(p_data->ble_set_per_def_phy.tx_phy_mask, p_data->ble_set_per_def_phy.rx_phy_mask);
+}
+
+void bta_dm_ble_gap_set_prefer_phy(tBTA_DM_MSG *p_data)
+{
+    APPL_TRACE_API("%s, tx_phy_mask = %d, rx_phy_mask = %d, phy_options = %d",
+                     __func__, p_data->ble_set_per_phy.tx_phy_mask,
+                     p_data->ble_set_per_phy.rx_phy_mask, p_data->ble_set_per_phy.phy_options);
+    BTM_BleSetPreferPhy(p_data->ble_set_per_phy.bd_addr, p_data->ble_set_per_phy.all_phys,
+                        p_data->ble_set_per_phy.tx_phy_mask, p_data->ble_set_per_phy.rx_phy_mask,
+                        p_data->ble_set_per_phy.phy_options);
+}
+
+void bta_dm_ble_gap_ext_adv_set_rand_addr(tBTA_DM_MSG *p_data)
+{
+    BTM_BleSetExtendedAdvRandaddr(p_data->ble_set_ext_adv_rand_addr.instance, p_data->ble_set_ext_adv_rand_addr.rand_addr);
+}
+void bta_dm_ble_gap_ext_adv_set_params(tBTA_DM_MSG *p_data)
+{
+    APPL_TRACE_API("%s, instance = %d", __func__, p_data->ble_set_ext_adv_params.instance);
+
+    BTM_BleSetExtendedAdvParams(p_data->ble_set_ext_adv_params.instance,
+                                (tBTM_BLE_GAP_EXT_ADV_PARAMS *)&p_data->ble_set_ext_adv_params.params);
+}
+
+void bta_dm_ble_gap_config_ext_adv_data_raw(tBTA_DM_MSG *p_data)
+{
+    APPL_TRACE_API("%s, instance = %d, len = %d", __func__, p_data->ble_cfg_ext_adv_data.instance,
+         p_data->ble_cfg_ext_adv_data.length);
+
+    BTM_BleConfigExtendedAdvDataRaw(p_data->ble_cfg_ext_adv_data.is_scan_rsp,
+                                   p_data->ble_cfg_ext_adv_data.instance,
+                                   p_data->ble_cfg_ext_adv_data.length,
+                                   p_data->ble_cfg_ext_adv_data.data);
+}
+
+void bta_dm_ble_gap_start_ext_adv(tBTA_DM_MSG *p_data)
+{
+    APPL_TRACE_API("%s, enable = %d, num = %d", __func__, p_data->ble_start_ext_adv.enable,
+             p_data->ble_start_ext_adv.num);
+    BTM_BleStartExtAdv(p_data->ble_start_ext_adv.enable, p_data->ble_start_ext_adv.num,
+                       (tBTM_BLE_EXT_ADV *)p_data->ble_start_ext_adv.ext_adv);
+}
+
+void bta_dm_ble_gap_ext_adv_set_remove(tBTA_DM_MSG *p_data)
+{
+    BTM_BleExtAdvSetRemove(p_data->ble_ext_adv_set_remove.instance);
+}
+
+void bta_dm_ble_gap_ext_adv_set_clear(tBTA_DM_MSG *p_data)
+{
+    BTM_BleExtAdvSetClear();
+}
+
+void bta_dm_ble_gap_periodic_adv_set_params(tBTA_DM_MSG *p_data)
+{
+    APPL_TRACE_API("%s, instance = %d", __func__, p_data->ble_set_periodic_adv_params.instance);
+    BTM_BlePeriodicAdvSetParams(p_data->ble_set_periodic_adv_params.instance,
+                               (tBTM_BLE_Periodic_Adv_Params *)&p_data->ble_set_periodic_adv_params.params);
+}
+
+void bta_dm_ble_gap_periodic_adv_cfg_data_raw(tBTA_DM_MSG *p_data)
+{
+    APPL_TRACE_API("%s, instance = %d, length = %d", __func__, p_data->ble_cfg_periodic_adv_data.instance,
+                     p_data->ble_cfg_periodic_adv_data.length);
+
+    BTM_BlePeriodicAdvCfgDataRaw(p_data->ble_cfg_periodic_adv_data.instance,
+                                 p_data->ble_cfg_periodic_adv_data.length,
+                                 p_data->ble_cfg_periodic_adv_data.data);
+}
+
+void bta_dm_ble_gap_periodic_adv_enable(tBTA_DM_MSG *p_data)
+{
+    APPL_TRACE_API("%s, instance = %d, enable = %d", __func__, p_data->ble_enable_periodic_adv.instance,
+                         p_data->ble_enable_periodic_adv.enable);
+
+    BTM_BlePeriodicAdvEnable(p_data->ble_enable_periodic_adv.instance,
+                             p_data->ble_enable_periodic_adv.enable);
+}
+
+void bta_dm_ble_gap_periodic_adv_create_sync(tBTA_DM_MSG *p_data)
+{
+    APPL_TRACE_API("%s", __func__);
+    BTM_BlePeriodicAdvCreateSync((tBTM_BLE_Periodic_Sync_Params *)&p_data->ble_periodic_adv_sync.params);
+}
+
+void bta_dm_ble_gap_periodic_adv_sync_cancel(tBTA_DM_MSG *p_data)
+{
+    APPL_TRACE_API("%s", __func__);
+    BTM_BlePeriodicAdvSyncCancel();
+}
+
+void bta_dm_ble_gap_periodic_adv_sync_terminate(tBTA_DM_MSG *p_data)
+{
+    APPL_TRACE_API("%s", __func__);
+    BTM_BlePeriodicAdvSyncTerm(p_data->ble_periodic_adv_sync_term.sync_handle);
+}
+
+void bta_dm_ble_gap_periodic_adv_add_dev_to_list(tBTA_DM_MSG *p_data)
+{
+    APPL_TRACE_API("%s, addr_type = %d, sid = %d", __func__, p_data->ble_periodic_adv_add_dev_to_list.addr_type,
+                    p_data->ble_periodic_adv_add_dev_to_list.sid);
+
+    BTM_BlePeriodicAdvAddDevToList(p_data->ble_periodic_adv_add_dev_to_list.addr_type,
+                                   p_data->ble_periodic_adv_add_dev_to_list.addr,
+                                   p_data->ble_periodic_adv_add_dev_to_list.sid);
+}
+
+void bta_dm_ble_gap_periodic_adv_remove_dev_from_list(tBTA_DM_MSG *p_data)
+{
+    APPL_TRACE_API("%s, addr_type = %d, sid = %d", __func__, p_data->ble_periodic_adv_remove_dev_from_list.addr_type,
+                        p_data->ble_periodic_adv_remove_dev_from_list.sid);
+
+    BTM_BlePeriodicAdvRemoveDevFromList(p_data->ble_periodic_adv_remove_dev_from_list.addr_type,
+                                        p_data->ble_periodic_adv_remove_dev_from_list.addr,
+                                        p_data->ble_periodic_adv_remove_dev_from_list.sid);
+
+}
+
+void bta_dm_ble_gap_periodic_adv_clear_dev(tBTA_DM_MSG *p_data)
+{
+    APPL_TRACE_API("%s", __func__);
+    BTM_BlePeriodicAdvClearDev();
+}
+
+
+void bta_dm_ble_gap_set_ext_scan_params(tBTA_DM_MSG *p_data)
+{
+    APPL_TRACE_API("%s", __func__);
+    BTM_BleSetExtendedScanParams((tBTM_BLE_EXT_SCAN_PARAMS *)&p_data->ble_set_ext_scan_params.params);
+}
+
+void bta_dm_ble_gap_ext_scan(tBTA_DM_MSG *p_data)
+{
+    APPL_TRACE_API("%s, start = %d, duration = %d, period = %d", __func__, p_data->ble_ext_scan.start, p_data->ble_ext_scan.duration,
+                    p_data->ble_ext_scan.period);
+    BTM_BleExtendedScan(p_data->ble_ext_scan.start, p_data->ble_ext_scan.duration,
+                        p_data->ble_ext_scan.period);
+}
+
+void bta_dm_ble_gap_set_prefer_ext_conn_params(tBTA_DM_MSG *p_data)
+{
+    tBTM_EXT_CONN_PARAMS conn_params;
+    conn_params.phy_mask = p_data->ble_set_per_ext_conn_params.phy_mask;
+
+    APPL_TRACE_API("%s, start = %d, duration = %d, period = %d", __func__, p_data->ble_ext_scan.start, p_data->ble_ext_scan.duration,
+                    p_data->ble_ext_scan.period);
+
+    if (conn_params.phy_mask & BTA_PHY_1M_MASK) {
+        memcpy(&conn_params.phy_1m_conn_params, &p_data->ble_set_per_ext_conn_params.phy_1m_conn_params,
+               sizeof(tBTA_DM_BLE_CONN_PARAMS));
+    }
+
+    if (conn_params.phy_mask & BTA_PHY_2M_MASK) {
+        memcpy(&conn_params.phy_2m_conn_params, &p_data->ble_set_per_ext_conn_params.phy_2m_conn_params,
+               sizeof(tBTA_DM_BLE_CONN_PARAMS));
+    }
+
+    if (conn_params.phy_mask & BTAS_PHY_CODED_MASK) {
+        memcpy(&conn_params.phy_coded_conn_params, &p_data->ble_set_per_ext_conn_params.phy_coded_conn_params,
+               sizeof(tBTA_DM_BLE_CONN_PARAMS));
+    }
+
+    BTM_BleSetPreferExtenedConnParams(p_data->ble_set_per_ext_conn_params.bd_addr, &conn_params);
+}
+
+#endif // #if (BLE_50_FEATURE_SUPPORT == TRUE)
 /*******************************************************************************
 **
 ** Function         bta_dm_ble_setup_storage
@@ -6076,7 +6276,7 @@ void btm_dm_start_gatt_discovery (BD_ADDR bd_addr)
         btm_dm_start_disc_gatt_services(bta_dm_search_cb.conn_id);
     } else {
         //TODO need to add addr_type in future
-        BTA_GATTC_Open(bta_dm_search_cb.client_if, bd_addr, BLE_ADDR_UNKNOWN_TYPE, TRUE, BTA_GATT_TRANSPORT_LE);
+        BTA_GATTC_Open(bta_dm_search_cb.client_if, bd_addr, BLE_ADDR_UNKNOWN_TYPE, TRUE, BTA_GATT_TRANSPORT_LE, FALSE);
     }
 }
 #endif /* #if (GATTC_INCLUDED == TRUE) */

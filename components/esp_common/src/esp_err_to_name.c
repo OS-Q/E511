@@ -5,6 +5,9 @@
 #if __has_include("soc/soc.h")
 #include "soc/soc.h"
 #endif
+#if __has_include("esp_ds.h")
+#include "esp_ds.h"
+#endif
 #if __has_include("esp_efuse.h")
 #include "esp_efuse.h"
 #endif
@@ -41,11 +44,14 @@
 #if __has_include("esp_spi_flash.h")
 #include "esp_spi_flash.h"
 #endif
+#if __has_include("esp_supplicant/esp_dpp.h")
+#include "esp_supplicant/esp_dpp.h"
+#endif
 #if __has_include("esp_supplicant/esp_wps.h")
 #include "esp_supplicant/esp_wps.h"
 #endif
-#if __has_include("esp_tls.h")
-#include "esp_tls.h"
+#if __has_include("esp_tls_errors.h")
+#include "esp_tls_errors.h"
 #endif
 #if __has_include("esp_wifi.h")
 #include "esp_wifi.h"
@@ -210,6 +216,12 @@ static const esp_err_msg_t esp_err_msg_table[] = {
                                                                                 API functions.  NVS key is different in
                                                                                 comparison */
 #   endif
+#   ifdef      ESP_ERR_NVS_WRONG_ENCRYPTION
+    ERR_TBL_IT(ESP_ERR_NVS_WRONG_ENCRYPTION),                   /*  4377 0x1119 NVS partition is marked as encrypted
+                                                                                with generic flash encryption. This is
+                                                                                forbidden since the NVS encryption works
+                                                                                differently. */
+#   endif
     // components/ulp/include/ulp_common.h
 #   ifdef      ESP_ERR_ULP_BASE
     ERR_TBL_IT(ESP_ERR_ULP_BASE),                               /*  4608 0x1200 Offset for ULP-related error codes */
@@ -282,6 +294,9 @@ static const esp_err_msg_t esp_err_msg_table[] = {
 #   ifdef      ESP_ERR_CODING
     ERR_TBL_IT(ESP_ERR_CODING),                                 /*  5636 0x1604 Error while a encoding operation. */
 #   endif
+#   ifdef      ESP_ERR_NOT_ENOUGH_UNUSED_KEY_BLOCKS
+    ERR_TBL_IT(ESP_ERR_NOT_ENOUGH_UNUSED_KEY_BLOCKS),           /*  5637 0x1605 Error not enough unused key blocks available */
+#   endif
     // components/bootloader_support/include/esp_image_format.h
 #   ifdef      ESP_ERR_IMAGE_BASE
     ERR_TBL_IT(ESP_ERR_IMAGE_BASE),                             /*  8192 0x2000 */
@@ -347,10 +362,16 @@ static const esp_err_msg_t esp_err_msg_table[] = {
     ERR_TBL_IT(ESP_ERR_WIFI_POST),                              /* 12306 0x3012 Failed to post the event to WiFi task */
 #   endif
 #   ifdef      ESP_ERR_WIFI_INIT_STATE
-    ERR_TBL_IT(ESP_ERR_WIFI_INIT_STATE),                        /* 12307 0x3013 Invalod WiFi state when init/deinit is called */
+    ERR_TBL_IT(ESP_ERR_WIFI_INIT_STATE),                        /* 12307 0x3013 Invalid WiFi state when init/deinit is called */
 #   endif
 #   ifdef      ESP_ERR_WIFI_STOP_STATE
     ERR_TBL_IT(ESP_ERR_WIFI_STOP_STATE),                        /* 12308 0x3014 Returned when WiFi is stopping */
+#   endif
+#   ifdef      ESP_ERR_WIFI_NOT_ASSOC
+    ERR_TBL_IT(ESP_ERR_WIFI_NOT_ASSOC),                         /* 12309 0x3015 The WiFi connection is not associated */
+#   endif
+#   ifdef      ESP_ERR_WIFI_TX_DISALLOW
+    ERR_TBL_IT(ESP_ERR_WIFI_TX_DISALLOW),                       /* 12310 0x3016 The WiFi TX is disallowed */
 #   endif
     // components/wpa_supplicant/include/esp_supplicant/esp_wps.h
 #   ifdef      ESP_ERR_WIFI_REGISTRAR
@@ -389,6 +410,16 @@ static const esp_err_msg_t esp_err_msg_table[] = {
 #   endif
 #   ifdef      ESP_ERR_ESPNOW_IF
     ERR_TBL_IT(ESP_ERR_ESPNOW_IF),                              /* 12396 0x306c Interface error */
+#   endif
+    // components/wpa_supplicant/include/esp_supplicant/esp_dpp.h
+#   ifdef      ESP_ERR_DPP_FAILURE
+    ERR_TBL_IT(ESP_ERR_DPP_FAILURE),                            /* 12439 0x3097 Generic failure during DPP Operation */
+#   endif
+#   ifdef      ESP_ERR_DPP_TX_FAILURE
+    ERR_TBL_IT(ESP_ERR_DPP_TX_FAILURE),                         /* 12440 0x3098 DPP Frame Tx failed OR not Acked */
+#   endif
+#   ifdef      ESP_ERR_DPP_INVALID_ATTR
+    ERR_TBL_IT(ESP_ERR_DPP_INVALID_ATTR),                       /* 12441 0x3099 Encountered invalid DPP Attribute */
 #   endif
     // components/esp_common/include/esp_err.h
 #   ifdef      ESP_ERR_MESH_BASE
@@ -461,6 +492,18 @@ static const esp_err_msg_t esp_err_msg_table[] = {
 #   ifdef      ESP_ERR_MESH_VOTING
     ERR_TBL_IT(ESP_ERR_MESH_VOTING),                            /* 16406 0x4016 */
 #   endif
+#   ifdef      ESP_ERR_MESH_XMIT
+    ERR_TBL_IT(ESP_ERR_MESH_XMIT),                              /* 16407 0x4017 */
+#   endif
+#   ifdef      ESP_ERR_MESH_QUEUE_READ
+    ERR_TBL_IT(ESP_ERR_MESH_QUEUE_READ),                        /* 16408 0x4018 */
+#   endif
+#   ifdef      ESP_ERR_MESH_PS
+    ERR_TBL_IT(ESP_ERR_MESH_PS),                                /* 16409 0x4019 */
+#   endif
+#   ifdef      ESP_ERR_MESH_RECV_RELEASE
+    ERR_TBL_IT(ESP_ERR_MESH_RECV_RELEASE),                      /* 16410 0x401a */
+#   endif
     // components/esp_netif/include/esp_netif_types.h
 #   ifdef      ESP_ERR_ESP_NETIF_BASE
     ERR_TBL_IT(ESP_ERR_ESP_NETIF_BASE),                         /* 20480 0x5000 */
@@ -506,7 +549,7 @@ static const esp_err_msg_t esp_err_msg_table[] = {
 #   ifdef      ESP_ERR_FLASH_OP_TIMEOUT
     ERR_TBL_IT(ESP_ERR_FLASH_OP_TIMEOUT),                       /* 24578 0x6002 */
 #   endif
-    // components/soc/include/hal/esp_flash_err.h
+    // components/hal/include/hal/esp_flash_err.h
 #   ifdef      ESP_ERR_FLASH_NOT_INITIALISED
     ERR_TBL_IT(ESP_ERR_FLASH_NOT_INITIALISED),                  /* 24579 0x6003 */
 #   endif
@@ -545,7 +588,7 @@ static const esp_err_msg_t esp_err_msg_table[] = {
 #   ifdef      ESP_ERR_HTTP_EAGAIN
     ERR_TBL_IT(ESP_ERR_HTTP_EAGAIN),                            /* 28679 0x7007 Mapping of errno EAGAIN to esp_err_t */
 #   endif
-    // components/esp-tls/esp_tls.h
+    // components/esp-tls/esp_tls_errors.h
 #   ifdef      ESP_ERR_ESP_TLS_BASE
     ERR_TBL_IT(ESP_ERR_ESP_TLS_BASE),                           /* 32768 0x8000 Starting number of ESP-TLS error codes */
 #   endif
@@ -563,7 +606,7 @@ static const esp_err_msg_t esp_err_msg_table[] = {
     ERR_TBL_IT(ESP_ERR_ESP_TLS_FAILED_CONNECT_TO_HOST),         /* 32772 0x8004 Failed to connect to host */
 #   endif
 #   ifdef      ESP_ERR_ESP_TLS_SOCKET_SETOPT_FAILED
-    ERR_TBL_IT(ESP_ERR_ESP_TLS_SOCKET_SETOPT_FAILED),           /* 32773 0x8005 failed to set socket option */
+    ERR_TBL_IT(ESP_ERR_ESP_TLS_SOCKET_SETOPT_FAILED),           /* 32773 0x8005 failed to set/get socket option */
 #   endif
 #   ifdef      ESP_ERR_MBEDTLS_CERT_PARTLY_OK
     ERR_TBL_IT(ESP_ERR_MBEDTLS_CERT_PARTLY_OK),                 /* 32774 0x8006 mbedtls parse certificates was partly successful */
@@ -604,6 +647,36 @@ static const esp_err_msg_t esp_err_msg_table[] = {
 #   ifdef      ESP_ERR_ESP_TLS_CONNECTION_TIMEOUT
     ERR_TBL_IT(ESP_ERR_ESP_TLS_CONNECTION_TIMEOUT),             /* 32786 0x8012 new connection in esp_tls_low_level_conn
                                                                                 connection timeouted */
+#   endif
+#   ifdef      ESP_ERR_WOLFSSL_SSL_SET_HOSTNAME_FAILED
+    ERR_TBL_IT(ESP_ERR_WOLFSSL_SSL_SET_HOSTNAME_FAILED),        /* 32787 0x8013 wolfSSL api returned error */
+#   endif
+#   ifdef      ESP_ERR_WOLFSSL_SSL_CONF_ALPN_PROTOCOLS_FAILED
+    ERR_TBL_IT(ESP_ERR_WOLFSSL_SSL_CONF_ALPN_PROTOCOLS_FAILED), /* 32788 0x8014 wolfSSL api returned error */
+#   endif
+#   ifdef      ESP_ERR_WOLFSSL_CERT_VERIFY_SETUP_FAILED
+    ERR_TBL_IT(ESP_ERR_WOLFSSL_CERT_VERIFY_SETUP_FAILED),       /* 32789 0x8015 wolfSSL api returned error */
+#   endif
+#   ifdef      ESP_ERR_WOLFSSL_KEY_VERIFY_SETUP_FAILED
+    ERR_TBL_IT(ESP_ERR_WOLFSSL_KEY_VERIFY_SETUP_FAILED),        /* 32790 0x8016 wolfSSL api returned error */
+#   endif
+#   ifdef      ESP_ERR_WOLFSSL_SSL_HANDSHAKE_FAILED
+    ERR_TBL_IT(ESP_ERR_WOLFSSL_SSL_HANDSHAKE_FAILED),           /* 32791 0x8017 wolfSSL api returned failed */
+#   endif
+#   ifdef      ESP_ERR_WOLFSSL_CTX_SETUP_FAILED
+    ERR_TBL_IT(ESP_ERR_WOLFSSL_CTX_SETUP_FAILED),               /* 32792 0x8018 wolfSSL api returned failed */
+#   endif
+#   ifdef      ESP_ERR_WOLFSSL_SSL_SETUP_FAILED
+    ERR_TBL_IT(ESP_ERR_WOLFSSL_SSL_SETUP_FAILED),               /* 32793 0x8019 wolfSSL api returned failed */
+#   endif
+#   ifdef      ESP_ERR_WOLFSSL_SSL_WRITE_FAILED
+    ERR_TBL_IT(ESP_ERR_WOLFSSL_SSL_WRITE_FAILED),               /* 32794 0x801a wolfSSL api returned failed */
+#   endif
+#   ifdef      ESP_ERR_ESP_TLS_SE_FAILED
+    ERR_TBL_IT(ESP_ERR_ESP_TLS_SE_FAILED),                      /* 32795 0x801b */
+#   endif
+#   ifdef      ESP_ERR_ESP_TLS_TCP_CLOSED_FIN
+    ERR_TBL_IT(ESP_ERR_ESP_TLS_TCP_CLOSED_FIN),                 /* 32796 0x801c */
 #   endif
     // components/esp_https_ota/include/esp_https_ota.h
 #   ifdef      ESP_ERR_HTTPS_OTA_BASE
@@ -653,6 +726,24 @@ static const esp_err_msg_t esp_err_msg_table[] = {
 #   ifdef      ESP_ERR_HTTPD_TASK
     ERR_TBL_IT(ESP_ERR_HTTPD_TASK),                             /* 45064 0xb008 Failed to launch server task/thread */
 #   endif
+    // components/esp_common/include/esp_err.h
+#   ifdef      ESP_ERR_HW_CRYPTO_BASE
+    ERR_TBL_IT(ESP_ERR_HW_CRYPTO_BASE),                         /* 49152 0xc000 Starting number of HW cryptography
+                                                                                module error codes */
+#   endif
+    // components/esp32s2/include/esp_ds.h
+#   ifdef      ESP_ERR_HW_CRYPTO_DS_HMAC_FAIL
+    ERR_TBL_IT(ESP_ERR_HW_CRYPTO_DS_HMAC_FAIL),                 /* 49153 0xc001 HMAC peripheral problem */
+#   endif
+#   ifdef      ESP_ERR_HW_CRYPTO_DS_INVALID_KEY
+    ERR_TBL_IT(ESP_ERR_HW_CRYPTO_DS_INVALID_KEY),               /* 49154 0xc002 */
+#   endif
+#   ifdef      ESP_ERR_HW_CRYPTO_DS_INVALID_DIGEST
+    ERR_TBL_IT(ESP_ERR_HW_CRYPTO_DS_INVALID_DIGEST),            /* 49156 0xc004 */
+#   endif
+#   ifdef      ESP_ERR_HW_CRYPTO_DS_INVALID_PADDING
+    ERR_TBL_IT(ESP_ERR_HW_CRYPTO_DS_INVALID_PADDING),           /* 49157 0xc005 */
+#   endif
 };
 #endif //CONFIG_ESP_ERR_TO_NAME_LOOKUP
 
@@ -666,7 +757,7 @@ static const char esp_unknown_msg[] =
 const char *esp_err_to_name(esp_err_t code)
 {
 #ifdef CONFIG_ESP_ERR_TO_NAME_LOOKUP
-    int i;
+    size_t i;
 
     for (i = 0; i < sizeof(esp_err_msg_table)/sizeof(esp_err_msg_table[0]); ++i) {
         if (esp_err_msg_table[i].code == code) {
@@ -681,7 +772,7 @@ const char *esp_err_to_name(esp_err_t code)
 const char *esp_err_to_name_r(esp_err_t code, char *buf, size_t buflen)
 {
 #ifdef CONFIG_ESP_ERR_TO_NAME_LOOKUP
-    int i;
+    size_t i;
 
     for (i = 0; i < sizeof(esp_err_msg_table)/sizeof(esp_err_msg_table[0]); ++i) {
         if (esp_err_msg_table[i].code == code) {

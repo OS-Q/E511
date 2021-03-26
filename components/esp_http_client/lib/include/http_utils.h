@@ -22,13 +22,25 @@
  *
  * @param      str      pointer to string pointer
  * @param      new_str  assign this tring to str
- * @param      len      length of string, 0 if new_str is zero terminated
+ * @param      len      length of string, less than 0 if new_str is zero terminated
  *
  * @return
  *  - new_str pointer
  *  - NULL
  */
 char *http_utils_assign_string(char **str, const char *new_str, int len);
+
+/**
+ * @brief      Realloc *str and append new_str to it if new_str is not NULL; return *str pointer if new_str is NULL
+ *
+ * @param      str      pointer to string pointer
+ * @param      new_str  append this string to str
+ * @param      len      length of string, less than 0 if new_str is zero terminated
+ *
+ * @return
+ *  - *str pointer
+ */
+char *http_utils_append_string(char **str, const char *new_str, int len);
 
 /**
  * @brief      Remove white space at begin and end of string
@@ -64,7 +76,7 @@ char *http_utils_get_string_between(const char *str, const char *begin, const ch
  * - New string pointer
  * - NULL: Invalid input
  */
-char *http_utils_join_string(const char *first_str, int len_first, const char *second_str, int len_second);
+char *http_utils_join_string(const char *first_str, size_t len_first, const char *second_str, size_t len_second);
 
 /**
  * @brief      Check if ``str`` is start with ``start``
@@ -81,7 +93,7 @@ int http_utils_str_starts_with(const char *str, const char *start);
 
 
 #define HTTP_MEM_CHECK(TAG, a, action) if (!(a)) {                                                  \
-        ESP_LOGE(TAG,"%s:%d (%s): %s", __FILE__, __LINE__, __FUNCTION__, "Memory exhausted");       \
+        ESP_LOGE(TAG,"%s(%d): %s", __FUNCTION__, __LINE__, "Memory exhausted");                     \
         action;                                                                                     \
         }
 

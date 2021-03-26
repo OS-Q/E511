@@ -74,7 +74,6 @@ BOOLEAN BTM_SecAddBleDevice (BD_ADDR bd_addr, BD_NAME bd_name, tBT_DEVICE_TYPE d
                              tBLE_ADDR_TYPE addr_type, UINT32 auth_mode)
 {
     tBTM_SEC_DEV_REC  *p_dev_rec;
-    UINT8               i = 0;
     tBTM_INQ_INFO      *p_info = NULL;
 
     BTM_TRACE_DEBUG ("BTM_SecAddBleDevice dev_type=0x%x", dev_type);
@@ -85,10 +84,11 @@ BOOLEAN BTM_SecAddBleDevice (BD_ADDR bd_addr, BD_NAME bd_name, tBT_DEVICE_TYPE d
 
         /* There is no device record, allocate one.
          * If we can not find an empty spot for this one, let it fail. */
-        for (i = 0; i < BTM_SEC_MAX_DEVICE_RECORDS; i++) {
-            if (!(btm_cb.sec_dev_rec[i].sec_flags & BTM_SEC_IN_USE)) {
-                BTM_TRACE_DEBUG ("allocate a new dev rec idx=0x%x ", i );
-                p_dev_rec = &btm_cb.sec_dev_rec[i];
+        if (list_length(btm_cb.p_sec_dev_rec_list) < BTM_SEC_MAX_DEVICE_RECORDS) {
+	    p_dev_rec = (tBTM_SEC_DEV_REC *)osi_malloc(sizeof(tBTM_SEC_DEV_REC));
+	    if(p_dev_rec) {
+		list_append(btm_cb.p_sec_dev_rec_list, p_dev_rec);
+                BTM_TRACE_DEBUG ("allocate a new dev rec idx=0x%x\n", list_length(btm_cb.p_sec_dev_rec_list));
 
                 /* Mark this record as in use and initialize */
                 memset (p_dev_rec, 0, sizeof (tBTM_SEC_DEV_REC));
@@ -104,7 +104,6 @@ BOOLEAN BTM_SecAddBleDevice (BD_ADDR bd_addr, BD_NAME bd_name, tBT_DEVICE_TYPE d
                             p_dev_rec->conn_params.slave_latency    = BTM_BLE_CONN_PARAM_UNDEF;
 
                 BTM_TRACE_DEBUG ("hci_handl=0x%x ",  p_dev_rec->ble_hci_handle );
-                break;
             }
         }
 
@@ -312,18 +311,14 @@ void BTM_ReadConnectionAddr (BD_ADDR remote_bda, BD_ADDR local_conn_addr, tBLE_A
 BOOLEAN BTM_IsBleConnection (UINT16 conn_handle)
 {
 #if (BLE_INCLUDED == TRUE)
-    UINT8                xx;
     tACL_CONN            *p;
 
     BTM_TRACE_API ("BTM_IsBleConnection: conn_handle: %d", conn_handle);
 
-    xx = btm_handle_to_acl_index (conn_handle);
-    if (xx >= MAX_L2CAP_LINKS) {
+    p = btm_handle_to_acl(conn_handle);
+    if (!p) {
         return FALSE;
     }
-
-    p = &btm_cb.acl_db[xx];
-
     return (p->transport == BT_TRANSPORT_LE);
 #else
     return FALSE;
@@ -785,6 +780,52 @@ void btm_ble_test_command_complete(UINT8 *p)
         (*p_cb)(p);
     }
 }
+
+
+#if (BLE_50_FEATURE_SUPPORT == TRUE)
+/*******************************************************************************
+**
+** Function         BTM_BleEnhancedReceiverTest
+**
+** Description      This function is called to start the LE Enhanced Receiver test
+**
+** Parameter       rx_freq - Frequency Range
+**                 phy - The type of phy that receives data
+**                 modulation_index - modulation index
+**                 p_cmd_cmpl_cback - Command Complete callback
+**
+*******************************************************************************/
+void BTM_BleEnhancedReceiverTest(UINT8 rx_freq, UINT8 phy, UINT8 modulation_index, tBTM_CMPL_CB *p_cmd_cmpl_cback)
+{
+    btm_cb.devcb.p_le_test_cmd_cmpl_cb = p_cmd_cmpl_cback;
+
+    if (btsnd_hcic_ble_enhand_rx_test(rx_freq, phy, modulation_index) == FALSE) {
+        BTM_TRACE_ERROR("%s: Unable to Trigger LE enhanced receiver test", __FUNCTION__);
+    }
+}
+
+/*******************************************************************************
+**
+** Function         BTM_BleEnhancedTransmitterTest
+**
+** Description      This function is called to start the LE Enhanced Transmitter test
+**
+** Parameter       tx_freq - Frequency Range
+**                 test_data_len - Length in bytes of payload data in each packet
+**                 packet_payload - Pattern to use in the payload
+**                 phy - The type of phy that sends data
+**                 p_cmd_cmpl_cback - Command Complete callback
+**
+*******************************************************************************/
+void BTM_BleEnhancedTransmitterTest(UINT8 tx_freq, UINT8 test_data_len,
+                            UINT8 packet_payload, UINT8 phy, tBTM_CMPL_CB *p_cmd_cmpl_cback)
+{
+    btm_cb.devcb.p_le_test_cmd_cmpl_cb = p_cmd_cmpl_cback;
+    if (btsnd_hcic_ble_enhand_tx_test(tx_freq, test_data_len, packet_payload, phy) == FALSE) {
+        BTM_TRACE_ERROR("%s: Unable to Trigger LE enhanced transmitter test", __FUNCTION__);
+    }
+}
+#endif // BLE_50_FEATURE_SUPPORT
 
 /*******************************************************************************
 **
@@ -1961,8 +2002,11 @@ void btm_ble_conn_complete(UINT8 *p, UINT16 evt_len, BOOLEAN enhanced)
         * Once the connection is successful, resolve device address whether it is
         * slave or master*/
 
-        /* if (!match && role == HCI_ROLE_SLAVE && BTM_BLE_IS_RESOLVE_BDA(bda)) { */
-        if (!match && BTM_BLE_IS_RESOLVE_BDA(bda)) {
+#if CONTROLLER_RPA_LIST_ENABLE
+        if (!match && role == HCI_ROLE_SLAVE && bda_type != BLE_ADDR_PUBLIC && BTM_BLE_IS_RESOLVE_BDA(bda)) {
+#else
+        if (!match && bda_type != BLE_ADDR_PUBLIC && BTM_BLE_IS_RESOLVE_BDA(bda)) {
+#endif
             // save the enhanced value to used in btm_ble_resolve_random_addr_on_conn_cmpl func.
             temp_enhanced = enhanced;
             btm_ble_resolve_random_addr(bda, btm_ble_resolve_random_addr_on_conn_cmpl, p_data);

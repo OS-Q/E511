@@ -22,24 +22,21 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <sdkconfig.h>
 #include "esp_attr.h"
 #include "esp_err.h"
 #include "esp_intr_alloc.h"
-#include "esp32/rom/ets_sys.h"
-#include "esp32/rom/uart.h"
 
 #include "soc/cpu.h"
 #include "soc/dport_reg.h"
 #include "soc/spi_periph.h"
+#include "hal/cpu_hal.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "freertos/queue.h"
-#include "freertos/portmacro.h"
 
-#include "xtensa/core-macros.h"
+#include "sdkconfig.h"
 
 #ifndef CONFIG_FREERTOS_UNICORE
 static portMUX_TYPE g_dport_mux = portMUX_INITIALIZER_UNLOCKED;
@@ -80,7 +77,7 @@ void IRAM_ATTR esp_dport_access_stall_other_cpu_start(void)
     int cpu_id = xPortGetCoreID();
 
 #ifdef DPORT_ACCESS_BENCHMARK
-    ccount_start[cpu_id] = XTHAL_GET_CCOUNT();
+    ccount_start[cpu_id] = cpu_hal_get_cycle_count();
 #endif
 
     if (dport_access_ref[cpu_id] == 0) {
@@ -137,7 +134,7 @@ void IRAM_ATTR esp_dport_access_stall_other_cpu_end(void)
     }
 
 #ifdef DPORT_ACCESS_BENCHMARK
-    ccount_end[cpu_id] = XTHAL_GET_CCOUNT();
+    ccount_end[cpu_id] = cpu_hal_get_cycle_count();
     ccount_margin[cpu_id][ccount_margin_cnt] = ccount_end[cpu_id] - ccount_start[cpu_id];
     ccount_margin_cnt = (ccount_margin_cnt + 1)&(DPORT_ACCESS_BENCHMARK_STORE_NUM - 1);
 #endif
@@ -166,6 +163,9 @@ static void dport_access_init_core(void *arg)
     dport_access_end[core_id] = 0;
     dport_core_state[core_id] = DPORT_CORE_STATE_RUNNING;
 
+    /* If this fails then the minimum stack size for this config is too close to running out */
+    assert(uxTaskGetStackHighWaterMark(NULL) > 128);
+
     vTaskDelete(NULL);
 }
 #endif
@@ -176,6 +176,7 @@ void esp_dport_access_int_init(void)
 #ifndef CONFIG_FREERTOS_UNICORE
     portBASE_TYPE res = xTaskCreatePinnedToCore(&dport_access_init_core, "dport", configMINIMAL_STACK_SIZE, NULL, 5, NULL, xPortGetCoreID());
     assert(res == pdTRUE);
+    (void)res;
 #endif
 }
 

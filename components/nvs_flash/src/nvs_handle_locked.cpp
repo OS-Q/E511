@@ -15,9 +15,7 @@
 
 namespace nvs {
 
-NVSHandleLocked::NVSHandleLocked(NVSHandleSimple *handle) : handle(handle) {
-    Lock::init();
-}
+NVSHandleLocked::NVSHandleLocked(NVSHandleSimple *handle) : handle(handle) { }
 
 NVSHandleLocked::~NVSHandleLocked() {
     Lock lock;
@@ -80,4 +78,3 @@ esp_err_t NVSHandleLocked::get_typed_item(ItemType datatype, const char *key, vo
 }
 
 } // namespace nvs
-

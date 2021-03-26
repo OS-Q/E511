@@ -164,6 +164,9 @@ typedef void (*tBTU_EVENT_CALLBACK)(BT_HDR *p_hdr);
 #define BTU_TTYPE_UCD_TO                            108
 #define BTU_TTYPE_BLE_SCAN                          109
 
+/* BTU internal timer for QOS */
+#define BTU_TTYPE_BTM_QOS                           110
+
 /* BTU Task Signal */
 typedef enum {
     SIG_BTU_START_UP = 0,
@@ -271,6 +274,9 @@ void btu_check_bt_sleep (void);
 */
 void  btu_hcif_process_event (UINT8 controller_id, BT_HDR *p_buf);
 void  btu_hcif_send_cmd (UINT8 controller_id, BT_HDR *p_msg);
+#if (BLE_50_FEATURE_SUPPORT == TRUE)
+UINT8  btu_hcif_send_cmd_sync (UINT8 controller_id, BT_HDR *p_buf);
+#endif // #if (BLE_50_FEATURE_SUPPORT == TRUE)
 void  btu_hcif_send_host_rdy_for_data(void);
 void  btu_hcif_cmd_timeout (UINT8 controller_id);
 
@@ -289,6 +295,8 @@ void btu_task_shut_down(void);
 UINT16 BTU_BleAclPktSize(void);
 
 bool btu_task_post(uint32_t sig, void *param, uint32_t timeout);
+
+int get_btu_work_queue_size(void);
 
 /*
 #ifdef __cplusplus

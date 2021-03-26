@@ -23,11 +23,17 @@ COMPONENT_SRCDIRS := \
 	lwip/src/netif \
 	port/esp32 \
 	port/esp32/freertos \
+	port/esp32/hooks \
 	port/esp32/netif \
 	port/esp32/debug
 
 ifndef CONFIG_IDF_TARGET_ESP32
     COMPONENT_OBJEXCLUDE := port/esp32/netif/ethernetif.o
+endif
+ifndef CONFIG_VFS_SUPPORT_IO
+    COMPONENT_OBJEXCLUDE += port/esp32/vfs_lwip.o
+else
+    COMPONENT_OBJEXCLUDE += port/esp32/no_vfs_syscalls.o
 endif
 
 ifdef CONFIG_LWIP_PPP_SUPPORT

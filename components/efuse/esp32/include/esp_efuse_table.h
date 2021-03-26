@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Espressif Systems (Shanghai) PTE LTD
+// Copyright 2017-2020 Espressif Systems (Shanghai) PTE LTD
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ extern "C" {
 #endif
 
 
-// md5_digest_table 2e23344575b3d07f01ecb695294e9770
+// md5_digest_table f552d73ac112985991efa6734a60c8d9
 // This file was generated from the file esp_efuse_table.csv. DO NOT CHANGE THIS FILE MANUALLY.
 // If you want to change some fields, you need to change esp_efuse_table.csv file
 // then run `efuse_common_table` or `efuse_custom_table` command it will generate this file.
@@ -31,14 +31,17 @@ extern const esp_efuse_desc_t* ESP_EFUSE_MAC_CUSTOM[];
 extern const esp_efuse_desc_t* ESP_EFUSE_MAC_CUSTOM_VER[];
 extern const esp_efuse_desc_t* ESP_EFUSE_SECURE_BOOT_KEY[];
 extern const esp_efuse_desc_t* ESP_EFUSE_ABS_DONE_0[];
+extern const esp_efuse_desc_t* ESP_EFUSE_ABS_DONE_1[];
 extern const esp_efuse_desc_t* ESP_EFUSE_ENCRYPT_FLASH_KEY[];
 extern const esp_efuse_desc_t* ESP_EFUSE_ENCRYPT_CONFIG[];
 extern const esp_efuse_desc_t* ESP_EFUSE_DISABLE_DL_ENCRYPT[];
 extern const esp_efuse_desc_t* ESP_EFUSE_DISABLE_DL_DECRYPT[];
 extern const esp_efuse_desc_t* ESP_EFUSE_DISABLE_DL_CACHE[];
+extern const esp_efuse_desc_t* ESP_EFUSE_FLASH_CRYPT_CNT[];
 extern const esp_efuse_desc_t* ESP_EFUSE_DISABLE_JTAG[];
 extern const esp_efuse_desc_t* ESP_EFUSE_CONSOLE_DEBUG_DISABLE[];
-extern const esp_efuse_desc_t* ESP_EFUSE_FLASH_CRYPT_CNT[];
+extern const esp_efuse_desc_t* ESP_EFUSE_UART_DOWNLOAD_DIS[];
+extern const esp_efuse_desc_t* ESP_EFUSE_WR_DIS_EFUSE_RD_DISABLE[];
 extern const esp_efuse_desc_t* ESP_EFUSE_WR_DIS_FLASH_CRYPT_CNT[];
 extern const esp_efuse_desc_t* ESP_EFUSE_WR_DIS_BLK1[];
 extern const esp_efuse_desc_t* ESP_EFUSE_WR_DIS_BLK2[];
@@ -66,4 +69,3 @@ extern const esp_efuse_desc_t* ESP_EFUSE_SECURE_VERSION[];
 #ifdef __cplusplus
 }
 #endif
-

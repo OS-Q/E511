@@ -63,6 +63,16 @@ static esp_err_t wifi_transmit(void *h, void *buffer, size_t len)
     return esp_wifi_internal_tx(driver->wifi_if, buffer, len);
 }
 
+static esp_err_t wifi_transmit_wrap(void *h, void *buffer, size_t len, void *netstack_buf)
+{
+    wifi_netif_driver_t driver = h;
+#if (CONFIG_ESP32_SPIRAM_SUPPORT || CONFIG_ESP32S2_SPIRAM_SUPPORT || CONFIG_ESP32S3_SPIRAM_SUPPORT)
+    return esp_wifi_internal_tx_by_ref(driver->wifi_if, buffer, len, netstack_buf);
+#else
+    return esp_wifi_internal_tx(driver->wifi_if, buffer, len);
+#endif
+}
+
 static esp_err_t wifi_driver_start(esp_netif_t * esp_netif, void * args)
 {
     wifi_netif_driver_t driver = args;
@@ -70,6 +80,7 @@ static esp_err_t wifi_driver_start(esp_netif_t * esp_netif, void * args)
     esp_netif_driver_ifconfig_t driver_ifconfig = {
             .handle =  driver,
             .transmit = wifi_transmit,
+            .transmit_wrap= wifi_transmit_wrap,
             .driver_free_rx_buffer = wifi_free
     };
 
@@ -122,7 +133,7 @@ esp_err_t esp_wifi_register_if_rxcb(wifi_netif_driver_t ifx, esp_netif_receive_t
     case WIFI_IF_STA:
         rxcb = wifi_sta_receive;
         break;
-    
+
     case WIFI_IF_AP:
         rxcb = wifi_ap_receive;
         break;

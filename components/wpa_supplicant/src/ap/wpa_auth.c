@@ -152,7 +152,7 @@ static inline int wpa_auth_get_seqnum(struct wpa_authenticator *wpa_auth,
 /* fix buf for tx for now */
 #define WPA_TX_MSG_BUFF_MAXLEN 200
 
-static inline int 
+static inline int
 wpa_auth_send_eapol(struct wpa_authenticator *wpa_auth, const u8 *addr,
             const u8 *data, size_t data_len, int encrypt)
 {
@@ -350,7 +350,7 @@ struct wpa_authenticator * wpa_init(const u8 *addr,
     return wpa_auth;
 }
 
-struct wpa_state_machine * 
+struct wpa_state_machine *
 wpa_auth_sta_init(struct wpa_authenticator *wpa_auth, const u8 *addr)
 {
     struct wpa_state_machine *sm;
@@ -1203,7 +1203,7 @@ void wpa_remove_ptk(struct wpa_state_machine *sm)
 {
     sm->PTK_valid = FALSE;
     memset(&sm->PTK, 0, sizeof(sm->PTK));
-    wpa_auth_set_key(sm->wpa_auth, 0, WPA_ALG_NONE, sm->addr, 0, NULL, 0);
+    wpa_auth_set_key(sm->wpa_auth, 0, WIFI_WPA_ALG_NONE, sm->addr, 0, NULL, 0);
     sm->pairwise_set = FALSE;
     eloop_cancel_timeout(wpa_rekey_ptk, sm->wpa_auth, sm);
 }
@@ -1215,7 +1215,7 @@ int wpa_auth_sm_event(struct wpa_state_machine *sm, wpa_event event)
 
     if (sm == NULL)
         return -1;
-    
+
     switch (event) {
     case WPA_AUTH:
     case WPA_ASSOC:
@@ -2036,7 +2036,7 @@ SM_STATE(WPA_PTK_GROUP, REKEYNEGOTIATING)
                (!sm->Pair ? WPA_KEY_INFO_INSTALL : 0),
                rsc, gsm->GNonce, kde, pos - kde, gsm->GN, 1);
     if (sm->wpa == WPA_VERSION_WPA2)
-        os_free(kde);
+        os_free(kde);  // NOLINT(clang-analyzer-unix.Malloc)
 }
 
 
@@ -2177,7 +2177,7 @@ static int wpa_group_update_sta(struct wpa_state_machine *sm, void *ctx)
 }
 
 
-#ifdef CONFIG_WNM
+#ifdef CONFIG_WNM_AP
 /* update GTK when exiting WNM-Sleep Mode */
 void wpa_wnmsleep_rekey_gtk(struct wpa_state_machine *sm)
 {
@@ -2254,7 +2254,7 @@ int wpa_wnmsleep_igtk_subelem(struct wpa_state_machine *sm, u8 *pos)
     return pos - start;
 }
 #endif /* CONFIG_IEEE80211W */
-#endif /* CONFIG_WNM */
+#endif /* CONFIG_WNM_AP */
 
 
 static void wpa_group_setkeys(struct wpa_authenticator *wpa_auth,
@@ -2304,7 +2304,7 @@ static int wpa_group_config_group_keys(struct wpa_authenticator *wpa_auth,
 
 #ifdef CONFIG_IEEE80211W
     if (wpa_auth->conf.ieee80211w != NO_MGMT_FRAME_PROTECTION &&
-        wpa_auth_set_key(wpa_auth, group->vlan_id, WPA_ALG_IGTK,
+        wpa_auth_set_key(wpa_auth, group->vlan_id, WIFI_WPA_ALG_IGTK,
         		 broadcast_ether_addr, group->GN_igtk,
                  group->IGTK[group->GN_igtk - 4],
                  WPA_IGTK_LEN) < 0)
@@ -2399,7 +2399,7 @@ bool wpa_ap_join(void** sm, uint8_t *bssid, uint8_t *wpa_ie, uint8_t wpa_ie_len)
         return false;
     }
 
-   
+
     wpa_sm = (struct wpa_state_machine  **)sm;
 
     if (hapd) {
@@ -2436,4 +2436,3 @@ bool wpa_ap_remove(void* sm)
 
     return true;
 }
-

@@ -21,11 +21,11 @@
 #include "driver/rtc_io.h"
 #include "hal/rtc_io_hal.h"
 
-static const char *RTCIO_TAG = "RTCIO";
+static const char __attribute__((__unused__)) *RTCIO_TAG = "RTCIO";
 
 #define RTCIO_CHECK(a, str, ret_val) ({                                             \
     if (!(a)) {                                                                     \
-        ESP_LOGE(RTCIO_TAG,"%s:%d (%s):%s", __FILE__, __LINE__, __FUNCTION__, str); \
+        ESP_LOGE(RTCIO_TAG,"%s(%d): %s", __FUNCTION__, __LINE__, str);              \
         return (ret_val);                                                           \
     }                                                                               \
 })
@@ -33,6 +33,8 @@ static const char *RTCIO_TAG = "RTCIO";
 extern portMUX_TYPE rtc_spinlock; //TODO: Will be placed in the appropriate position after the rtc module is finished.
 #define RTCIO_ENTER_CRITICAL()  portENTER_CRITICAL(&rtc_spinlock)
 #define RTCIO_EXIT_CRITICAL()  portEXIT_CRITICAL(&rtc_spinlock)
+
+#if SOC_RTCIO_INPUT_OUTPUT_SUPPORTED
 
 /*---------------------------------------------------------------
                         RTC IO
@@ -156,13 +158,16 @@ esp_err_t rtc_gpio_pulldown_dis(gpio_num_t gpio_num)
     return ESP_OK;
 }
 
+#endif // SOC_RTCIO_INPUT_OUTPUT_SUPPORTED
+
+#if SOC_RTCIO_HOLD_SUPPORTED
+
 esp_err_t rtc_gpio_hold_en(gpio_num_t gpio_num)
 {
     RTCIO_CHECK(rtc_gpio_is_valid_gpio(gpio_num), "RTCIO number error", ESP_ERR_INVALID_ARG);
     RTCIO_ENTER_CRITICAL();
     rtcio_hal_hold_enable(rtc_io_number_get(gpio_num));
     RTCIO_EXIT_CRITICAL();
-
     return ESP_OK;
 }
 
@@ -172,7 +177,6 @@ esp_err_t rtc_gpio_hold_dis(gpio_num_t gpio_num)
     RTCIO_ENTER_CRITICAL();
     rtcio_hal_hold_disable(rtc_io_number_get(gpio_num));
     RTCIO_EXIT_CRITICAL();
-
     return ESP_OK;
 }
 
@@ -204,6 +208,10 @@ esp_err_t rtc_gpio_force_hold_dis_all(void)
     return ESP_OK;
 }
 
+#endif // SOC_RTCIO_HOLD_SUPPORTED
+
+#if SOC_RTCIO_WAKE_SUPPORTED
+
 esp_err_t rtc_gpio_wakeup_enable(gpio_num_t gpio_num, gpio_int_type_t intr_type)
 {
     RTCIO_CHECK(rtc_gpio_is_valid_gpio(gpio_num), "RTCIO number error", ESP_ERR_INVALID_ARG);
@@ -213,7 +221,6 @@ esp_err_t rtc_gpio_wakeup_enable(gpio_num_t gpio_num, gpio_int_type_t intr_type)
     RTCIO_ENTER_CRITICAL();
     rtcio_hal_wakeup_enable(rtc_io_number_get(gpio_num), intr_type);
     RTCIO_EXIT_CRITICAL();
-
     return ESP_OK;
 }
 
@@ -223,6 +230,7 @@ esp_err_t rtc_gpio_wakeup_disable(gpio_num_t gpio_num)
     RTCIO_ENTER_CRITICAL();
     rtcio_hal_wakeup_disable(rtc_io_number_get(gpio_num));
     RTCIO_EXIT_CRITICAL();
-
     return ESP_OK;
 }
+
+#endif // SOC_RTCIO_WAKE_SUPPORTED

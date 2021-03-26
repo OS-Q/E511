@@ -1,4 +1,4 @@
-/* 
+/*
  * FreeModbus Libary: A portable Modbus implementation for Modbus ASCII/RTU.
  * Copyright (c) 2006 Christian Walter <wolti@sil.at>
  * All rights reserved.
@@ -43,13 +43,13 @@
 #include "mbfunc.h"
 #include "mbport.h"
 
-#if MB_SLAVE_RTU_ENABLED == 1
+#if MB_SLAVE_RTU_ENABLED
 #include "mbrtu.h"
 #endif
-#if MB_SLAVE_ASCII_ENABLED == 1
+#if MB_SLAVE_ASCII_ENABLED
 #include "mbascii.h"
 #endif
-#if MB_TCP_ENABLED == 1
+#if MB_TCP_ENABLED
 #include "mbtcp.h"
 #endif
 
@@ -62,7 +62,7 @@
 static UCHAR    ucMBAddress;
 static eMBMode  eMBCurrentMode;
 
-volatile UCHAR ucMbSlaveBuf[MB_SER_PDU_SIZE_MAX];
+volatile UCHAR ucMbSlaveBuf[MB_SERIAL_BUF_SIZE];
 
 static enum
 {
@@ -367,9 +367,9 @@ eMBPoll( void )
                 if( ( ucRcvAddress == ucMBAddress ) || ( ucRcvAddress == MB_ADDRESS_BROADCAST ) )
                 {
                     ( void )xMBPortEventPost( EV_EXECUTE );
+                    ESP_LOG_BUFFER_HEX_LEVEL(MB_PORT_TAG, &ucMBFrame[MB_PDU_FUNC_OFF], usLength, ESP_LOG_DEBUG);
                 }
             }
-            ESP_LOG_BUFFER_HEX_LEVEL(MB_PORT_TAG, &ucMBFrame[MB_PDU_FUNC_OFF], usLength, ESP_LOG_DEBUG);
             break;
 
         case EV_EXECUTE:
@@ -407,11 +407,11 @@ eMBPoll( void )
                 if( ( eMBCurrentMode == MB_ASCII ) && MB_ASCII_TIMEOUT_WAIT_BEFORE_SEND_MS )
                 {
                     vMBPortTimersDelay( MB_ASCII_TIMEOUT_WAIT_BEFORE_SEND_MS );
-                }                
+                }
                 eStatus = peMBFrameSendCur( ucMBAddress, ucMBFrame, usLength );
             }
             break;
-        
+
         case EV_FRAME_TRANSMIT:
             ESP_LOGD(MB_PORT_TAG, "%s:EV_FRAME_TRANSMIT", __func__);
             break;

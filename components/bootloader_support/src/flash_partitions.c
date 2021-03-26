@@ -14,15 +14,21 @@
 #include <string.h>
 #include "esp_flash_partitions.h"
 #include "esp_log.h"
+#include "esp_rom_md5.h"
+#if CONFIG_IDF_TARGET_ESP32C3
+#include "esp32c3/rom/spi_flash.h"
+#elif CONFIG_IDF_TARGET_ESP32S2
+#include "esp32s2/rom/spi_flash.h"
+#else
 #include "esp32/rom/spi_flash.h"
-#include "esp32/rom/md5_hash.h"
+#endif
 
 static const char *TAG = "flash_parts";
 
 esp_err_t esp_partition_table_verify(const esp_partition_info_t *partition_table, bool log_errors, int *num_partitions)
 {
     int md5_found = 0;
-    int num_parts;
+    size_t num_parts;
     uint32_t chip_size = g_rom_flashchip.chip_size;
     *num_partitions = 0;
 
@@ -48,9 +54,9 @@ esp_err_t esp_partition_table_verify(const esp_partition_info_t *partition_table
 
             struct MD5Context context;
             unsigned char digest[16];
-            MD5Init(&context);
-            MD5Update(&context, (unsigned char *) partition_table, num_parts * sizeof(esp_partition_info_t));
-            MD5Final(digest, &context);
+            esp_rom_md5_init(&context);
+            esp_rom_md5_update(&context, (unsigned char *) partition_table, num_parts * sizeof(esp_partition_info_t));
+            esp_rom_md5_final(digest, &context);
 
             unsigned char *md5sum = ((unsigned char *) part) + 16; // skip the 2B magic number and the 14B fillup bytes
 
@@ -82,4 +88,3 @@ esp_err_t esp_partition_table_verify(const esp_partition_info_t *partition_table
     }
     return ESP_ERR_INVALID_STATE;
 }
-

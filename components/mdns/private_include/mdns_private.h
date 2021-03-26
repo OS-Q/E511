@@ -16,6 +16,7 @@
 
 #include "esp_event_base.h"
 #include "esp_task.h"
+#include "esp_timer.h"
 
 //#define MDNS_ENABLE_DEBUG
 
@@ -23,6 +24,22 @@
 #define _mdns_dbg_printf(...) printf(__VA_ARGS__)
 #endif
 
+/** mDNS strict mode: Set this to 1 for the mDNS library to strictly follow the RFC6762:
+ * Strict features:
+ *   - to do not set original questions in response packets per RFC6762, sec 6
+ *
+ * The actual configuration is 0, i.e. non-strict mode, since some implementations,
+ * such as lwIP mdns resolver (used by standard POSIX API like getaddrinfo, gethostbyname)
+ * could not correctly resolve advertised names.
+ */
+#define MDNS_STRICT_MODE 0
+
+#if !MDNS_STRICT_MODE
+/* mDNS responders sometimes repeat queries in responses
+ * but according to RFC6762, sec 6: Responses MUST NOT contain
+ * any item in question field */
+#define  MDNS_REPEAT_QUERY_IN_RESPONSE 1
+#endif
 /** The maximum number of services */
 #define MDNS_MAX_SERVICES           CONFIG_MDNS_MAX_SERVICES
 
@@ -56,7 +73,7 @@
 #define MDNS_ANSWER_AAAA_SIZE       16
 
 #define MDNS_SERVICE_PORT           5353                    // UDP port that the server runs on
-#define MDNS_SERVICE_STACK_DEPTH    4096                    // Stack size for the service thread
+#define MDNS_SERVICE_STACK_DEPTH    CONFIG_MDNS_TASK_STACK_SIZE
 #define MDNS_TASK_PRIORITY          CONFIG_MDNS_TASK_PRIORITY
 #if (MDNS_TASK_PRIORITY > ESP_TASK_PRIO_MAX)
 #error "mDNS task priority is higher than ESP_TASK_PRIO_MAX"
@@ -236,6 +253,7 @@ typedef struct {
     uint8_t distributed;
     mdns_parsed_question_t * questions;
     mdns_parsed_record_t * records;
+    uint16_t id;
 } mdns_parsed_packet_t;
 
 typedef struct {
@@ -304,6 +322,7 @@ typedef struct mdns_tx_packet_s {
     mdns_out_answer_t * servers;
     mdns_out_answer_t * additional;
     bool queued;
+    uint16_t id;
 } mdns_tx_packet_t;
 
 typedef struct {

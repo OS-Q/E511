@@ -19,6 +19,7 @@
 #include <stdbool.h>
 #include "esp_err.h"
 #include "esp_wifi_crypto_types.h"
+#include "esp_compiler.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -71,20 +72,13 @@ typedef struct {
     wps_factory_information_t factory_info;
 } esp_wps_config_t;
 
-/* C & C++ compilers have different rules about C99-style named initializers */
-#ifdef __cplusplus
-#define WPS_AGG(X) { X }
-#else
-#define WPS_AGG(X) X
-#endif
-
 #define WPS_CONFIG_INIT_DEFAULT(type) { \
     .wps_type = type, \
     .factory_info = {   \
-        WPS_AGG( .manufacturer = "ESPRESSIF" ),  \
-        WPS_AGG( .model_number = "ESP32" ),  \
-        WPS_AGG( .model_name = "ESPRESSIF IOT" ),  \
-        WPS_AGG( .device_name = "ESP STATION" ),  \
+        ESP_COMPILER_DESIGNATED_INIT_AGGREGATE_TYPE_STR(manufacturer, "ESPRESSIF")  \
+        ESP_COMPILER_DESIGNATED_INIT_AGGREGATE_TYPE_STR(model_number, "ESP32")  \
+        ESP_COMPILER_DESIGNATED_INIT_AGGREGATE_TYPE_STR(model_name, "ESPRESSIF IOT")  \
+        ESP_COMPILER_DESIGNATED_INIT_AGGREGATE_TYPE_STR(device_name, "ESP STATION")  \
     }  \
 }
 
@@ -95,7 +89,7 @@ typedef struct {
   *
   * @param     wps_type_t wps_type : WPS type, so far only WPS_TYPE_PBC and WPS_TYPE_PIN is supported
   *
-  * @return    
+  * @return
   *          - ESP_OK : succeed
   *          - ESP_ERR_WIFI_WPS_TYPE : wps type is invalid
   *          - ESP_ERR_WIFI_WPS_MODE : wifi is not in station mode or sniffer mode is on
@@ -108,7 +102,7 @@ esp_err_t esp_wifi_wps_enable(const esp_wps_config_t *config);
   *
   * @param  null
   *
-  * @return    
+  * @return
   *          - ESP_OK : succeed
   *          - ESP_ERR_WIFI_WPS_MODE : wifi is not in station mode or sniffer mode is on
   */
@@ -123,7 +117,7 @@ esp_err_t esp_wifi_wps_disable(void);
   *          - 0 : non-blocking
   *          - 1~120000 : blocking time (not supported in IDF v1.0)
   *
-  * @return    
+  * @return
   *          - ESP_OK : succeed
   *          - ESP_ERR_WIFI_WPS_TYPE : wps type is invalid
   *          - ESP_ERR_WIFI_WPS_MODE : wifi is not in station mode or sniffer mode is on

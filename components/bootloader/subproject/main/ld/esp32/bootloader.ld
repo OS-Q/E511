@@ -11,8 +11,6 @@ Linker file used to link the bootloader.
 
 MEMORY
 {
-  /* I/O */
-  dport0_seg (RW) :                 	org = 0x3FF00000, len = 0x10
   /* IRAM POOL1, used for APP CPU cache. Bootloader runs from here during the final stage of loading the app because APP CPU is still held in reset, the main app enables APP CPU cache */
   iram_loader_seg (RWX) :           org = 0x40078000, len = 0x8000  /* 32KB, APP CPU cache */
   /* 63kB, IRAM. We skip the first 1k to prevent the entry point being
@@ -40,13 +38,16 @@ SECTIONS
      *(.iram1 .iram1.*) /* catch stray IRAM_ATTR */
     *liblog.a:(.literal .text .literal.* .text.*)
     *libgcc.a:(.literal .text .literal.* .text.*)
-    *libbootloader_support.a:bootloader_clock.*(.literal .text .literal.* .text.*)
-    *libbootloader_support.a:bootloader_common.*(.literal .text .literal.* .text.*)
+    *libbootloader_support.a:bootloader_clock_loader.*(.literal .text .literal.* .text.*)
+    *libbootloader_support.a:bootloader_common_loader.*(.literal .text .literal.* .text.*)
     *libbootloader_support.a:bootloader_flash.*(.literal .text .literal.* .text.*)
     *libbootloader_support.a:bootloader_random.*(.literal .text .literal.* .text.*)
+    *libbootloader_support.a:bootloader_random*.*(.literal.bootloader_random_disable .text.bootloader_random_disable)
     *libbootloader_support.a:bootloader_efuse_esp32.*(.literal .text .literal.* .text.*)
     *libbootloader_support.a:bootloader_utility.*(.literal .text .literal.* .text.*)
     *libbootloader_support.a:bootloader_sha.*(.literal .text .literal.* .text.*)
+    *libbootloader_support.a:bootloader_console_loader.*(.literal .text .literal.* .text.*)
+    *libbootloader_support.a:bootloader_panic.*(.literal .text .literal.* .text.*)
     *libbootloader_support.a:esp_image_format.*(.literal .text .literal.* .text.*)
     *libbootloader_support.a:flash_encrypt.*(.literal .text .literal.* .text.*)
     *libbootloader_support.a:flash_partitions.*(.literal .text .literal.* .text.*)
@@ -54,8 +55,9 @@ SECTIONS
     *libbootloader_support.a:secure_boot_signatures.*(.literal .text .literal.* .text.*)
     *libmicro-ecc.a:*.*(.literal .text .literal.* .text.*)
     *libspi_flash.a:*.*(.literal .text .literal.* .text.*)
-    *libsoc.a:rtc_wdt.*(.literal .text .literal.* .text.*)
-    *libsoc.a:rtc_clk.*(.literal .text .literal.* .text.*)
+    *libhal.a:wdt_hal_iram.*(.literal .text .literal.* .text.*)
+    *libesp_hw_support.a:rtc_clk.*(.literal .text .literal.* .text.*)
+    *libesp_hw_support.a:rtc_time.*(.literal .text .literal.* .text.*)
     *libefuse.a:*.*(.literal .text .literal.* .text.*)
     *(.fini.literal)
     *(.fini)

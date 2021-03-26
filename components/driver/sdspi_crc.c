@@ -13,8 +13,9 @@
 // limitations under the License.
 
 #include <stdint.h>
-#include "esp32/rom/crc.h"
 #include "sdspi_crc.h"
+#include "sdkconfig.h"
+#include "esp_rom_crc.h"
 
 static const uint8_t crc7_table[256] =
 {
@@ -49,5 +50,5 @@ uint8_t sdspi_crc7(const uint8_t *data, size_t size)
 /// Return CRC16 of data, in the on-the-wire format used by SD protocol
 uint16_t sdspi_crc16(const uint8_t* data, size_t size)
 {
-    return __builtin_bswap16(crc16_be(UINT16_MAX, data, size) ^ UINT16_MAX);
+    return __builtin_bswap16(esp_rom_crc16_be(UINT16_MAX, data, size) ^ UINT16_MAX);
 }

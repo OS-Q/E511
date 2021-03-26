@@ -16,7 +16,6 @@ INCLUDE_DIRS := \
 	$(addprefix ../../spi_flash/sim/stubs/, \
 	app_update/include \
 	driver/include \
-	esp32/include \
 	freertos/include \
 	log/include \
 	newlib/include \
@@ -26,6 +25,7 @@ INCLUDE_DIRS := \
 	$(addprefix ../../../components/, \
 	esp_rom/include \
 	esp_common/include \
+	esp_system/include \
 	xtensa/include \
 	xtensa/esp32/include \
 	soc/esp32/include \
@@ -34,5 +34,6 @@ INCLUDE_DIRS := \
 	bootloader_support/include \
 	app_update/include \
 	spi_flash/include \
+	hal/include \
 	wear_levelling/include \
 	)

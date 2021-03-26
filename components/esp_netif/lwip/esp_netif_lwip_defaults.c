@@ -16,6 +16,8 @@
 #include "esp_netif_lwip_internal.h"
 #include "esp_netif_lwip_ppp.h"
 
+#ifdef CONFIG_ESP_NETIF_TCPIP_LWIP
+
 #include "netif/wlanif.h"
 #include "netif/ethernetif.h"
 
@@ -54,7 +56,10 @@ static const struct esp_netif_netstack_config s_netif_config_ppp = {
         }
 };
 
+
 const esp_netif_netstack_config_t *_g_esp_netif_netstack_default_eth      = &s_eth_netif_config;
 const esp_netif_netstack_config_t *_g_esp_netif_netstack_default_wifi_sta = &s_wifi_netif_config_sta;
 const esp_netif_netstack_config_t *_g_esp_netif_netstack_default_wifi_ap  = &s_wifi_netif_config_ap;
 const esp_netif_netstack_config_t *_g_esp_netif_netstack_default_ppp      = &s_netif_config_ppp;
+
+#endif /*CONFIG_ESP_NETIF_TCPIP_LWIP*/

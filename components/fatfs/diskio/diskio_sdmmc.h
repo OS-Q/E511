@@ -15,7 +15,7 @@
 #pragma once
 
 #include "sdmmc_cmd.h"
-#include "driver/sdmmc_host.h"
+#include "driver/sdmmc_defs.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,7 +29,14 @@ extern "C" {
  */
 void ff_diskio_register_sdmmc(unsigned char pdrv, sdmmc_card_t* card);
 
+/**
+ * @brief Get the driver number corresponding to a card
+ *
+ * @param card The card to get its driver
+ * @return Driver number to the card
+ */
+BYTE ff_diskio_get_pdrv_card(const sdmmc_card_t* card);
+
 #ifdef __cplusplus
 }
 #endif
-

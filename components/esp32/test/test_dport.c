@@ -12,10 +12,12 @@
 #include "soc/cpu.h"
 #include "unity.h"
 #include "test_utils.h"
-#include "esp32/rom/uart.h"
-#include "soc/uart_periph.h"
+#include "esp_rom_uart.h"
+#include "hal/uart_types.h"
+#include "hal/uart_ll.h"
 #include "soc/dport_reg.h"
 #include "soc/rtc.h"
+#include "hal/cpu_hal.h"
 #include "esp_intr_alloc.h"
 #include "driver/timer.h"
 
@@ -127,9 +129,10 @@ void run_tasks_with_change_freq_cpu(int cpu_freq_mhz)
         bool res = rtc_clk_cpu_freq_mhz_to_config(cpu_freq_mhz, &new_config);
         assert(res && "invalid frequency value");
 
-        uart_tx_wait_idle(uart_num);
+        esp_rom_uart_tx_wait_idle(uart_num);
         rtc_clk_cpu_freq_set_config(&new_config);
-        uart_div_modify(uart_num, (rtc_clk_apb_freq_get() << 4) / uart_baud);
+        uart_ll_set_sclk(UART_LL_GET_HW(uart_num), UART_SCLK_APB);
+        uart_ll_set_baudrate(UART_LL_GET_HW(uart_num), uart_baud);
         /* adjust RTOS ticks */
         _xt_tick_divisor = cpu_freq_mhz * 1000000 / XT_TICK_PER_SEC;
         vTaskDelay(2);
@@ -139,9 +142,10 @@ void run_tasks_with_change_freq_cpu(int cpu_freq_mhz)
     run_tasks("accessDPORT", accessDPORT, "accessAPB", accessAPB, 10000);
 
     // return old freq.
-    uart_tx_wait_idle(uart_num);
+    esp_rom_uart_tx_wait_idle(uart_num);
     rtc_clk_cpu_freq_set_config(&old_config);
-    uart_div_modify(uart_num, (rtc_clk_apb_freq_get() << 4) / uart_baud);
+    uart_ll_set_sclk(UART_LL_GET_HW(uart_num), UART_SCLK_APB);
+    uart_ll_set_baudrate(UART_LL_GET_HW(uart_num), uart_baud);
     _xt_tick_divisor = old_config.freq_mhz * 1000000 / XT_TICK_PER_SEC;
 }
 
@@ -353,7 +357,7 @@ static void accessDPORT2_stall_other_cpu(void *pvParameters)
     dport_test_result = true;
     while (exit_flag == false) {
         DPORT_STALL_OTHER_CPU_START();
-        XTHAL_SET_CCOMPARE(2, XTHAL_GET_CCOUNT());
+        XTHAL_SET_CCOMPARE(2, cpu_hal_get_cycle_count());
         xt_highint5_read_apb = 1;
         for (int i = 0; i < 200; ++i) {
             if (_DPORT_REG_READ(DPORT_DATE_REG) != _DPORT_REG_READ(DPORT_DATE_REG)) {
@@ -390,7 +394,7 @@ static void accessDPORT2(void *pvParameters)
     TEST_ESP_OK(esp_intr_alloc(ETS_INTERNAL_TIMER2_INTR_SOURCE, ESP_INTR_FLAG_LEVEL5 | ESP_INTR_FLAG_IRAM, NULL, NULL, &inth));
 
     while (exit_flag == false) {
-        XTHAL_SET_CCOMPARE(2, XTHAL_GET_CCOUNT() + 21);
+        XTHAL_SET_CCOMPARE(2, cpu_hal_get_cycle_count() + 21);
         for (int i = 0; i < 200; ++i) {
             if (DPORT_REG_READ(DPORT_DATE_REG) != DPORT_REG_READ(DPORT_DATE_REG)) {
                 dport_test_result = false;
@@ -438,7 +442,7 @@ static uint32_t IRAM_ATTR test_dport_access_reg_read(uint32_t reg)
 #else
     uint32_t apb;
     unsigned int intLvl;
-    XTHAL_SET_CCOMPARE(2, XTHAL_GET_CCOUNT() + s_shift_counter);
+    XTHAL_SET_CCOMPARE(2, cpu_hal_get_cycle_count() + s_shift_counter);
     __asm__ __volatile__ (\
                   /* "movi %[APB], "XTSTR(0x3ff40078)"\n" */ /* (1) uncomment for reproduce issue */ \
                   "bnez %[APB], kl1\n" /* this branch command helps get good reproducing */ \

@@ -827,7 +827,6 @@ void l2c_process_held_packets(BOOLEAN timed_out)
 *******************************************************************************/
 void l2c_init (void)
 {
-    INT16  xx;
 #if L2C_DYNAMIC_MEMORY
     l2c_cb_ptr = (tL2C_CB *)osi_malloc(sizeof(tL2C_CB));
 #endif /* #if L2C_DYNAMIC_MEMORY */
@@ -835,9 +834,13 @@ void l2c_init (void)
     /* the psm is increased by 2 before being used */
     l2cb.dyn_psm = 0xFFF;
 
-    /* Put all the channel control blocks on the free queue */
-    for (xx = 0; xx < MAX_L2CAP_CHANNELS - 1; xx++) {
-        l2cb.ccb_pool[xx].p_next_ccb = &l2cb.ccb_pool[xx + 1];
+    l2cb.p_ccb_pool = list_new(osi_free_func);
+    if (l2cb.p_ccb_pool == NULL) {
+        L2CAP_TRACE_ERROR("%s unable to allocate memory for L2CAP channel control block", __func__);
+    }
+    l2cb.p_lcb_pool = list_new(osi_free_func);
+    if (l2cb.p_lcb_pool == NULL) {
+        L2CAP_TRACE_ERROR("%s unable to allocate memory for L2CAP Link control block", __func__);
     }
 
 #if (L2CAP_NON_FLUSHABLE_PB_INCLUDED == TRUE)
@@ -846,8 +849,6 @@ void l2c_init (void)
 #endif
 
 
-    l2cb.p_free_ccb_first = &l2cb.ccb_pool[0];
-    l2cb.p_free_ccb_last  = &l2cb.ccb_pool[MAX_L2CAP_CHANNELS - 1];
 
 #ifdef L2CAP_DESIRED_LINK_ROLE
     l2cb.desire_role      = L2CAP_DESIRED_LINK_ROLE;
@@ -887,11 +888,40 @@ void l2c_init (void)
     l2ble_update_att_acl_pkt_num(L2CA_BUFF_INI, NULL);
 #endif
 }
+void l2c_free_p_lcb_pool(void)
+{
+    list_node_t *p_node = NULL;
+    tL2C_LCB    *p_lcb  = NULL;
+    for (p_node = list_begin(l2cb.p_lcb_pool); p_node; p_node = list_next(p_node)) {
+        p_lcb = list_node(p_node);
+        if (p_lcb) {
+            l2cu_release_lcb (p_lcb);
+        }
+    }
+
+    list_free(l2cb.p_lcb_pool);
+}
+
+void l2c_free_p_ccb_pool(void)
+{
+    list_node_t *p_node = NULL;
+    tL2C_CCB    *p_ccb  = NULL;
+    for (p_node = list_begin(l2cb.p_ccb_pool); p_node; p_node = list_next(p_node)) {
+        p_ccb = list_node(p_node);
+        if (p_ccb) {
+            l2cu_release_ccb (p_ccb);
+        }
+    }
+
+    list_free(l2cb.p_ccb_pool);
+}
 
 void l2c_free(void)
 {
     list_free(l2cb.rcv_pending_q);
     l2cb.rcv_pending_q = NULL;
+    l2c_free_p_lcb_pool();
+    l2c_free_p_ccb_pool();
 #if L2C_DYNAMIC_MEMORY
     FREE_AND_RESET(l2c_cb_ptr);
 #endif
@@ -1005,5 +1035,3 @@ UINT8 l2c_data_write (UINT16 cid, BT_HDR *p_data, UINT16 flags)
     return (L2CAP_DW_SUCCESS);
 }
 #endif  ///CLASSIC_BT_INCLUDED == TRUE
-
-

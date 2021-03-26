@@ -3,7 +3,7 @@ archive: libxtensa.a
 entries:
     eri (noflash_text)
 
-[mapping:hal]
-archive: libhal.a
+[mapping:xt_hal]
+archive: libxt_hal.a
 entries:
     * (noflash_text)

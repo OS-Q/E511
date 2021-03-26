@@ -21,6 +21,12 @@
 #include "esp_heap_caps.h"
 #include "sdkconfig.h"
 
+#ifdef CONFIG_ESP32_IRAM_AS_8BIT_ACCESSIBLE_MEMORY
+#define MALLOC_IRAM_CAP MALLOC_CAP_EXEC|MALLOC_CAP_32BIT|MALLOC_CAP_IRAM_8BIT
+#else
+#define MALLOC_IRAM_CAP MALLOC_CAP_EXEC|MALLOC_CAP_32BIT
+#endif
+
 /* Memory layout for ESP32 SoC */
 
 /*
@@ -45,14 +51,14 @@ const soc_memory_type_desc_t soc_memory_types[] = {
     //(This DRAM is also the region used by ROM during startup)
     { "D/IRAM", { 0, MALLOC_CAP_DMA|MALLOC_CAP_8BIT|MALLOC_CAP_INTERNAL|MALLOC_CAP_DEFAULT, MALLOC_CAP_32BIT|MALLOC_CAP_EXEC }, true, true},
     //Type 2: IRAM
-    { "IRAM", { MALLOC_CAP_EXEC|MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL, 0, 0 }, false, false},
+    { "IRAM", { MALLOC_CAP_INTERNAL|MALLOC_IRAM_CAP, 0, 0 }, false, false},
     //Type 3-8: PID 2-7 IRAM
-    { "PID2IRAM", { MALLOC_CAP_PID2|MALLOC_CAP_INTERNAL, 0, MALLOC_CAP_EXEC|MALLOC_CAP_32BIT }, false, false},
-    { "PID3IRAM", { MALLOC_CAP_PID3|MALLOC_CAP_INTERNAL, 0, MALLOC_CAP_EXEC|MALLOC_CAP_32BIT }, false, false},
-    { "PID4IRAM", { MALLOC_CAP_PID4|MALLOC_CAP_INTERNAL, 0, MALLOC_CAP_EXEC|MALLOC_CAP_32BIT }, false, false},
-    { "PID5IRAM", { MALLOC_CAP_PID5|MALLOC_CAP_INTERNAL, 0, MALLOC_CAP_EXEC|MALLOC_CAP_32BIT }, false, false},
-    { "PID6IRAM", { MALLOC_CAP_PID6|MALLOC_CAP_INTERNAL, 0, MALLOC_CAP_EXEC|MALLOC_CAP_32BIT }, false, false},
-    { "PID7IRAM", { MALLOC_CAP_PID7|MALLOC_CAP_INTERNAL, 0, MALLOC_CAP_EXEC|MALLOC_CAP_32BIT }, false, false},
+    { "PID2IRAM", { MALLOC_CAP_PID2|MALLOC_CAP_INTERNAL, 0, MALLOC_IRAM_CAP }, false, false},
+    { "PID3IRAM", { MALLOC_CAP_PID3|MALLOC_CAP_INTERNAL, 0, MALLOC_IRAM_CAP }, false, false},
+    { "PID4IRAM", { MALLOC_CAP_PID4|MALLOC_CAP_INTERNAL, 0, MALLOC_IRAM_CAP }, false, false},
+    { "PID5IRAM", { MALLOC_CAP_PID5|MALLOC_CAP_INTERNAL, 0, MALLOC_IRAM_CAP }, false, false},
+    { "PID6IRAM", { MALLOC_CAP_PID6|MALLOC_CAP_INTERNAL, 0, MALLOC_IRAM_CAP }, false, false},
+    { "PID7IRAM", { MALLOC_CAP_PID7|MALLOC_CAP_INTERNAL, 0, MALLOC_IRAM_CAP }, false, false},
     //Type 9-14: PID 2-7 DRAM
     { "PID2DRAM", { MALLOC_CAP_PID2|MALLOC_CAP_INTERNAL, MALLOC_CAP_8BIT, MALLOC_CAP_32BIT|MALLOC_CAP_DEFAULT }, false, false},
     { "PID3DRAM", { MALLOC_CAP_PID3|MALLOC_CAP_INTERNAL, MALLOC_CAP_8BIT, MALLOC_CAP_32BIT|MALLOC_CAP_DEFAULT }, false, false},
@@ -60,20 +66,13 @@ const soc_memory_type_desc_t soc_memory_types[] = {
     { "PID5DRAM", { MALLOC_CAP_PID5|MALLOC_CAP_INTERNAL, MALLOC_CAP_8BIT, MALLOC_CAP_32BIT|MALLOC_CAP_DEFAULT }, false, false},
     { "PID6DRAM", { MALLOC_CAP_PID6|MALLOC_CAP_INTERNAL, MALLOC_CAP_8BIT, MALLOC_CAP_32BIT|MALLOC_CAP_DEFAULT }, false, false},
     { "PID7DRAM", { MALLOC_CAP_PID7|MALLOC_CAP_INTERNAL, MALLOC_CAP_8BIT, MALLOC_CAP_32BIT|MALLOC_CAP_DEFAULT }, false, false},
-#ifdef CONFIG_SPIRAM
     //Type 15: SPI SRAM data
     { "SPIRAM", { MALLOC_CAP_SPIRAM|MALLOC_CAP_DEFAULT, 0, MALLOC_CAP_8BIT|MALLOC_CAP_32BIT}, false, false},
-#endif
+    //Type 16: RTC Fast RAM
+    { "RTCRAM", { MALLOC_CAP_8BIT|MALLOC_CAP_DEFAULT, MALLOC_CAP_INTERNAL|MALLOC_CAP_32BIT, 0 }, false, false},
 };
 
 const size_t soc_memory_type_count = sizeof(soc_memory_types)/sizeof(soc_memory_type_desc_t);
-
-#if CONFIG_SPIRAM_SIZE == -1
-// Assume we need to reserve 4MB in the auto-detection case
-#define RESERVE_SPIRAM_SIZE (4*1024*1024)
-#else
-#define RESERVE_SPIRAM_SIZE CONFIG_SPIRAM_SIZE
-#endif
 
 /*
 Region descriptors. These describe all regions of memory available, and map them to a type in the above type.
@@ -82,8 +81,11 @@ Because of requirements in the coalescing code which merges adjacent regions, th
 from low to high start address.
 */
 const soc_memory_region_t soc_memory_regions[] = {
+#ifdef CONFIG_ESP_SYSTEM_ALLOW_RTC_FAST_MEM_AS_HEAP
+    { SOC_RTC_DRAM_LOW, 0x2000, 16, 0}, //RTC Fast Memory
+#endif
 #ifdef CONFIG_SPIRAM
-    { SOC_EXTRAM_DATA_LOW, RESERVE_SPIRAM_SIZE, 15, 0}, //SPI SRAM, if available
+    { SOC_EXTRAM_DATA_LOW, SOC_EXTRAM_DATA_SIZE, 15, 0}, //SPI SRAM, if available
 #endif
     { 0x3FFAE000, 0x2000, 0, 0}, //pool 16 <- used for rom code
     { 0x3FFB0000, 0x8000, 0, 0}, //pool 15 <- if BT is enabled, used as BT HW shared memory
@@ -174,7 +176,26 @@ SOC_RESERVE_MEMORY_REGION(0x3fffc000, 0x40000000, trace_mem); //Reserve trace me
 #endif
 
 #ifdef CONFIG_SPIRAM
-SOC_RESERVE_MEMORY_REGION(SOC_EXTRAM_DATA_LOW, SOC_EXTRAM_DATA_LOW + RESERVE_SPIRAM_SIZE, spi_ram); //SPI RAM gets added later if needed, in spiram.c; reserve it for now
+/* Reserve the whole possible SPIRAM region here, spiram.c will add some or all of this
+ * memory to heap depending on the actual SPIRAM chip size. */
+SOC_RESERVE_MEMORY_REGION(SOC_EXTRAM_DATA_LOW, SOC_EXTRAM_DATA_HIGH, spi_ram);
+#endif
+
+extern int _data_start, _heap_start, _iram_start, _iram_end, _rtc_force_fast_end, _rtc_noinit_end;
+// Static data region. DRAM used by data+bss and possibly rodata
+SOC_RESERVE_MEMORY_REGION((intptr_t)&_data_start, (intptr_t)&_heap_start, dram_data);
+
+// IRAM code region
+// ESP32 has an IRAM-only region 0x4008_0000 - 0x4009_FFFF, reserve the used part
+SOC_RESERVE_MEMORY_REGION((intptr_t)&_iram_start, (intptr_t)&_iram_end, iram_code);
+
+// RTC Fast RAM region
+#ifdef CONFIG_ESP_SYSTEM_ALLOW_RTC_FAST_MEM_AS_HEAP
+#ifdef CONFIG_ESP32_RTCDATA_IN_FAST_MEM
+SOC_RESERVE_MEMORY_REGION(SOC_RTC_DRAM_LOW, (intptr_t)&_rtc_noinit_end, rtcram_data);
+#else
+SOC_RESERVE_MEMORY_REGION(SOC_RTC_DRAM_LOW, (intptr_t)&_rtc_force_fast_end, rtcram_data);
+#endif
 #endif
 
 #endif /* BOOTLOADER_BUILD */

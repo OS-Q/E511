@@ -80,12 +80,14 @@ static esp_err_t esp_ping_send(esp_ping_t *ep)
     ep->packet_hdr->seqno++;
     /* generate checksum since "seqno" has changed */
     ep->packet_hdr->chksum = 0;
-    ep->packet_hdr->chksum = inet_chksum(ep->packet_hdr, ep->icmp_pkt_size);
+    if (ep->packet_hdr->type == ICMP_ECHO) {
+        ep->packet_hdr->chksum = inet_chksum(ep->packet_hdr, ep->icmp_pkt_size);
+    }
 
-    int sent = sendto(ep->sock, ep->packet_hdr, ep->icmp_pkt_size, 0,
+    ssize_t sent = sendto(ep->sock, ep->packet_hdr, ep->icmp_pkt_size, 0,
                       (struct sockaddr *)&ep->target_addr, sizeof(ep->target_addr));
 
-    if (sent != ep->icmp_pkt_size) {
+    if (sent != (ssize_t)ep->icmp_pkt_size) {
         int opt_val;
         socklen_t opt_len = sizeof(opt_val);
         getsockopt(ep->sock, SOL_SOCKET, SO_ERROR, &opt_val, &opt_len);
@@ -103,32 +105,47 @@ static int esp_ping_receive(esp_ping_t *ep)
     int len = 0;
     struct sockaddr_storage from;
     int fromlen = sizeof(from);
+    uint16_t data_head = 0;
 
     while ((len = recvfrom(ep->sock, buf, sizeof(buf), 0, (struct sockaddr *)&from, (socklen_t *)&fromlen)) > 0) {
-        if (len >= (int)(sizeof(struct ip_hdr) + sizeof(struct icmp_echo_hdr))) {
-            ep->recv_len = (uint32_t)len;
-            if (from.ss_family == AF_INET) {
-                // IPv4
-                struct sockaddr_in *from4 = (struct sockaddr_in *)&from;
-                inet_addr_to_ip4addr(ip_2_ip4(&ep->recv_addr), &from4->sin_addr);
-                IP_SET_TYPE_VAL(ep->recv_addr, IPADDR_TYPE_V4);
-            } else {
-                // IPv6
-                struct sockaddr_in6 *from6 = (struct sockaddr_in6 *)&from;
-                inet6_addr_to_ip6addr(ip_2_ip6(&ep->recv_addr), &from6->sin6_addr);
-                IP_SET_TYPE_VAL(ep->recv_addr, IPADDR_TYPE_V6);
-            }
-
-            // Currently we only process IPv4
-            if (IP_IS_V4_VAL(ep->recv_addr)) {
+        if (from.ss_family == AF_INET) {
+            // IPv4
+            struct sockaddr_in *from4 = (struct sockaddr_in *)&from;
+            inet_addr_to_ip4addr(ip_2_ip4(&ep->recv_addr), &from4->sin_addr);
+            IP_SET_TYPE_VAL(ep->recv_addr, IPADDR_TYPE_V4);
+            data_head = (uint16_t)(sizeof(struct ip_hdr) + sizeof(struct icmp_echo_hdr));
+        }
+#if CONFIG_LWIP_IPV6
+        else {
+            // IPv6
+            struct sockaddr_in6 *from6 = (struct sockaddr_in6 *)&from;
+            inet6_addr_to_ip6addr(ip_2_ip6(&ep->recv_addr), &from6->sin6_addr);
+            IP_SET_TYPE_VAL(ep->recv_addr, IPADDR_TYPE_V6);
+            data_head = (uint16_t)(sizeof(struct ip6_hdr) + sizeof(struct icmp6_echo_hdr));
+        }
+#endif
+        if (len >= data_head) {
+            if (IP_IS_V4_VAL(ep->recv_addr)) {              // Currently we process IPv4
                 struct ip_hdr *iphdr = (struct ip_hdr *)buf;
                 struct icmp_echo_hdr *iecho = (struct icmp_echo_hdr *)(buf + (IPH_HL(iphdr) * 4));
                 if ((iecho->id == ep->packet_hdr->id) && (iecho->seqno == ep->packet_hdr->seqno)) {
                     ep->received++;
                     ep->ttl = iphdr->_ttl;
+                    ep->recv_len = lwip_ntohs(IPH_LEN(iphdr)) - data_head;  // The data portion of ICMP
                     return len;
                 }
             }
+#if CONFIG_LWIP_IPV6
+            else if (IP_IS_V6_VAL(ep->recv_addr)) {      // Currently we process IPv6
+                struct ip6_hdr *iphdr = (struct ip6_hdr *)buf;
+                struct icmp6_echo_hdr *iecho6 = (struct icmp6_echo_hdr *)(buf + sizeof(struct ip6_hdr)); // IPv6 head length is 40
+                if ((iecho6->id == ep->packet_hdr->id) && (iecho6->seqno == ep->packet_hdr->seqno)) {
+                    ep->received++;
+                    ep->recv_len = IP6H_PLEN(iphdr) - sizeof(struct icmp6_echo_hdr); //The data portion of ICMPv6
+                    return len;
+                }
+            }
+#endif
         }
         fromlen = sizeof(from);
     }
@@ -169,7 +186,9 @@ static void esp_ping_thread(void *args)
                         ep->on_ping_timeout((esp_ping_handle_t)ep, ep->cb_args);
                     }
                 }
-                vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(ep->interval_ms)); // to get a more accurate delay
+                if (pdMS_TO_TICKS(ep->interval_ms)) {
+                    vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(ep->interval_ms)); // to get a more accurate delay
+                }
             }
             /* batch of ping operations finished */
             if (ep->on_ping_end) {
@@ -226,7 +245,6 @@ esp_err_t esp_ping_new_session(const esp_ping_config_t *config, const esp_ping_c
     ep->packet_hdr = mem_calloc(1, ep->icmp_pkt_size);
     PING_CHECK(ep->packet_hdr, "no memory for echo packet", err, ESP_ERR_NO_MEM);
     /* set ICMP type and code field */
-    ep->packet_hdr->type = ICMP_ECHO;
     ep->packet_hdr->code = 0;
     /* ping id should be unique, treat task handle as ping ID */
     ep->packet_hdr->id = ((uint32_t)ep->ping_task_hdl) & 0xFFFF;
@@ -237,13 +255,29 @@ esp_err_t esp_ping_new_session(const esp_ping_config_t *config, const esp_ping_c
     }
 
     /* create socket */
-    if (IP_IS_V4(&config->target_addr) || ip6_addr_isipv4mappedipv6(ip_2_ip6(&config->target_addr))) {
+    if (IP_IS_V4(&config->target_addr)
+#if CONFIG_LWIP_IPV6
+        || ip6_addr_isipv4mappedipv6(ip_2_ip6(&config->target_addr))
+#endif
+    ) {
         ep->sock = socket(AF_INET, SOCK_RAW, IP_PROTO_ICMP);
-    } else {
+    }
+#if CONFIG_LWIP_IPV6
+    else {
         ep->sock = socket(AF_INET6, SOCK_RAW, IP6_NEXTH_ICMP6);
     }
+#endif
     PING_CHECK(ep->sock > 0, "create socket failed: %d", err, ESP_FAIL, ep->sock);
-
+    /* set if index */
+    if(config->interface) {
+        struct ifreq iface;
+        if(netif_index_to_name(config->interface, iface.ifr_name) == NULL) {
+          goto err;
+        }
+        if(setsockopt(ep->sock, SOL_SOCKET, SO_BINDTODEVICE, &iface, sizeof(iface) !=0)) {
+          goto err;
+        }
+    }
     struct timeval timeout;
     timeout.tv_sec = config->timeout_ms / 1000;
     timeout.tv_usec = (config->timeout_ms % 1000) * 1000;
@@ -258,12 +292,16 @@ esp_err_t esp_ping_new_session(const esp_ping_config_t *config, const esp_ping_c
         struct sockaddr_in *to4 = (struct sockaddr_in *)&ep->target_addr;
         to4->sin_family = AF_INET;
         inet_addr_from_ip4addr(&to4->sin_addr, ip_2_ip4(&config->target_addr));
+        ep->packet_hdr->type = ICMP_ECHO;
     }
+#if CONFIG_LWIP_IPV6
     if (IP_IS_V6(&config->target_addr)) {
         struct sockaddr_in6 *to6 = (struct sockaddr_in6 *)&ep->target_addr;
         to6->sin6_family = AF_INET6;
         inet6_addr_from_ip6addr(&to6->sin6_addr, ip_2_ip6(&config->target_addr));
+        ep->packet_hdr->type = ICMP6_TYPE_EREQ;
     }
+#endif
     /* return ping handle to user */
     *hdl_out = (esp_ping_handle_t)ep;
     return ESP_OK;

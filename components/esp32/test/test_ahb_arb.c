@@ -2,9 +2,7 @@
 #include <esp_types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "esp32/rom/ets_sys.h"
 #include "esp32/rom/lldesc.h"
-#include "esp32/rom/gpio.h"
 #include "driver/periph_ctrl.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -288,4 +286,3 @@ TEST_CASE("S32C1I vs AHB test (needs I2S)", "[hw][ignore]")
         vTaskDelete(th[i]);
     }
 }
-

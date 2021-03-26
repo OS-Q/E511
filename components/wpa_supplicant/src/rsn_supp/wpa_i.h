@@ -90,6 +90,8 @@ struct wpa_sm {
     u16 txcb_flags;
     bool   ap_notify_completed_rsne;
     wifi_pmf_config_t pmf_cfg;
+    u8 eapol1_count;
+    struct rsn_sppamsdu_sup spp_sup;
 };
 
 /**
@@ -168,4 +170,3 @@ int wpa_set_bss(char *macddr, char * bssid, u8 pairwise_cipher, u8 group_cipher,
 
 int wpa_sm_rx_eapol(u8 *src_addr, u8 *buf, u32 len);
 #endif /* WPA_I_H */
-

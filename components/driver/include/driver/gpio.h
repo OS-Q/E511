@@ -19,13 +19,22 @@
 #include <esp_bit_defs.h>
 #include "esp_attr.h"
 #include "esp_intr_alloc.h"
+#include "soc/soc_caps.h"
 #include "soc/gpio_periph.h"
 #include "hal/gpio_types.h"
 
+// |================================= WARNING ====================================================== |
+// | Including ROM header file in a PUBLIC API file will be REMOVED in the next major release (5.x). |
+// | User should include "esp_rom_gpio.h" in their code if they have to use those ROM API.           |
+// |================================================================================================ |
 #if CONFIG_IDF_TARGET_ESP32
 #include "esp32/rom/gpio.h"
-#elif CONFIG_IDF_TARGET_ESP32S2BETA
-#include "esp32s2beta/rom/gpio.h"
+#elif CONFIG_IDF_TARGET_ESP32S2
+#include "esp32s2/rom/gpio.h"
+#elif CONFIG_IDF_TARGET_ESP32S3
+#include "esp32s3/rom/gpio.h"
+#elif CONFIG_IDF_TARGET_ESP32C3
+#include "esp32c3/rom/gpio.h"
 #endif
 
 #ifdef CONFIG_LEGACY_INCLUDE_COMMON_HEADERS
@@ -35,6 +44,13 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define GPIO_PIN_COUNT                      (SOC_GPIO_PIN_COUNT)
+/// Check whether it is a valid GPIO number
+#define GPIO_IS_VALID_GPIO(gpio_num)        (((1ULL << (gpio_num)) & SOC_GPIO_VALID_GPIO_MASK) != 0)
+/// Check whether it can be a valid GPIO number of output mode
+#define GPIO_IS_VALID_OUTPUT_GPIO(gpio_num) (((1ULL << (gpio_num)) & SOC_GPIO_VALID_OUTPUT_GPIO_MASK) != 0)
+
 
 typedef intr_handle_t gpio_isr_handle_t;
 
@@ -81,9 +97,11 @@ esp_err_t gpio_set_intr_type(gpio_num_t gpio_num, gpio_int_type_t intr_type);
 /**
  * @brief  Enable GPIO module interrupt signal
  *
- * @note Please do not use the interrupt of GPIO36 and GPIO39 when using ADC.
+ * @note Please do not use the interrupt of GPIO36 and GPIO39 when using ADC or Wi-Fi with sleep mode enabled.
  *       Please refer to the comments of `adc1_get_raw`.
  *       Please refer to section 3.11 of 'ECO_and_Workarounds_for_Bugs_in_ESP32' for the description of this issue.
+ *       As a workaround, call adc_power_acquire() in the app. This will result in higher power consumption (by ~1mA),
+ *       but will remove the glitches on GPIO36 and GPIO39.
  *
  * @param  gpio_num GPIO number. If you want to enable an interrupt on e.g. GPIO16, gpio_num should be GPIO_NUM_16 (16);
  *
@@ -415,7 +433,7 @@ void gpio_iomux_in(uint32_t gpio_num, uint32_t signal_idx);
   */
 void gpio_iomux_out(uint8_t gpio_num, int func, bool oen_inv);
 
-#if GPIO_SUPPORTS_FORCE_HOLD
+#if SOC_GPIO_SUPPORT_FORCE_HOLD
 /**
   * @brief Force hold digital and rtc gpio pad.
   * @note GPIO force hold, whether the chip in sleep mode or wakeup mode.
@@ -429,7 +447,109 @@ esp_err_t gpio_force_hold_all(void);
 esp_err_t gpio_force_unhold_all(void);
 #endif
 
+#if SOC_GPIO_SUPPORT_SLP_SWITCH
+/**
+  * @brief Enable SLP_SEL to change GPIO status automantically in lightsleep.
+  * @param gpio_num GPIO number of the pad.
+  *
+  * @return
+  *     - ESP_OK Success
+  *
+  */
+esp_err_t gpio_sleep_sel_en(gpio_num_t gpio_num);
+
+/**
+  * @brief Disable SLP_SEL to change GPIO status automantically in lightsleep.
+  * @param gpio_num GPIO number of the pad.
+  *
+  * @return
+  *     - ESP_OK Success
+  */
+esp_err_t gpio_sleep_sel_dis(gpio_num_t gpio_num);
+
+/**
+ * @brief	 GPIO set direction at sleep
+ *
+ * Configure GPIO direction,such as output_only,input_only,output_and_input
+ *
+ * @param  gpio_num  Configure GPIO pins number, it should be GPIO number. If you want to set direction of e.g. GPIO16, gpio_num should be GPIO_NUM_16 (16);
+ * @param  mode GPIO direction
+ *
+ * @return
+ *     - ESP_OK Success
+ *     - ESP_ERR_INVALID_ARG GPIO error
+ */
+esp_err_t gpio_sleep_set_direction(gpio_num_t gpio_num, gpio_mode_t mode);
+
+/**
+ * @brief  Configure GPIO pull-up/pull-down resistors at sleep
+ *
+ * Only pins that support both input & output have integrated pull-up and pull-down resistors. Input-only GPIOs 34-39 do not.
+ *
+ * @param  gpio_num GPIO number. If you want to set pull up or down mode for e.g. GPIO16, gpio_num should be GPIO_NUM_16 (16);
+ * @param  pull GPIO pull up/down mode.
+ *
+ * @return
+ *     - ESP_OK Success
+ *     - ESP_ERR_INVALID_ARG : Parameter error
+ */
+esp_err_t gpio_sleep_set_pull_mode(gpio_num_t gpio_num, gpio_pull_mode_t pull);
+
+#if CONFIG_GPIO_ESP32_SUPPORT_SWITCH_SLP_PULL
+/**
+  * @brief Emulate ESP32S2 behaviour to backup FUN_PU, FUN_PD information
+  *
+  * @note Need to be called before sleep.
+  *
+  * @return
+  *      - ESP_OK Success
+  */
+esp_err_t gpio_sleep_pupd_config_apply(gpio_num_t gpio_num);
+
+/**
+  * @brief Emulate ESP32S2 behaviour to restore FUN_PU, FUN_PD information
+  *
+  * @note Need to be called after sleep.
+  *
+  * @return
+  *      - ESP_OK Success
+  */
+esp_err_t gpio_sleep_pupd_config_unapply(gpio_num_t gpio_num);
+#endif
+#endif
+
+#if SOC_GPIO_SUPPORT_DEEPSLEEP_WAKEUP
+
+#define GPIO_IS_DEEP_SLEEP_WAKEUP_VALID_GPIO(gpio_num)        ((gpio_num & ~SOC_GPIO_DEEP_SLEEP_WAKEUP_VALID_GPIO_MASK) == 0)
+
+/**
+ * @brief Enable GPIO deep-sleep wake-up function.
+ *
+ * @param gpio_num GPIO number.
+ *
+ * @param intr_type GPIO wake-up type. Only GPIO_INTR_LOW_LEVEL or GPIO_INTR_HIGH_LEVEL can be used.
+ *
+ * @note Called by the SDK. User shouldn't call this directly in the APP.
+ *
+ * @return
+ *     - ESP_OK Success
+ *     - ESP_ERR_INVALID_ARG Parameter error
+ */
+esp_err_t gpio_deep_sleep_wakeup_enable(gpio_num_t gpio_num, gpio_int_type_t intr_type);
+
+/**
+ * @brief Disable GPIO deep-sleep wake-up function.
+ *
+ * @param gpio_num GPIO number
+ *
+ * @return
+ *     - ESP_OK Success
+ *     - ESP_ERR_INVALID_ARG Parameter error
+ */
+esp_err_t gpio_deep_sleep_wakeup_disable(gpio_num_t gpio_num);
+
+#endif
+
 #ifdef __cplusplus
 }
 #endif
-

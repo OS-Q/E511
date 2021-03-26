@@ -10,6 +10,7 @@ choice BT_NIMBLE_MEM_ALLOC_MODE
         - External SPIRAM memory only
         - Either internal or external memory based on default malloc()
           behavior in ESP-IDF
+        - Internal IRAM memory wherever applicable else internal DRAM
 
         Recommended mode here is always internal, since that is most preferred
         from security perspective. But if application requirement does not
@@ -26,7 +27,48 @@ choice BT_NIMBLE_MEM_ALLOC_MODE
     config BT_NIMBLE_MEM_ALLOC_MODE_DEFAULT
         bool "Default alloc mode"
 
-endchoice
+    config BT_NIMBLE_MEM_ALLOC_MODE_IRAM_8BIT
+        bool "Internal IRAM"
+        depends on ESP32_IRAM_AS_8BIT_ACCESSIBLE_MEMORY
+        help
+            Allows to use IRAM memory region as 8bit accessible region.
+
+            Every unaligned (8bit or 16bit) access will result in an exception
+            and incur penalty of certain clock cycles per unaligned read/write.
+
+endchoice #BT_NIMBLE_MEM_ALLOC_MODE
+
+choice BT_NIMBLE_LOG_LEVEL
+    prompt "NimBLE Host log verbosity"
+    depends on BT_NIMBLE_ENABLED
+    default BT_NIMBLE_LOG_LEVEL_INFO
+    help
+        Select NimBLE log level. Please make a note that the selected NimBLE log
+        verbosity can not exceed the level set in "Component config --> Log output
+        --> Default log verbosity".
+
+    config BT_NIMBLE_LOG_LEVEL_NONE
+        bool "No logs"
+    config BT_NIMBLE_LOG_LEVEL_CRIT
+        bool "Critical logs"
+    config BT_NIMBLE_LOG_LEVEL_ERROR
+        bool "Error logs"
+    config BT_NIMBLE_LOG_LEVEL_WARNING
+        bool "Warning logs"
+    config BT_NIMBLE_LOG_LEVEL_INFO
+        bool "Info logs"
+    config BT_NIMBLE_LOG_LEVEL_DEBUG
+        bool "Debug logs"
+endchoice #BT_NIMBLE_LOG_LEVEL
+
+config BT_NIMBLE_LOG_LEVEL
+    int
+    default 0 if BT_NIMBLE_LOG_LEVEL_DEBUG
+    default 1 if BT_NIMBLE_LOG_LEVEL_INFO
+    default 2 if BT_NIMBLE_LOG_LEVEL_WARNING
+    default 3 if BT_NIMBLE_LOG_LEVEL_ERROR
+    default 4 if BT_NIMBLE_LOG_LEVEL_CRIT
+    default 5 if BT_NIMBLE_LOG_LEVEL_NONE
 
 config BT_NIMBLE_MAX_CONNECTIONS
     int "Maximum number of concurrent connections"
@@ -177,7 +219,7 @@ config BT_NIMBLE_SVC_GAP_APPEARANCE
 config BT_NIMBLE_ACL_BUF_COUNT
     int "ACL Buffer count"
     depends on BT_NIMBLE_ENABLED
-    default 12
+    default 20
     help
         The number of ACL data buffers.
 
@@ -192,9 +234,12 @@ config BT_NIMBLE_ACL_BUF_SIZE
 config BT_NIMBLE_HCI_EVT_BUF_SIZE
     int "HCI Event Buffer size"
     depends on BT_NIMBLE_ENABLED
+    default 257 if BT_NIMBLE_EXT_ADV
     default 70
     help
-        This is the size of each HCI event buffer in bytes
+        This is the size of each HCI event buffer in bytes. In case of
+        extended advertising, packets can be fragmented. 257 bytes is the
+        maximum size of a packet.
 
 config BT_NIMBLE_HCI_EVT_HI_BUF_COUNT
     int "High Priority HCI Event Buffer count"
@@ -229,6 +274,7 @@ config BT_NIMBLE_MSYS1_BLOCK_COUNT
 config BT_NIMBLE_HS_FLOW_CTRL
     bool "Enable Host Flow control"
     depends on BT_NIMBLE_ENABLED
+    default n if BT_SOC_SUPPORT_5_0
     default y
     help
         Enable Host Flow control
@@ -346,6 +392,20 @@ config BT_NIMBLE_MESH_DEVICE_NAME
     help
         This value defines Bluetooth Mesh device/node name
 
+config BT_NIMBLE_MESH_NODE_COUNT
+    int "Set mesh node count"
+    default 1
+    depends on BT_NIMBLE_MESH
+    help
+        Defines mesh node count.
+
+config BT_NIMBLE_MESH_PROVISIONER
+    bool "Enable BLE mesh provisioner"
+    default 0
+    depends on BT_NIMBLE_MESH
+    help
+        Enable mesh provisioner.
+
 config BT_NIMBLE_CRYPTO_STACK_MBEDTLS
     bool "Override TinyCrypt with mbedTLS for crypto computations"
     default y
@@ -355,3 +415,66 @@ config BT_NIMBLE_CRYPTO_STACK_MBEDTLS
     help
         Enable this option to choose mbedTLS instead of TinyCrypt for crypto
         computations.
+
+config BT_NIMBLE_HS_STOP_TIMEOUT_MS
+    int "BLE host stop timeout in msec"
+    default 2000
+    depends on BT_NIMBLE_ENABLED
+    help
+        BLE Host stop procedure timeout in milliseconds.
+
+config BT_NIMBLE_HOST_BASED_PRIVACY
+    bool "Enable host based privacy for random address."
+    default n
+    depends on BT_NIMBLE_ENABLED && !IDF_TARGET_ESP32
+    help
+        Use this option to do host based Random Private Address resolution.
+        If this option is disabled then controller based privacy is used.
+
+config BT_NIMBLE_EXT_ADV
+    bool "Enable extended advertising."
+    default n
+    depends on BT_NIMBLE_ENABLED && BT_SOC_SUPPORT_5_0
+    help
+        Enable this option to do extended advertising. Extended advertising
+        will be supported from BLE 5.0 onwards.
+
+config BT_NIMBLE_MAX_EXT_ADV_INSTANCES
+    int "Maximum number of extended advertising instances."
+    range 0 4
+    default 1 if BT_NIMBLE_EXT_ADV
+    default 0
+    depends on BT_NIMBLE_EXT_ADV
+    help
+        Change this option to set maximum number of extended advertising
+        instances. Minimum there is always one instance of
+        advertising. Enter how many more advertising instances you
+        want.
+
+config BT_NIMBLE_MAX_EXT_ADV_DATA_LEN
+    int "Maximum length of the advertising data."
+    range 0 1650
+    default 1650 if BT_NIMBLE_EXT_ADV
+    default 0
+    depends on BT_NIMBLE_EXT_ADV
+    help
+        Defines size of extended advertising data. Size should not increase
+        1650.
+
+config BT_NIMBLE_ENABLE_PERIODIC_ADV
+    bool "Enable periodic advertisement."
+    default y
+    depends on BT_NIMBLE_EXT_ADV
+    help
+        Enable this option to start periodic advertisement.
+
+config BT_NIMBLE_MAX_PERIODIC_SYNCS
+    int "Maximum number of periodic advertising syncs."
+    default 1 if BT_NIMBLE_ENABLE_PERIODIC_ADV
+    default 0
+    depends on BT_NIMBLE_ENABLE_PERIODIC_ADV
+    range 1 8
+    help
+        Set this option to set the upper limit for number of periodic sync
+        connections. This should be less than maximum connections allowed by
+        controller.

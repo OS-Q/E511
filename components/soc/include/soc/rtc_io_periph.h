@@ -16,18 +16,27 @@
 
 #include "soc/soc.h"
 //include soc related (generated) definitions
-#include "soc/rtc_io_caps.h"
+#include "soc/soc_caps.h"
+
+#if SOC_RTCIO_INPUT_OUTPUT_SUPPORTED
 #include "soc/rtc_io_channel.h"
 #include "soc/rtc_io_reg.h"
 #include "soc/rtc_io_struct.h"
+#endif
+
 #include "soc/rtc_cntl_reg.h"
 #include "soc/rtc_cntl_struct.h"
-#include "hal/gpio_types.h"
+
+#if SOC_ADC_SUPPORT_RTC_CTRL
+#include "soc/sens_struct.h"
+#endif
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+
+#if SOC_RTCIO_INPUT_OUTPUT_SUPPORTED
 
 /**
  * @brief Pin function information for a single RTCIO pad's.
@@ -60,7 +69,7 @@ typedef struct {
  * This is an internal function of the driver, and is not usually useful
  * for external use.
  */
-extern const rtc_io_desc_t rtc_io_desc[SOC_RTC_IO_PIN_COUNT];
+extern const rtc_io_desc_t rtc_io_desc[SOC_RTCIO_PIN_COUNT];
 
 /**
  * @brief Provides a constant table to get rtc io number with gpio number
@@ -68,7 +77,7 @@ extern const rtc_io_desc_t rtc_io_desc[SOC_RTC_IO_PIN_COUNT];
  * This is an internal function of the driver, and is not usually useful
  * for external use.
  */
-extern const int rtc_io_num_map[GPIO_PIN_COUNT];
+extern const int rtc_io_num_map[SOC_GPIO_PIN_COUNT];
 
 #ifdef CONFIG_RTCIO_SUPPORT_RTC_GPIO_DESC
 /**
@@ -100,9 +109,11 @@ typedef struct {
  * This is an internal function of the driver, and is not usually useful
  * for external use.
  */
-extern const rtc_gpio_desc_t rtc_gpio_desc[GPIO_PIN_COUNT];
+extern const rtc_gpio_desc_t rtc_gpio_desc[SOC_GPIO_PIN_COUNT];
 
-#endif // CONFIG_IDF_TARGET_ESP32
+#endif // CONFIG_RTCIO_SUPPORT_RTC_GPIO_DESC
+
+#endif // SOC_RTCIO_INPUT_OUTPUT_SUPPORTED
 
 #ifdef __cplusplus
 }

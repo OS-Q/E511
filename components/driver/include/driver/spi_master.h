@@ -22,7 +22,6 @@
 /** SPI master clock is divided by 80MHz apb clock. Below defines are example frequencies, and are accurate. Be free to specify a random frequency, it will be rounded to closest frequency (to macros below if above 8MHz).
   * 8MHz
   */
-#if APB_CLK_FREQ==80*1000*1000
 #define SPI_MASTER_FREQ_8M      (APB_CLK_FREQ/10)
 #define SPI_MASTER_FREQ_9M      (APB_CLK_FREQ/9)    ///< 8.89MHz
 #define SPI_MASTER_FREQ_10M     (APB_CLK_FREQ/8)    ///< 10MHz
@@ -33,14 +32,6 @@
 #define SPI_MASTER_FREQ_26M     (APB_CLK_FREQ/3)    ///< 26.67MHz
 #define SPI_MASTER_FREQ_40M     (APB_CLK_FREQ/2)    ///< 40MHz
 #define SPI_MASTER_FREQ_80M     (APB_CLK_FREQ/1)    ///< 80MHz
-#elif APB_CLK_FREQ==40*1000*1000
-#define SPI_MASTER_FREQ_7M      (APB_CLK_FREQ/6)    ///< 13.33MHz
-#define SPI_MASTER_FREQ_8M      (APB_CLK_FREQ/5)    ///< 16MHz
-#define SPI_MASTER_FREQ_10M     (APB_CLK_FREQ/4)    ///< 20MHz
-#define SPI_MASTER_FREQ_13M     (APB_CLK_FREQ/3)    ///< 26.67MHz
-#define SPI_MASTER_FREQ_20M     (APB_CLK_FREQ/2)    ///< 40MHz
-#define SPI_MASTER_FREQ_40M     (APB_CLK_FREQ/1)    ///< 80MHz
-#endif
 #ifdef __cplusplus
 extern "C"
 {
@@ -72,7 +63,12 @@ typedef struct {
     uint8_t command_bits;           ///< Default amount of bits in command phase (0-16), used when ``SPI_TRANS_VARIABLE_CMD`` is not used, otherwise ignored.
     uint8_t address_bits;           ///< Default amount of bits in address phase (0-64), used when ``SPI_TRANS_VARIABLE_ADDR`` is not used, otherwise ignored.
     uint8_t dummy_bits;             ///< Amount of dummy bits to insert between address and data phase
-    uint8_t mode;                   ///< SPI mode (0-3)
+    uint8_t mode;                   /**< SPI mode, representing a pair of (CPOL, CPHA) configuration:
+                                         - 0: (0, 0)
+                                         - 1: (0, 1)
+                                         - 2: (1, 0)
+                                         - 3: (1, 1)
+                                     */
     uint16_t duty_cycle_pos;         ///< Duty cycle of positive clock, in 1/256th increments (128 = 50%/50% duty). Setting this to 0 (=not setting it) is equivalent to setting this to 128.
     uint16_t cs_ena_pretrans;        ///< Amount of SPI bit-cycles the cs should be activated before the transmission (0-16). This only works on half-duplex transactions.
     uint8_t cs_ena_posttrans;       ///< Amount of SPI bit-cycles the cs should stay active after the transmission (0-16)
@@ -171,7 +167,7 @@ typedef struct spi_device_t* spi_device_handle_t;  ///< Handle for a device on a
  * @note While in general, speeds up to 80MHz on the dedicated SPI pins and 40MHz on GPIO-matrix-routed pins are
  *       supported, full-duplex transfers routed over the GPIO matrix only support speeds up to 26MHz.
  *
- * @param host SPI peripheral to allocate device on
+ * @param host_id SPI peripheral to allocate device on
  * @param dev_config SPI interface protocol config for the device
  * @param handle Pointer to variable to hold the device handle
  * @return
@@ -180,7 +176,7 @@ typedef struct spi_device_t* spi_device_handle_t;  ///< Handle for a device on a
  *         - ESP_ERR_NO_MEM        if out of memory
  *         - ESP_OK                on success
  */
-esp_err_t spi_bus_add_device(spi_host_device_t host, const spi_device_interface_config_t *dev_config, spi_device_handle_t *handle);
+esp_err_t spi_bus_add_device(spi_host_device_t host_id, const spi_device_interface_config_t *dev_config, spi_device_handle_t *handle);
 
 
 /**
@@ -394,4 +390,3 @@ int spi_get_freq_limit(bool gpio_is_used, int input_delay_ns);
 #ifdef __cplusplus
 }
 #endif
-

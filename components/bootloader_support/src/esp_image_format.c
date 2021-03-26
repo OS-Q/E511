@@ -20,18 +20,24 @@
 #include <esp_log.h>
 #include <esp_attr.h>
 #include <esp_spi_flash.h>
-#include <bootloader_flash.h>
+#include <bootloader_flash_priv.h>
 #include <bootloader_random.h>
 #include <bootloader_sha.h>
 #include "bootloader_util.h"
 #include "bootloader_common.h"
 #include "soc/soc_memory_layout.h"
 #if CONFIG_IDF_TARGET_ESP32
-#include <esp32/rom/rtc.h>
-#include <esp32/rom/secure_boot.h>
-#elif CONFIG_IDF_TARGET_ESP32S2BETA
-#include <esp32s2beta/rom/rtc.h>
-#include <esp32s2beta/rom/secure_boot.h>
+#include "esp32/rom/rtc.h"
+#include "esp32/rom/secure_boot.h"
+#elif CONFIG_IDF_TARGET_ESP32S2
+#include "esp32s2/rom/rtc.h"
+#include "esp32s2/rom/secure_boot.h"
+#elif CONFIG_IDF_TARGET_ESP32S3
+#include "esp32s3/rom/rtc.h"
+#include "esp32s3/rom/secure_boot.h"
+#elif CONFIG_IDF_TARGET_ESP32C3
+#include "esp32c3/rom/rtc.h"
+#include "esp32c3/rom/secure_boot.h"
 #endif
 
 /* Checking signatures as part of verifying images is necessary:
@@ -104,7 +110,7 @@ static esp_err_t image_load(esp_image_load_mode_t mode, const esp_partition_pos_
     bool do_verify = (mode == ESP_IMAGE_LOAD) || (mode == ESP_IMAGE_VERIFY) || (mode == ESP_IMAGE_VERIFY_SILENT);
 #else
     bool do_load   = false; // Can't load the image in app mode
-    bool do_verify = true;	// In app mode is avalible only verify mode
+    bool do_verify = true;  // In app mode is available only verify mode
 #endif
     bool silent    = (mode == ESP_IMAGE_VERIFY_SILENT);
     esp_err_t err = ESP_OK;
@@ -209,7 +215,7 @@ static esp_err_t image_load(esp_image_load_mode_t mode, const esp_partition_pos_
         bool verify_sha;
 #if CONFIG_SECURE_BOOT_V2_ENABLED
         verify_sha = true;
-#else // ESP32, or ESP32S2 without secure boot enabled
+#else // Secure boot not enabled
         verify_sha = (data->start_addr != ESP_BOOTLOADER_OFFSET);
 #endif
 
@@ -220,11 +226,27 @@ static esp_err_t image_load(esp_image_load_mode_t mode, const esp_partition_pos_
 
 #ifdef SECURE_BOOT_CHECK_SIGNATURE
             // secure boot images have a signature appended
-            err = verify_secure_boot_signature(sha_handle, data, image_digest, verified_digest);
-#else
+#if defined(BOOTLOADER_BUILD) && !defined(CONFIG_SECURE_BOOT)
+            // If secure boot is not enabled in hardware, then
+            // skip the signature check in bootloader when the debugger is attached.
+            // This is done to allow for breakpoints in Flash.
+            if (!esp_cpu_in_ocd_debug_mode()) {
+#else // CONFIG_SECURE_BOOT
+            if (true) {
+#endif // end checking for JTAG
+                err = verify_secure_boot_signature(sha_handle, data, image_digest, verified_digest);
+                sha_handle = NULL; // verify_secure_boot_signature finishes sha_handle
+            }
+#else // SECURE_BOOT_CHECK_SIGNATURE
             // No secure boot, but SHA-256 can be appended for basic corruption detection
             if (sha_handle != NULL && !esp_cpu_in_ocd_debug_mode()) {
                 err = verify_simple_hash(sha_handle, data);
+#ifdef CONFIG_IDF_ENV_FPGA
+                if (err != ESP_OK) {
+                    ESP_LOGW(TAG, "Ignoring invalid SHA-256 as running on FPGA");
+                    err = ESP_OK;
+                }
+#endif
                 sha_handle = NULL; // calling verify_simple_hash finishes sha_handle
             }
 #endif // SECURE_BOOT_CHECK_SIGNATURE
@@ -266,7 +288,7 @@ static esp_err_t image_load(esp_image_load_mode_t mode, const esp_partition_pos_
        "only verify signature in bootloader" into the macro so it's tested multiple times.
      */
 #if CONFIG_SECURE_BOOT_V2_ENABLED
-    ESP_FAULT_ASSERT(memcmp(image_digest, verified_digest, HASH_LEN) == 0);
+    ESP_FAULT_ASSERT(!esp_secure_boot_enabled() || memcmp(image_digest, verified_digest, HASH_LEN) == 0);
 #else // Secure Boot V1 on ESP32, only verify signatures for apps not bootloaders
     ESP_FAULT_ASSERT(data->start_addr == ESP_BOOTLOADER_OFFSET || memcmp(image_digest, verified_digest, HASH_LEN) == 0);
 #endif
@@ -279,7 +301,7 @@ static esp_err_t image_load(esp_image_load_mode_t mode, const esp_partition_pos_
             uint32_t load_addr = data->segments[i].load_addr;
             if (should_load(load_addr)) {
                 uint32_t *loaded = (uint32_t *)load_addr;
-                for (int j = 0; j < data->segments[i].data_len / sizeof(uint32_t); j++) {
+                for (size_t j = 0; j < data->segments[i].data_len / sizeof(uint32_t); j++) {
                     loaded[j] ^= (j & 1) ? ram_obfs_value[0] : ram_obfs_value[1];
                 }
             }
@@ -301,15 +323,28 @@ err:
     // Prevent invalid/incomplete data leaking out
     bzero(data, sizeof(esp_image_metadata_t));
     return err;
-    }
+}
 
 esp_err_t bootloader_load_image(const esp_partition_pos_t *part, esp_image_metadata_t *data)
 {
-#ifdef BOOTLOADER_BUILD
-    return image_load(ESP_IMAGE_LOAD, part, data);
-#else
+#if !defined(BOOTLOADER_BUILD)
     return ESP_FAIL;
-#endif
+#else
+    esp_image_load_mode_t mode = ESP_IMAGE_LOAD;
+
+#if !defined(CONFIG_SECURE_BOOT)
+    /* Skip validation under particular configurations */
+#if CONFIG_BOOTLOADER_SKIP_VALIDATE_ALWAYS
+    mode = ESP_IMAGE_LOAD_NO_VALIDATE;
+#elif CONFIG_BOOTLOADER_SKIP_VALIDATE_ON_POWER_ON
+    if (rtc_get_reset_reason(0) == POWERON_RESET) {
+        mode = ESP_IMAGE_LOAD_NO_VALIDATE;
+    }
+#endif // CONFIG_BOOTLOADER_SKIP_...
+#endif // CONFIG_SECURE_BOOT
+
+ return image_load(mode, part, data);
+#endif // BOOTLOADER_BUILD
 }
 
 esp_err_t bootloader_load_image_no_verify(const esp_partition_pos_t *part, esp_image_metadata_t *data)
@@ -332,20 +367,9 @@ static esp_err_t verify_image_header(uint32_t src_addr, const esp_image_header_t
 
     if (image->magic != ESP_IMAGE_HEADER_MAGIC) {
         if (!silent) {
-            ESP_LOGE(TAG, "image at 0x%x has invalid magic byte", src_addr);
+            ESP_LOGE(TAG, "image at 0x%x has invalid magic byte (nothing flashed here?)", src_addr);
         }
         err = ESP_ERR_IMAGE_INVALID;
-    }
-    if (!silent) {
-        if (image->spi_mode > ESP_IMAGE_SPI_MODE_SLOW_READ) {
-            ESP_LOGW(TAG, "image at 0x%x has invalid SPI mode %d", src_addr, image->spi_mode);
-        }
-        if (image->spi_speed > ESP_IMAGE_SPI_SPEED_80M) {
-            ESP_LOGW(TAG, "image at 0x%x has invalid SPI speed %d", src_addr, image->spi_speed);
-        }
-        if (image->spi_size > ESP_IMAGE_FLASH_SIZE_MAX) {
-            ESP_LOGW(TAG, "image at 0x%x has invalid SPI size %d", src_addr, image->spi_size);
-        }
     }
 
     if (err == ESP_OK) {
@@ -378,7 +402,7 @@ static bool verify_load_addresses(int segment_index, intptr_t load_addr, intptr_
 
     if (esp_ptr_in_dram(load_addr_p) && esp_ptr_in_dram(load_end_p)) { /* Writing to DRAM */
         /* Check if we're clobbering the stack */
-        intptr_t sp = (intptr_t)get_sp();
+        intptr_t sp = (intptr_t)esp_cpu_get_sp();
         if (bootloader_util_regions_overlap(sp - STACK_LOAD_HEADROOM, SOC_ROM_STACK_START,
                                            load_addr, load_end)) {
             reason = "overlaps bootloader stack";
@@ -514,7 +538,7 @@ static esp_err_t process_segment(int index, uint32_t flash_addr, esp_image_segme
     do_load = do_load && should_load(load_addr);
 
     if (!silent) {
-        ESP_LOGI(TAG, "segment %d: paddr=0x%08x vaddr=0x%08x size=0x%05x (%6d) %s",
+        ESP_LOGI(TAG, "segment %d: paddr=%08x vaddr=%08x size=%05xh (%6d) %s",
                  index, data_addr, load_addr,
                  data_len, data_len,
                  (do_load) ? "load" : (is_mapping) ? "map" : "");
@@ -533,7 +557,7 @@ static esp_err_t process_segment(int index, uint32_t flash_addr, esp_image_segme
     uint32_t free_page_count = bootloader_mmap_get_free_pages();
     ESP_LOGD(TAG, "free data page_count 0x%08x", free_page_count);
 
-    int32_t data_len_remain = data_len;
+    uint32_t data_len_remain = data_len;
     while (data_len_remain > 0) {
 #if SECURE_BOOT_CHECK_SIGNATURE && defined(BOOTLOADER_BUILD)
         /* Double check the address verification done above */
@@ -586,13 +610,18 @@ static esp_err_t process_segment_data(intptr_t load_addr, uint32_t data_addr, ui
     // Set up the obfuscation value to use for loading
     while (ram_obfs_value[0] == 0 || ram_obfs_value[1] == 0) {
         bootloader_fill_random(ram_obfs_value, sizeof(ram_obfs_value));
+#if CONFIG_IDF_ENV_FPGA
+        /* FPGA doesn't always emulate the RNG */
+        ram_obfs_value[0] ^= 0x33;
+        ram_obfs_value[1] ^= 0x66;
+#endif
     }
     uint32_t *dest = (uint32_t *)load_addr;
 #endif
 
     const uint32_t *src = data;
 
-    for (int i = 0; i < data_len; i += 4) {
+    for (size_t i = 0; i < data_len; i += 4) {
         int w_i = i / 4; // Word index
         uint32_t w = src[w_i];
         if (checksum != NULL) {
@@ -840,4 +869,22 @@ static esp_err_t verify_simple_hash(bootloader_sha256_handle_t sha_handle, esp_i
 
     bootloader_munmap(hash);
     return ESP_OK;
+}
+
+int esp_image_get_flash_size(esp_image_flash_size_t app_flash_size)
+{
+    switch (app_flash_size) {
+    case ESP_IMAGE_FLASH_SIZE_1MB:
+        return 1 * 1024 * 1024;
+    case ESP_IMAGE_FLASH_SIZE_2MB:
+        return 2 * 1024 * 1024;
+    case ESP_IMAGE_FLASH_SIZE_4MB:
+        return 4 * 1024 * 1024;
+    case ESP_IMAGE_FLASH_SIZE_8MB:
+        return 8 * 1024 * 1024;
+    case ESP_IMAGE_FLASH_SIZE_16MB:
+        return 16 * 1024 * 1024;
+    default:
+        return 0;
+    }
 }

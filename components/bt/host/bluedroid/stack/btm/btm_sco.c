@@ -441,6 +441,9 @@ tBTM_STATUS BTM_WriteScoData (UINT16 sco_inx, BT_HDR *p_buf)
             p_buf->len += HCI_SCO_PREAMBLE_SIZE;
 
             if (fixed_queue_length(p_ccb->xmit_data_q) < BTM_SCO_XMIT_QUEUE_THRS) {
+                if (fixed_queue_length(p_ccb->xmit_data_q) >= BTM_SCO_XMIT_QUEUE_HIGH_WM) {
+                    status = BTM_NO_RESOURCES;
+                }
                 fixed_queue_enqueue(p_ccb->xmit_data_q, p_buf, FIXED_QUEUE_MAX_TIMEOUT);
                 btm_sco_check_send_pkts (sco_inx);
             } else {
@@ -454,7 +457,7 @@ tBTM_STATUS BTM_WriteScoData (UINT16 sco_inx, BT_HDR *p_buf)
         status = BTM_UNKNOWN_ADDR;
     }
 
-    if (status != BTM_SUCCESS) {
+    if (status != BTM_SUCCESS && status!= BTM_NO_RESOURCES) {
         BTM_TRACE_WARNING ("stat %d", status);
         osi_free(p_buf);
     }
@@ -481,7 +484,6 @@ static tBTM_STATUS btm_send_connect_request(UINT16 acl_handle,
         tBTM_ESCO_PARAMS *p_setup)
 {
     UINT16 temp_pkt_types;
-    UINT8 xx;
     tACL_CONN *p_acl;
 
     /* Send connect request depending on version of spec */
@@ -499,9 +501,8 @@ static tBTM_STATUS btm_send_connect_request(UINT16 acl_handle,
 
         /* Finally, remove EDR eSCO if the remote device doesn't support it */
         /* UPF25:  Only SCO was brought up in this case */
-        btm_handle_to_acl_index(acl_handle);
-        if ((xx = btm_handle_to_acl_index(acl_handle)) < MAX_L2CAP_LINKS) {
-            p_acl = &btm_cb.acl_db[xx];
+        p_acl = btm_handle_to_acl(acl_handle);
+        if (p_acl) {
             if (!HCI_EDR_ESCO_2MPS_SUPPORTED(p_acl->peer_lmp_features[HCI_EXT_FEATURES_PAGE_0])) {
 
                 BTM_TRACE_WARNING("BTM Remote does not support 2-EDR eSCO");

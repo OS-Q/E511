@@ -30,6 +30,11 @@ namespace nvs {
  */
 class NVSHandleLocked : public NVSHandle {
 public:
+    /**
+     * @param handle The NVSHandleSimple instance which this class "decorates" (see Decorator design pattern).
+     *
+     * @note Lock::init() MUST be called BEFORE an instance of this class is used.
+     */
     NVSHandleLocked(NVSHandleSimple *handle);
 
     virtual ~NVSHandleLocked();
@@ -64,4 +69,3 @@ private:
 } // namespace nvs
 
 #endif // NVS_HANDLE_LOCKED_HPP_
-

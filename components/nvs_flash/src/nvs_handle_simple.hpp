@@ -76,6 +76,8 @@ public:
 
     bool nextEntry(nvs_opaque_iterator_t *it);
 
+    const char *get_partition_name() const;
+
 private:
     /**
      * The underlying storage's object.
@@ -103,4 +105,3 @@ private:
 } // nvs
 
 #endif // NVS_HANDLE_SIMPLE_HPP_
-

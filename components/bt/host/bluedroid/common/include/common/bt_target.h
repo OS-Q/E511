@@ -57,7 +57,9 @@
 #define BTC_GAP_BT_INCLUDED         TRUE
 #define BTA_SDP_INCLUDED            TRUE
 #define BTA_DM_PM_INCLUDED          TRUE
+#define BTC_DM_PM_INCLUDED          TRUE
 #define SDP_INCLUDED                TRUE
+#define BTA_DM_QOS_INCLUDED         TRUE
 
 #if (UC_BT_A2DP_ENABLED == TRUE)
 #define BTA_AR_INCLUDED             TRUE
@@ -127,7 +129,18 @@
 #define BT_SSP_INCLUDED             TRUE
 #endif /* UC_BT_SSP_ENABLED */
 
+#if UC_BT_HID_HOST_ENABLED
+#define HID_HOST_INCLUDED           TRUE
+#define BTA_HH_INCLUDED             TRUE
+#endif /* UC_BT_HID_HOST_ENABLED */
+
 #endif /* UC_BT_CLASSIC_ENABLED */
+
+/* This is set to enable use of GAP L2CAP connections. */
+#if (VND_BT_JV_BTA_L2CAP == TRUE)
+#define BTA_JV_L2CAP_INCLUDED       TRUE
+#define GAP_CONN_INCLUDED           TRUE
+#endif /* VND_BT_JV_BTA_L2CAP */
 
 #ifndef CLASSIC_BT_INCLUDED
 #define CLASSIC_BT_INCLUDED         FALSE
@@ -147,6 +160,24 @@
 #define BLE_INCLUDED              FALSE
 #endif /* UC_BT_BLE_ENABLED */
 
+#if (UC_BT_BLE_50_FEATURES_SUPPORTED == TRUE)
+#define BLE_50_FEATURE_SUPPORT   TRUE
+#else
+#define BLE_50_FEATURE_SUPPORT   FALSE
+#endif
+
+#if (UC_BT_BLE_42_FEATURES_SUPPORTED == TRUE || BLE_50_FEATURE_SUPPORT == FALSE)
+#define BLE_42_FEATURE_SUPPORT   TRUE
+#else
+#define BLE_42_FEATURE_SUPPORT   FALSE
+#endif
+
+#if (UC_BT_BLE_RPA_SUPPORTED  == TRUE)
+#define CONTROLLER_RPA_LIST_ENABLE   TRUE
+#else
+#define CONTROLLER_RPA_LIST_ENABLE   FALSE
+#endif
+
 #if (UC_BT_GATTS_ENABLE)
 #define GATTS_INCLUDED              TRUE
 #else
@@ -158,6 +189,12 @@
 #else
 #define GATTC_INCLUDED              FALSE
 #endif  /* UC_BT_GATTC_ENABLE */
+
+#if (UC_BT_BLUFI_ENABLE)
+#define BLUFI_INCLUDED              TRUE
+#else
+#define BLUFI_INCLUDED              FALSE
+#endif  /* UC_BT_BLUFI_ENABLE */
 
 #if (UC_BT_GATTC_ENABLE && UC_BT_GATTC_CACHE_NVS_FLASH_ENABLED)
 #define GATTC_CACHE_NVS             TRUE
@@ -184,7 +221,7 @@
 #endif /* UC_BT_SMP_SLAVE_CON_PARAMS_UPD_ENABLE */
 
 #ifdef UC_BTDM_BLE_ADV_REPORT_FLOW_CTRL_SUPP
-#define BLE_ADV_REPORT_FLOW_CONTROL         UC_BTDM_BLE_ADV_REPORT_FLOW_CTRL_SUPP
+#define BLE_ADV_REPORT_FLOW_CONTROL         (UC_BTDM_BLE_ADV_REPORT_FLOW_CTRL_SUPP && BLE_INCLUDED)
 #endif /* UC_BTDM_BLE_ADV_REPORT_FLOW_CTRL_SUPP */
 
 #ifdef UC_BTDM_BLE_ADV_REPORT_FLOW_CTRL_NUM
@@ -283,6 +320,10 @@
 #define BTA_DM_PM_INCLUDED FALSE
 #endif
 
+#ifndef BTA_DM_QOS_INCLUDED
+#define BTA_DM_QOS_INCLUDED FALSE
+#endif
+
 #ifndef BTA_PAN_INCLUDED
 #define BTA_PAN_INCLUDED FALSE
 #endif
@@ -317,6 +358,19 @@
 
 #ifndef BTA_SDP_INCLUDED
 #define BTA_SDP_INCLUDED FALSE
+#endif
+
+/* This is set to enable use of GAP L2CAP connections. */
+#ifndef VND_BT_JV_BTA_L2CAP
+#define VND_BT_JV_BTA_L2CAP        FALSE
+#endif
+
+#ifndef BTA_JV_L2CAP_INCLUDED
+#define BTA_JV_L2CAP_INCLUDED       FALSE
+#endif
+
+#ifndef GAP_CONN_INCLUDED
+#define GAP_CONN_INCLUDED           FALSE
 #endif
 
 /******************************************************************************
@@ -1375,7 +1429,7 @@
 
 /* The maximum number of ports supported. */
 #ifndef MAX_RFC_PORTS
-#define MAX_RFC_PORTS               16 /*max is 30*/
+#define MAX_RFC_PORTS               8 /*max is 30*/
 #endif
 
 /* The maximum simultaneous links to different devices. */
@@ -1742,15 +1796,6 @@ Range: 2 octets
 
 #ifndef GAP_INCLUDED
 #define GAP_INCLUDED                TRUE
-#endif
-
-/* This is set to enable use of GAP L2CAP connections. */
-#ifndef GAP_CONN_INCLUDED
-#if (GAP_INCLUDED == TRUE && CLASSIC_BT_INCLUDED == TRUE)
-#define GAP_CONN_INCLUDED           TRUE
-#else
-#define GAP_CONN_INCLUDED           FALSE
-#endif
 #endif
 
 /* This is set to enable posting event for data write */

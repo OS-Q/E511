@@ -14,16 +14,17 @@
 
 #pragma once
 #include <stdint.h>
+#include "sdkconfig.h"
 #include "soc/soc.h"
 #include "soc/periph_defs.h"
 
 //include soc related (generated) definitions
-#include "soc/spi_caps.h"
+#include "soc/soc_caps.h"
+#include "soc/soc_pins.h"
 #include "soc/spi_reg.h"
 #include "soc/spi_struct.h"
 #include "soc/gpio_sig_map.h"
-#include "sdkconfig.h"
-#if CONFIG_IDF_TARGET_ESP32S2BETA
+#if SOC_MEMSPI_IS_INDEPENDENT
 #include "soc/spi_mem_struct.h"
 #include "soc/spi_mem_reg.h"
 #endif
@@ -33,7 +34,7 @@ extern "C"
 {
 #endif
 
-#ifdef CONFIG_IDF_TARGET_ESP32S2BETA
+#if CONFIG_IDF_TARGET_ESP32S2
 #define SPI_FREAD_DIO 0
 #define SPI_FREAD_QIO 0
 #define SPI_FWRITE_DIO 0
@@ -59,9 +60,7 @@ typedef struct {
     const uint8_t spics_out[3];     // /CS GPIO output mux signals
     const uint8_t spics_in;
     const uint8_t spidqs_out;
-    const uint8_t spidqs_in;
     const uint8_t spicd_out;
-    const uint8_t spicd_in;
     const uint8_t spiclk_iomux_pin;    //IO pins of IO_MUX muxed signals
     const uint8_t spid_iomux_pin;
     const uint8_t spiq_iomux_pin;

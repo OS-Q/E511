@@ -10,7 +10,6 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "freertos/queue.h"
-#include "freertos/xtensa_api.h"
 #include "unity.h"
 
 volatile static int done;
@@ -52,4 +51,3 @@ TEST_CASE("Test for per-task non-reentrant tasks", "[freertos]")
     }
     TEST_ASSERT(error == 0);
 }
-

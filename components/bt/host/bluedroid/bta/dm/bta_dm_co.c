@@ -51,6 +51,7 @@ tBTE_APPL_CFG bte_appl_cfg = {
     BTM_BLE_MIN_KEY_SIZE,
     BTM_BLE_ONLY_ACCEPT_SPECIFIED_SEC_AUTH_DISABLE,
     BTM_BLE_OOB_DISABLE,
+    BTM_BLE_APPL_ENC_KEY_SIZE,
 };
 #endif
 
@@ -427,6 +428,17 @@ void bta_dm_co_ble_set_min_key_size(UINT8 ble_key_size)
 #endif  ///SMP_INCLUDED == TRUE
 }
 
+void bta_dm_co_ble_set_appl_enc_key_size(UINT8 ble_key_size)
+{
+#if (SMP_INCLUDED == TRUE)
+    if(ble_key_size >= bte_appl_cfg.ble_min_key_size && ble_key_size <= bte_appl_cfg.ble_max_key_size) {
+        bte_appl_cfg.ble_appl_enc_key_size = ble_key_size;
+    } else {
+        APPL_TRACE_ERROR("%s error:Invalid key size value, key_size =%d",__func__, ble_key_size);
+    }
+#endif  ///SMP_INCLUDED == TRUE
+}
+
 void bta_dm_co_ble_set_accept_auth_enable(UINT8 enable)
 {
 #if (SMP_INCLUDED == TRUE)
@@ -465,4 +477,3 @@ void bta_dm_co_ble_oob_support(UINT8 enable)
 }
 
 #endif
-

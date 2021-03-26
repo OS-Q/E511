@@ -20,14 +20,13 @@ extern "C" {
 
 #include "esp_err.h"
 #include "esp_intr_alloc.h"
+#include "soc/soc_caps.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
-#include "freertos/xtensa_api.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "freertos/ringbuf.h"
 #include "hal/uart_types.h"
-#include "soc/uart_caps.h"
 
 // Valid UART port number
 #define UART_NUM_0             (0) /*!< UART port 0 */
@@ -38,6 +37,9 @@ extern "C" {
 #define UART_NUM_MAX           (SOC_UART_NUM) /*!< UART port max */
 
 #define UART_PIN_NO_CHANGE      (-1)         /*!< Constant for uart_set_pin function which indicates that UART pin should not be changed */
+
+#define UART_FIFO_LEN           SOC_UART_FIFO_LEN       ///< Length of the UART HW FIFO
+#define UART_BITRATE_MAX        SOC_UART_BITRATE_MAX    ///< Maximum configurable bitrate
 
 /**
  * @brief UART interrupt configuration parameters for uart_intr_config function
@@ -70,6 +72,8 @@ typedef enum {
 typedef struct {
     uart_event_type_t type; /*!< UART event type */
     size_t size;            /*!< UART data size for UART_DATA event*/
+    bool timeout_flag;      /*!< UART data read timeout flag for UART_DATA event (no new data received during configured RX TOUT)*/
+                            /*!< If the event is caused by FIFO-full interrupt, then there will be no event with the timeout flag before the next byte coming.*/
 } uart_event_t;
 
 typedef intr_handle_t uart_isr_handle_t;
@@ -222,7 +226,7 @@ esp_err_t uart_get_baudrate(uart_port_t uart_num, uint32_t* baudrate);
  * @brief Set UART line inverse mode
  *
  * @param uart_num  UART port number, the max port number is (UART_NUM_MAX -1).
- * @param inverse_mask Choose the wires that need to be inverted. Using the ORred mask of `uart_signal_inv_t` 
+ * @param inverse_mask Choose the wires that need to be inverted. Using the ORred mask of `uart_signal_inv_t`
  *
  * @return
  *     - ESP_OK   Success
@@ -512,7 +516,7 @@ int uart_tx_chars(uart_port_t uart_num, const char* buffer, uint32_t len);
  *     - (-1) Parameter error
  *     - OTHERS (>=0) The number of bytes pushed to the TX FIFO
  */
-int uart_write_bytes(uart_port_t uart_num, const char* src, size_t size);
+int uart_write_bytes(uart_port_t uart_num, const void* src, size_t size);
 
 /**
  * @brief Send data to the UART port from a given buffer and length,
@@ -534,7 +538,7 @@ int uart_write_bytes(uart_port_t uart_num, const char* src, size_t size);
  *     - (-1) Parameter error
  *     - OTHERS (>=0) The number of bytes pushed to the TX FIFO
  */
-int uart_write_bytes_with_break(uart_port_t uart_num, const char* src, size_t size, int brk_len);
+int uart_write_bytes_with_break(uart_port_t uart_num, const void* src, size_t size, int brk_len);
 
 /**
  * @brief UART read bytes from UART buffer
@@ -548,7 +552,7 @@ int uart_write_bytes_with_break(uart_port_t uart_num, const char* src, size_t si
  *     - (-1) Error
  *     - OTHERS (>=0) The number of bytes read from UART FIFO
  */
-int uart_read_bytes(uart_port_t uart_num, uint8_t* buf, uint32_t length, TickType_t ticks_to_wait);
+int uart_read_bytes(uart_port_t uart_num, void* buf, uint32_t length, TickType_t ticks_to_wait);
 
 /**
  * @brief Alias of uart_flush_input.
@@ -845,7 +849,20 @@ esp_err_t uart_wait_tx_idle_polling(uart_port_t uart_num);
   */
 esp_err_t uart_set_loop_back(uart_port_t uart_num, bool loop_back_en);
 
+/**
+  * @brief Configure behavior of UART RX timeout interrupt.
+  *
+  * When always_rx_timeout is true, timeout interrupt is triggered even if FIFO is full.
+  * This function can cause extra timeout interrupts triggered only to send the timeout event.
+  * Call this function only if you want to ensure timeout interrupt will always happen after a byte stream.
+  *
+  * @param uart_num UART number
+  * @param always_rx_timeout_en Set to false enable the default behavior of timeout interrupt,
+  *                             set it to true to always trigger timeout interrupt.
+  *
+  */
+void uart_set_always_rx_timeout(uart_port_t uart_num, bool always_rx_timeout_en);
+
 #ifdef __cplusplus
 }
 #endif
-

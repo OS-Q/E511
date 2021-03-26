@@ -93,8 +93,8 @@ The driver of FIFOs works as below:
 #include "freertos/FreeRTOS.h"
 #include "soc/soc_memory_layout.h"
 #include "soc/gpio_periph.h"
+#include "hal/cpu_hal.h"
 #include "freertos/semphr.h"
-#include "xtensa/core-macros.h"
 #include "driver/periph_ctrl.h"
 #include "driver/gpio.h"
 #include "hal/sdio_slave_hal.h"
@@ -107,7 +107,7 @@ The driver of FIFOs works as below:
 
 static const char TAG[] = "sdio_slave";
 
-#define SDIO_SLAVE_LOGE(s, ...) ESP_LOGE(TAG, "%s:%d (%s):"s, __FILE__,__LINE__,__FUNCTION__,##__VA_ARGS__)
+#define SDIO_SLAVE_LOGE(s, ...) ESP_LOGE(TAG, "%s(%d): "s, __FUNCTION__,__LINE__,##__VA_ARGS__)
 #define SDIO_SLAVE_LOGW(s, ...) ESP_LOGW(TAG, "%s: "s, __FUNCTION__,##__VA_ARGS__)
 
 
@@ -375,6 +375,7 @@ void sdio_slave_deinit(void)
     }
     esp_err_t ret = esp_intr_free(context.intr_handle);
     assert(ret==ESP_OK);
+    (void)ret;
     context.intr_handle = NULL;
     deinit_context();
 }
@@ -532,7 +533,7 @@ static void sdio_intr_send(void* arg)
 
     uint32_t returned_cnt;
     if (sdio_slave_hal_send_eof_happened(context.hal)) {
-        portBASE_TYPE ret = pdTRUE;
+        portBASE_TYPE ret __attribute__((unused));
 
         esp_err_t err;
         while (1) {
@@ -548,8 +549,8 @@ static void sdio_intr_send(void* arg)
             assert(ret == pdTRUE);
         }
         //get_next_finished_arg returns the total amount of returned descs.
-        for(int i = 0; i < returned_cnt; i++) {
-            portBASE_TYPE ret = xSemaphoreGiveFromISR(context.remain_cnt, &yield);
+        for(size_t i = 0; i < returned_cnt; i++) {
+            ret = xSemaphoreGiveFromISR(context.remain_cnt, &yield);
             assert(ret == pdTRUE);
         }
     }
@@ -587,7 +588,7 @@ esp_err_t sdio_slave_send_get_finished(void** out_arg, TickType_t wait)
 
 esp_err_t sdio_slave_transmit(uint8_t* addr, size_t len)
 {
-    uint32_t timestamp = XTHAL_GET_CCOUNT();
+    uint32_t timestamp = cpu_hal_get_cycle_count();
     uint32_t ret_stamp;
 
     esp_err_t err = sdio_slave_send_queue(addr, len, (void*)timestamp, portMAX_DELAY);
@@ -603,16 +604,17 @@ esp_err_t sdio_slave_transmit(uint8_t* addr, size_t len)
 static esp_err_t send_flush_data(void)
 {
     esp_err_t err;
+    portBASE_TYPE ret __attribute__((unused));
 
     while (1) {
         void *finished_arg;
         uint32_t return_cnt = 0;
         err = sdio_slave_hal_send_flush_next_buffer(context.hal, &finished_arg, &return_cnt);
         if (err == ESP_OK) {
-            portBASE_TYPE ret = xQueueSend(context.ret_queue, &finished_arg, portMAX_DELAY);
+            ret = xQueueSend(context.ret_queue, &finished_arg, portMAX_DELAY);
             assert(ret == pdTRUE);
-            for (int i = 0; i < return_cnt; i++) {
-                portBASE_TYPE ret = xSemaphoreGive(context.remain_cnt);
+            for (size_t i = 0; i < return_cnt; i++) {
+                ret = xSemaphoreGive(context.remain_cnt);
                 assert(ret == pdTRUE);
             }
         } else {

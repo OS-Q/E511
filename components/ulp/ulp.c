@@ -22,9 +22,12 @@
 #if CONFIG_IDF_TARGET_ESP32
 #include "esp32/clk.h"
 #include "esp32/ulp.h"
-#elif CONFIG_IDF_TARGET_ESP32S2BETA
-#include "esp32s2beta/clk.h"
-#include "esp32s2beta/ulp.h"
+#elif CONFIG_IDF_TARGET_ESP32S2
+#include "esp32s2/clk.h"
+#include "esp32s2/ulp.h"
+#elif CONFIG_IDF_TARGET_ESP32S3
+#include "esp32s3/clk.h"
+#include "esp32s3/ulp.h"
 #endif
 
 #include "soc/soc.h"
@@ -33,6 +36,7 @@
 #include "soc/sens_reg.h"
 
 #include "ulp_private.h"
+#include "esp_rom_sys.h"
 
 typedef struct {
     uint32_t magic;
@@ -52,7 +56,7 @@ esp_err_t ulp_run(uint32_t entry_point)
     // disable ULP timer
     CLEAR_PERI_REG_MASK(RTC_CNTL_STATE0_REG, RTC_CNTL_ULP_CP_SLP_TIMER_EN);
     // wait for at least 1 RTC_SLOW_CLK cycle
-    ets_delay_us(10);
+    esp_rom_delay_us(10);
     // set entry point
     REG_SET_FIELD(SENS_SAR_START_FORCE_REG, SENS_PC_INIT, entry_point);
     // disable force start
@@ -65,22 +69,22 @@ esp_err_t ulp_run(uint32_t entry_point)
     SET_PERI_REG_MASK(RTC_CNTL_OPTIONS0_REG, RTC_CNTL_BIAS_SLEEP_FOLW_8M);
     // enable ULP timer
     SET_PERI_REG_MASK(RTC_CNTL_STATE0_REG, RTC_CNTL_ULP_CP_SLP_TIMER_EN);
-#elif defined CONFIG_IDF_TARGET_ESP32S2BETA
+#elif defined CONFIG_IDF_TARGET_ESP32S2
     // disable ULP timer
     CLEAR_PERI_REG_MASK(RTC_CNTL_ULP_CP_TIMER_REG, RTC_CNTL_ULP_CP_SLP_TIMER_EN);
     // wait for at least 1 RTC_SLOW_CLK cycle
-    ets_delay_us(10);
-    // set entry point  
+    esp_rom_delay_us(10);
+    // set entry point
     REG_SET_FIELD(RTC_CNTL_ULP_CP_TIMER_REG, RTC_CNTL_ULP_CP_PC_INIT, entry_point);
-    
     SET_PERI_REG_MASK(RTC_CNTL_COCPU_CTRL_REG, RTC_CNTL_COCPU_SEL);         // Select ULP_TIMER trigger target for ULP.
-    CLEAR_PERI_REG_MASK(RTC_CNTL_COCPU_CTRL_REG, RTC_CNTL_COCPU_DONE_FORCE);  // Select the value for ULP_TIMER sleep. 1: REG_COCPU_DONE;0: ULP END value.
+    // start ULP clock gate.
+    SET_PERI_REG_MASK(RTC_CNTL_ULP_CP_CTRL_REG ,RTC_CNTL_ULP_CP_CLK_FO);
+    // ULP FSM sends the DONE signal.
+    CLEAR_PERI_REG_MASK(RTC_CNTL_COCPU_CTRL_REG, RTC_CNTL_COCPU_DONE_FORCE);
     /* Set the number of cycles of ULP_TIMER sleep, the wait time required to start ULP */
     REG_SET_FIELD(RTC_CNTL_ULP_CP_TIMER_REG, RTC_CNTL_ULP_CP_TIMER_SLP_CYCLE, 100);
     /* Clear interrupt COCPU status */
     REG_WRITE(RTC_CNTL_INT_CLR_REG, RTC_CNTL_COCPU_INT_CLR | RTC_CNTL_COCPU_TRAP_INT_CLR | RTC_CNTL_ULP_CP_INT_CLR);
-    // start ULP clock gate.
-    SET_PERI_REG_MASK(RTC_CNTL_ULP_CP_CTRL_REG ,RTC_CNTL_ULP_CP_CLK_FO);
     // 1: start with timer. wait ULP_TIMER cnt timer.
     CLEAR_PERI_REG_MASK(RTC_CNTL_ULP_CP_CTRL_REG, RTC_CNTL_ULP_CP_FORCE_START_TOP); // Select ULP_TIMER timer as COCPU trigger source
     SET_PERI_REG_MASK(RTC_CNTL_ULP_CP_TIMER_REG, RTC_CNTL_ULP_CP_SLP_TIMER_EN);     // Software to turn on the ULP_TIMER timer
@@ -150,13 +154,26 @@ esp_err_t ulp_set_wakeup_period(size_t period_index, uint32_t period_us)
     }
     REG_SET_FIELD(SENS_ULP_CP_SLEEP_CYC0_REG + period_index * sizeof(uint32_t),
             SENS_SLEEP_CYCLES_S0, (uint32_t) period_cycles);
-#elif defined CONFIG_IDF_TARGET_ESP32S2BETA
+#elif defined CONFIG_IDF_TARGET_ESP32S2
     if (period_index > 4) {
         return ESP_ERR_INVALID_ARG;
     }
+
     uint64_t period_us_64 = period_us;
-    uint64_t period_cycles = (period_us_64 * 1000) / 90;  //COCPU sleep clock is 90KHZ.
-    REG_SET_FIELD(RTC_CNTL_ULP_CP_TIMER_REG, RTC_CNTL_ULP_CP_TIMER_SLP_CYCLE, period_cycles);
+
+    rtc_slow_freq_t slow_clk_freq = rtc_clk_slow_freq_get();
+    rtc_slow_freq_t rtc_slow_freq_x32k = RTC_SLOW_FREQ_32K_XTAL;
+    rtc_slow_freq_t rtc_slow_freq_8MD256 = RTC_SLOW_FREQ_8MD256;
+    rtc_cal_sel_t cal_clk = RTC_CAL_RTC_MUX;
+    if (slow_clk_freq == (rtc_slow_freq_x32k)) {
+        cal_clk = RTC_CAL_32K_XTAL;
+    } else if (slow_clk_freq == rtc_slow_freq_8MD256) {
+        cal_clk  = RTC_CAL_8MD256;
+    }
+    uint32_t slow_clk_period = rtc_clk_cal(cal_clk, 100);
+    uint64_t period_cycles = rtc_time_us_to_slowclk(period_us_64, slow_clk_period);
+
+    REG_SET_FIELD(RTC_CNTL_ULP_CP_TIMER_1_REG, RTC_CNTL_ULP_CP_TIMER_SLP_CYCLE, ((uint32_t)period_cycles));
 #endif
     return ESP_OK;
 }

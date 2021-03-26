@@ -9,16 +9,21 @@ COMPONENT_ADD_INCLUDEDIRS := include
 
 LIBS := btdm_app
 
-COMPONENT_ADD_LDFLAGS     := -lbt -L $(COMPONENT_PATH)/controller/lib \
+COMPONENT_ADD_LDFLAGS     := -lbt -L $(COMPONENT_PATH)/controller/lib/esp32 \
                            $(addprefix -l,$(LIBS))
 
 # re-link program if BT binary libs change
-COMPONENT_ADD_LINKER_DEPS := $(patsubst %,$(COMPONENT_PATH)/controller/lib/lib%.a,$(LIBS))
+COMPONENT_ADD_LINKER_DEPS := $(patsubst %,$(COMPONENT_PATH)/controller/lib/esp32/lib%.a,$(LIBS))
 
 COMPONENT_SUBMODULES += controller/lib
+COMPONENT_ADD_LDFRAGMENTS += linker.lf
+
 
 # TODO: annotate fallthroughs in Bluedroid code with comments
 CFLAGS += -Wno-implicit-fallthrough
+
+COMPONENT_ADD_INCLUDEDIRS +=    include/esp32/include
+COMPONENT_SRCDIRS +=  controller/esp32
 
 ifdef CONFIG_BT_BLUEDROID_ENABLED
 
@@ -45,6 +50,7 @@ COMPONENT_PRIV_INCLUDEDIRS +=   host/bluedroid/bta/include                   \
                                 host/bluedroid/btc/profile/std/gatt/include  \
                                 host/bluedroid/btc/profile/std/gap/include   \
                                 host/bluedroid/btc/profile/std/a2dp/include  \
+                                host/bluedroid/btc/profile/std/hid/include   \
                                 host/bluedroid/btc/profile/std/include       \
                                 host/bluedroid/btc/include                   \
                                 host/bluedroid/btif/include                  \
@@ -63,7 +69,7 @@ COMPONENT_PRIV_INCLUDEDIRS +=   host/bluedroid/bta/include                   \
                                 host/bluedroid/stack/rfcomm/include          \
                                 host/bluedroid/stack/include                 \
                                 host/bluedroid/utils/include                 \
-                                host/bluedroid/common/include
+                                host/bluedroid/common/include                \
 
 COMPONENT_ADD_INCLUDEDIRS +=    host/bluedroid/api/include/api       \
 								common/osi/include
@@ -96,6 +102,7 @@ COMPONENT_SRCDIRS +=    host/bluedroid/bta/dm                      \
                         host/bluedroid/btc/profile/std/spp         \
                         host/bluedroid/btc/profile/std/hf_ag       \
                         host/bluedroid/btc/profile/std/hf_client   \
+                        host/bluedroid/btc/profile/std/hid         \
                         host/bluedroid/btc/profile                 \
                         host/bluedroid/stack/btm                   \
                         host/bluedroid/stack/btu                   \
@@ -126,7 +133,7 @@ COMPONENT_PRIV_INCLUDEDIRS += common/btc/include              	   \
 							  common/include
 
 COMPONENT_SRCDIRS += common/osi                         		   \
-					 common/btc/core
+					 common/btc/core                               \
 
 ifdef CONFIG_BLE_MESH
 
@@ -137,6 +144,7 @@ endif
 
 ifdef CONFIG_BLE_MESH
 COMPONENT_ADD_INCLUDEDIRS += esp_ble_mesh/mesh_common/include           \
+                             esp_ble_mesh/mesh_common/tinycrypt/include \
                              esp_ble_mesh/mesh_core                     \
                              esp_ble_mesh/mesh_core/include             \
                              esp_ble_mesh/mesh_core/storage             \
@@ -149,9 +157,11 @@ COMPONENT_ADD_INCLUDEDIRS += esp_ble_mesh/mesh_common/include           \
                              esp_ble_mesh/api
 
 COMPONENT_SRCDIRS += esp_ble_mesh/mesh_common               \
+                     esp_ble_mesh/mesh_common/tinycrypt/src \
                      esp_ble_mesh/mesh_core                 \
                      esp_ble_mesh/mesh_core/storage         \
                      esp_ble_mesh/btc                       \
+                     esp_ble_mesh/mesh_models/common        \
                      esp_ble_mesh/mesh_models/client        \
                      esp_ble_mesh/mesh_models/server        \
                      esp_ble_mesh/api/core                  \
@@ -167,6 +177,7 @@ COMPONENT_ADD_INCLUDEDIRS += host/nimble/nimble/nimble/include                  
                              host/nimble/nimble/porting/npl/freertos/include       \
                              host/nimble/nimble/nimble/host/services/ans/include   \
                              host/nimble/nimble/nimble/host/services/bas/include   \
+                             host/nimble/nimble/nimble/host/services/dis/include   \
                              host/nimble/nimble/nimble/host/services/gap/include   \
                              host/nimble/nimble/nimble/host/services/gatt/include  \
                              host/nimble/nimble/nimble/host/services/ias/include   \
@@ -188,6 +199,7 @@ COMPONENT_SRCDIRS += host/nimble/nimble/nimble/host/src                         
                      host/nimble/nimble/porting/npl/freertos/src                   \
                      host/nimble/nimble/nimble/host/services/ans/src               \
                      host/nimble/nimble/nimble/host/services/bas/src               \
+                     host/nimble/nimble/nimble/host/services/dis/src               \
                      host/nimble/nimble/nimble/host/services/gap/src               \
                      host/nimble/nimble/nimble/host/services/gatt/src              \
                      host/nimble/nimble/nimble/host/services/ias/src               \

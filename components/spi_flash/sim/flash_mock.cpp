@@ -21,7 +21,7 @@ size_t convert_chip_size_string(const char* chip_size_str)
     }
     else if (strcmp(chip_size_str, "2MB") == 0) {
         size = 0x200000;
-    } 
+    }
     else if (strcmp(chip_size_str, "4MB") == 0) {
         size = 0x400000;
     }
@@ -108,6 +108,11 @@ esp_rom_spiflash_result_t esp_rom_spiflash_write_encrypted(uint32_t flash_addr, 
 void *heap_caps_malloc( size_t size, uint32_t caps )
 {
     return NULL;
+}
+
+esp_rom_spiflash_result_t esp_rom_spiflash_write_disable(void)
+{
+    return ESP_ROM_SPIFLASH_RESULT_OK;
 }
 
 esp_flash_t* esp_flash_default_chip = NULL;

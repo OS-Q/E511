@@ -5,18 +5,19 @@
 #include <stdbool.h>
 #include <esp_system.h>
 #include "mbedtls/aes.h"
+#include "mbedtls/gcm.h"
 #include "unity.h"
 #include "sdkconfig.h"
-#include "esp_timer.h"
 #include "esp_heap_caps.h"
 #include "test_utils.h"
+#include "ccomp_timer.h"
 
-TEST_CASE("mbedtls AES performance", "[aes]")
+TEST_CASE("mbedtls AES performance", "[aes][timeout=60]")
 {
     const unsigned CALLS = 256;
-    const unsigned CALL_SZ = 32*1024;
+    const unsigned CALL_SZ = 32 * 1024;
     mbedtls_aes_context ctx;
-    int64_t start, end;
+    float elapsed_usec;
     uint8_t iv[16];
     uint8_t key[16];
 
@@ -24,17 +25,17 @@ TEST_CASE("mbedtls AES performance", "[aes]")
     memset(key, 0x44, 16);
 
     // allocate internal memory
-    uint8_t *buf = heap_caps_malloc(CALL_SZ, MALLOC_CAP_8BIT|MALLOC_CAP_INTERNAL);
+    uint8_t *buf = heap_caps_malloc(CALL_SZ, MALLOC_CAP_DMA | MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
     TEST_ASSERT_NOT_NULL(buf);
     mbedtls_aes_init(&ctx);
     mbedtls_aes_setkey_enc(&ctx, key, 128);
 
-    start = esp_timer_get_time();
+    ccomp_timer_start();
     for (int c = 0; c < CALLS; c++) {
         memset(buf, 0xAA, CALL_SZ);
         mbedtls_aes_crypt_cbc(&ctx, MBEDTLS_AES_ENCRYPT, CALL_SZ, iv, buf, buf);
     }
-    end = esp_timer_get_time();
+    elapsed_usec = ccomp_timer_stop();
 
     /* Sanity check: make sure the last ciphertext block matches
        what we expect to see.
@@ -56,16 +57,14 @@ TEST_CASE("mbedtls AES performance", "[aes]")
     };
     TEST_ASSERT_EQUAL_HEX8_ARRAY(expected_last_block, buf + CALL_SZ - 16, 16);
 
+    mbedtls_aes_free(&ctx);
     free(buf);
 
-    float usecs = end - start;
     // bytes/usec = MB/sec
-    float mb_sec = (CALL_SZ * CALLS) / usecs;
+    float mb_sec = (CALL_SZ * CALLS) / elapsed_usec;
     printf("Encryption rate %.3fMB/sec\n", mb_sec);
 #ifdef CONFIG_MBEDTLS_HARDWARE_AES
-    // Don't put a hard limit on software AES performance (software is approx 2.3MB/sec on Release config)
-    TEST_PERFORMANCE_GREATER_THAN(AES_CBC_THROUGHPUT_MBSEC, "%.3fMB/sec", mb_sec);
+    // Don't put a hard limit on software AES performance
+    TEST_PERFORMANCE_CCOMP_GREATER_THAN(AES_CBC_THROUGHPUT_MBSEC, "%.3fMB/sec", mb_sec);
 #endif
 }
-
-

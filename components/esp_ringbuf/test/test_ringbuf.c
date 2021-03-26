@@ -10,6 +10,7 @@
 #include "esp_spi_flash.h"
 #include "unity.h"
 #include "test_utils.h"
+#include "esp_rom_sys.h"
 
 //Definitions used in multiple test cases
 #define TIMEOUT_TICKS               10
@@ -184,7 +185,7 @@ TEST_CASE("Test ring buffer No-Split", "[esp_ringbuf]")
     }
 
     //Write pointer should be near the end, test wrap around
-    uint32_t write_pos_before, write_pos_after;
+    UBaseType_t write_pos_before, write_pos_after;
     vRingbufferGetInfo(buffer_handle, NULL, NULL, &write_pos_before, NULL, NULL);
     //Send large item that causes wrap around
     send_item_and_check(buffer_handle, large_item, LARGE_ITEM_SIZE, TIMEOUT_TICKS, false);
@@ -215,7 +216,7 @@ TEST_CASE("Test ring buffer Allow-Split", "[esp_ringbuf]")
     }
 
     //Write pointer should be near the end, test wrap around
-    uint32_t write_pos_before, write_pos_after;
+    UBaseType_t write_pos_before, write_pos_after;
     vRingbufferGetInfo(buffer_handle, NULL, NULL, &write_pos_before, NULL, NULL);
     //Send large item that causes wrap around
     send_item_and_check(buffer_handle, large_item, LARGE_ITEM_SIZE, TIMEOUT_TICKS, false);
@@ -246,7 +247,7 @@ TEST_CASE("Test ring buffer Byte Buffer", "[esp_ringbuf]")
     }
 
     //Write pointer should be near the end, test wrap around
-    uint32_t write_pos_before, write_pos_after;
+    UBaseType_t write_pos_before, write_pos_after;
     vRingbufferGetInfo(buffer_handle, NULL, NULL, &write_pos_before, NULL, NULL);
     //Send large item that causes wrap around
     send_item_and_check(buffer_handle, large_item, LARGE_ITEM_SIZE, TIMEOUT_TICKS, false);
@@ -572,7 +573,7 @@ static void rec_task(void *args)
 
 static void setup(void)
 {
-    ets_printf("Size of test data: %d\n", CONT_DATA_LEN);
+    esp_rom_printf("Size of test data: %d\n", CONT_DATA_LEN);
     tx_done = xSemaphoreCreateBinary();                 //Semaphore to indicate send is done for a particular iteration
     rx_done = xSemaphoreCreateBinary();                 //Semaphore to indicate receive is done for a particular iteration
     tasks_done = xSemaphoreCreateBinary();              //Semaphore used to to indicate send and receive tasks completed running
@@ -602,7 +603,7 @@ TEST_CASE("Test ring buffer SMP", "[esp_ringbuf]")
             //Test every permutation of core affinity
             for (int send_core = 0; send_core < portNUM_PROCESSORS; send_core++) {
                 for (int rec_core = 0; rec_core < portNUM_PROCESSORS; rec_core ++) {
-                    ets_printf("Type: %d, PM: %d, SC: %d, RC: %d\n", buf_type, prior_mod, send_core, rec_core);
+                    esp_rom_printf("Type: %d, PM: %d, SC: %d, RC: %d\n", buf_type, prior_mod, send_core, rec_core);
                     xTaskCreatePinnedToCore(send_task, "send tsk", 2048, (void *)&task_args, 10 + prior_mod, NULL, send_core);
                     xTaskCreatePinnedToCore(rec_task, "rec tsk", 2048, (void *)&task_args, 10, NULL, rec_core);
                     xSemaphoreTake(tasks_done, portMAX_DELAY);
@@ -646,7 +647,7 @@ TEST_CASE("Test static ring buffer SMP", "[esp_ringbuf]")
             //Test every permutation of core affinity
             for (int send_core = 0; send_core < portNUM_PROCESSORS; send_core++) {
                 for (int rec_core = 0; rec_core < portNUM_PROCESSORS; rec_core ++) {
-                    ets_printf("Type: %d, PM: %d, SC: %d, RC: %d\n", buf_type, prior_mod, send_core, rec_core);
+                    esp_rom_printf("Type: %d, PM: %d, SC: %d, RC: %d\n", buf_type, prior_mod, send_core, rec_core);
                     xTaskCreatePinnedToCore(send_task, "send tsk", 2048, (void *)&task_args, 10 + prior_mod, NULL, send_core);
                     xTaskCreatePinnedToCore(rec_task, "rec tsk", 2048, (void *)&task_args, 10, NULL, rec_core);
                     xSemaphoreTake(tasks_done, portMAX_DELAY);
@@ -673,12 +674,12 @@ static IRAM_ATTR __attribute__((noinline)) bool iram_ringbuf_test(void)
 {
     bool result = true;
 
-    spi_flash_guard_get()->start(); // Disables flash cache
     RingbufHandle_t handle = xRingbufferCreate(CONT_DATA_TEST_BUFF_LEN, RINGBUF_TYPE_NOSPLIT);
     result = result && (handle != NULL);
+    spi_flash_guard_get()->start(); // Disables flash cache
     xRingbufferGetMaxItemSize(handle);
-    vRingbufferDelete(handle);
     spi_flash_guard_get()->end(); // Re-enables flash cache
+    vRingbufferDelete(handle);
 
     return result;
 }

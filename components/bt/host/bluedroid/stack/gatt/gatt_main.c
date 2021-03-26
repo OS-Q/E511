@@ -96,12 +96,15 @@ tGATT_DEFAULT gatt_default;
 void gatt_init (void)
 {
     tL2CAP_FIXED_CHNL_REG  fixed_reg;
+
 #if GATT_DYNAMIC_MEMORY
     gatt_cb_ptr = (tGATT_CB *)osi_malloc(sizeof(tGATT_CB));
 #endif /* #if GATT_DYNAMIC_MEMORY */
     memset (&gatt_cb, 0, sizeof(tGATT_CB));
     memset (&fixed_reg, 0, sizeof(tL2CAP_FIXED_CHNL_REG));
 
+    gatt_cb.p_clcb_list = list_new(osi_free_func);
+    gatt_cb.p_tcb_list  = list_new(osi_free_func);
 #if defined(GATT_INITIAL_TRACE_LEVEL)
     gatt_cb.trace_level = GATT_INITIAL_TRACE_LEVEL;
 #else
@@ -158,7 +161,6 @@ void gatt_init (void)
 #if (GATT_INCLUDED == TRUE)
 void gatt_free(void)
 {
-    int i;
     GATT_TRACE_DEBUG("gatt_free()");
     fixed_queue_free(gatt_cb.sign_op_queue, NULL);
     gatt_cb.sign_op_queue = NULL;
@@ -167,28 +169,34 @@ void gatt_free(void)
     fixed_queue_free(gatt_cb.pending_new_srv_start_q, NULL);
     gatt_cb.pending_new_srv_start_q = NULL;
 
-    for (i = 0; i < GATT_MAX_PHY_CHANNEL; i++)
-    {
-        fixed_queue_free(gatt_cb.tcb[i].pending_enc_clcb, NULL);
-        gatt_cb.tcb[i].pending_enc_clcb = NULL;
+    list_node_t *p_node = NULL;
+    tGATT_TCB   *p_tcb  = NULL;
+    for(p_node = list_begin(gatt_cb.p_tcb_list); p_node; p_node = list_next(p_node)) {
+	p_tcb = list_node(p_node);
+        fixed_queue_free(p_tcb->pending_enc_clcb, NULL);
+        p_tcb->pending_enc_clcb = NULL;
 
-        fixed_queue_free(gatt_cb.tcb[i].pending_ind_q, NULL);
-        gatt_cb.tcb[i].pending_ind_q = NULL;
+        fixed_queue_free(p_tcb->pending_ind_q, NULL);
+        p_tcb->pending_ind_q = NULL;
 
-        btu_free_timer(&gatt_cb.tcb[i].conf_timer_ent);
-        memset(&gatt_cb.tcb[i].conf_timer_ent, 0, sizeof(TIMER_LIST_ENT));
+        btu_free_timer(&p_tcb->conf_timer_ent);
+        memset(&p_tcb->conf_timer_ent, 0, sizeof(TIMER_LIST_ENT));
 
-        btu_free_timer(&gatt_cb.tcb[i].ind_ack_timer_ent);
-        memset(&gatt_cb.tcb[i].ind_ack_timer_ent, 0, sizeof(TIMER_LIST_ENT));
+        btu_free_timer(&p_tcb->ind_ack_timer_ent);
+        memset(&p_tcb->ind_ack_timer_ent, 0, sizeof(TIMER_LIST_ENT));
 
 #if (GATTS_INCLUDED == TRUE)
-        fixed_queue_free(gatt_cb.tcb[i].sr_cmd.multi_rsp_q, NULL);
-        gatt_cb.tcb[i].sr_cmd.multi_rsp_q = NULL;
+        fixed_queue_free(p_tcb->sr_cmd.multi_rsp_q, NULL);
+        p_tcb->sr_cmd.multi_rsp_q = NULL;
 #endif /* #if (GATTS_INCLUDED == TRUE) */
     }
+    list_free(gatt_cb.p_tcb_list);
+#if (GATTC_INCLUDED == TRUE)
+    list_free(gatt_cb.p_clcb_list);
+#endif //(GATTC_INCLUDED == TRUE)
 
 #if (GATTS_INCLUDED == TRUE)
-    for (i = 0; i < GATT_MAX_SR_PROFILES; i++) {
+    for (int i = 0; i < GATT_MAX_SR_PROFILES; i++) {
         gatt_remove_an_item_from_list(&gatt_cb.hdl_list_info, &gatt_cb.hdl_list[i]);
         gatt_free_attr_value_buffer(&gatt_cb.hdl_list[i]);
         gatt_free_hdl_buffer(&gatt_cb.hdl_list[i]);
@@ -211,7 +219,7 @@ void gatt_free(void)
 ** Returns          TRUE if connection is started, otherwise return FALSE.
 **
 *******************************************************************************/
-BOOLEAN gatt_connect (BD_ADDR rem_bda, tBLE_ADDR_TYPE bd_addr_type, tGATT_TCB *p_tcb, tBT_TRANSPORT transport)
+BOOLEAN gatt_connect (BD_ADDR rem_bda, tBLE_ADDR_TYPE bd_addr_type, tGATT_TCB *p_tcb, tBT_TRANSPORT transport, BOOLEAN is_aux)
 {
     BOOLEAN             gatt_ret = FALSE;
 
@@ -221,7 +229,7 @@ BOOLEAN gatt_connect (BD_ADDR rem_bda, tBLE_ADDR_TYPE bd_addr_type, tGATT_TCB *p
 
     if (transport == BT_TRANSPORT_LE) {
         p_tcb->att_lcid = L2CAP_ATT_CID;
-        gatt_ret = L2CA_ConnectFixedChnl (L2CAP_ATT_CID, rem_bda, bd_addr_type);
+        gatt_ret = L2CA_ConnectFixedChnl (L2CAP_ATT_CID, rem_bda, bd_addr_type, is_aux);
 #if (CLASSIC_BT_GATT_INCLUDED == TRUE)
     } else {
         if ((p_tcb->att_lcid = L2CA_ConnectReq(BT_PSM_ATT, rem_bda)) != 0) {
@@ -366,7 +374,8 @@ void gatt_update_app_use_link_flag (tGATT_IF gatt_if, tGATT_TCB *p_tcb, BOOLEAN 
 ** Returns          void.
 **
 *******************************************************************************/
-BOOLEAN gatt_act_connect (tGATT_REG *p_reg, BD_ADDR bd_addr, tBLE_ADDR_TYPE bd_addr_type, tBT_TRANSPORT transport)
+BOOLEAN gatt_act_connect (tGATT_REG *p_reg, BD_ADDR bd_addr,
+                                    tBLE_ADDR_TYPE bd_addr_type, tBT_TRANSPORT transport, BOOLEAN is_aux)
 {
     BOOLEAN     ret = FALSE;
     tGATT_TCB   *p_tcb;
@@ -379,20 +388,35 @@ BOOLEAN gatt_act_connect (tGATT_REG *p_reg, BD_ADDR bd_addr, tBLE_ADDR_TYPE bd_a
         /* before link down, another app try to open a GATT connection */
         if (st == GATT_CH_OPEN &&  gatt_num_apps_hold_link(p_tcb) == 0 &&
                 transport == BT_TRANSPORT_LE ) {
-            if (!gatt_connect(bd_addr, bd_addr_type, p_tcb, transport)) {
+            if (!gatt_connect(bd_addr, bd_addr_type, p_tcb, transport, is_aux)) {
                 ret = FALSE;
             }
         } else if (st == GATT_CH_CLOSING) {
             /* need to complete the closing first */
             ret = FALSE;
+        } else {
+            GATT_TRACE_WARNING("gatt_connect wrong state %d", st);
         }
     } else {
         if ((p_tcb = gatt_allocate_tcb_by_bdaddr(bd_addr, transport)) != NULL) {
-            if (!gatt_connect(bd_addr, bd_addr_type, p_tcb, transport)) {
+            if (!gatt_connect(bd_addr, bd_addr_type, p_tcb, transport, is_aux)) {
                 GATT_TRACE_ERROR("gatt_connect failed");
-                fixed_queue_free(p_tcb->pending_enc_clcb, NULL);
-                fixed_queue_free(p_tcb->pending_ind_q, NULL);
-                memset(p_tcb, 0, sizeof(tGATT_TCB));
+
+                // code enter here if create connection failed. if disconnect after connection, code will not enter here
+
+                // p_tcb, p_tcb->pending_enc_clcb, and p_tcb->pending_ind_q have been freed in gatt_cleanup_upon_disc(),
+                // but here p_tcb is get from gatt_allocate_tcb_by_bdaddr(), is too old, so we get p_tcb again
+                p_tcb = gatt_find_tcb_by_addr(bd_addr, transport);
+                if(p_tcb != NULL) {
+                    if(p_tcb->pending_enc_clcb != NULL) {
+                        fixed_queue_free(p_tcb->pending_enc_clcb, NULL);
+                    }
+                    if(p_tcb->pending_ind_q != NULL) {
+                        fixed_queue_free(p_tcb->pending_ind_q, NULL);
+                    }
+                    gatt_tcb_free(p_tcb);
+                }
+
             } else {
                 ret = TRUE;
             }
@@ -1146,8 +1170,8 @@ void gatt_proc_srv_chg (void)
         gatt_set_srv_chg();
         start_idx = 0;
         while (gatt_find_the_connected_bda(start_idx, bda, &found_idx, &transport)) {
-            p_tcb = &gatt_cb.tcb[found_idx];
-            srv_chg_ind_pending  = gatt_is_srv_chg_ind_pending(p_tcb);
+            p_tcb = gatt_get_tcb_by_idx(found_idx);
+	    srv_chg_ind_pending  = gatt_is_srv_chg_ind_pending(p_tcb);
 
             if (!srv_chg_ind_pending) {
                 gatt_send_srv_chg_ind(bda);

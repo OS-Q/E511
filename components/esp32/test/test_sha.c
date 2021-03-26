@@ -13,7 +13,7 @@
 #include "mbedtls/sha1.h"
 #include "mbedtls/sha256.h"
 #include "mbedtls/sha512.h"
-#include "esp32/sha.h"
+#include "sha/sha_parallel_engine.h"
 #include "ccomp_timer.h"
 
 /* Note: Most of the SHA functions are called as part of mbedTLS, so
@@ -63,8 +63,8 @@ TEST_CASE("Test esp_sha()", "[hw_crypto]")
 
     free(buffer);
 
-    TEST_PERFORMANCE_LESS_THAN(TIME_SHA1_32KB, "%dus", us_sha1);
-    TEST_PERFORMANCE_LESS_THAN(TIME_SHA512_32KB, "%dus", us_sha512);
+    TEST_PERFORMANCE_CCOMP_LESS_THAN(TIME_SHA1_32KB, "%dus", us_sha1);
+    TEST_PERFORMANCE_CCOMP_LESS_THAN(TIME_SHA512_32KB, "%dus", us_sha512);
 }
 
 TEST_CASE("Test esp_sha() function with long input", "[hw_crypto]")
@@ -106,4 +106,3 @@ TEST_CASE("Test esp_sha() function with long input", "[hw_crypto]")
 
     TEST_ASSERT_EQUAL_MEMORY_MESSAGE(sha512_espsha, sha512_mbedtls, sizeof(sha512_espsha), "SHA512 results should match");
 }
-

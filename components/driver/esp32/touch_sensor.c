@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <esp_types.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include "sdkconfig.h"
+#include "esp_types.h"
 #include "esp_log.h"
 #include "sys/lock.h"
 #include "soc/rtc.h"
@@ -28,9 +29,6 @@
 #include "driver/touch_pad.h"
 #include "driver/rtc_cntl.h"
 #include "driver/gpio.h"
-#include "sdkconfig.h"
-
-#include "esp32/rom/ets_sys.h"
 
 #ifndef NDEBUG
 // Enable built-in checks in queue.h in debug builds
@@ -49,7 +47,7 @@ typedef struct {
     bool enable;
 } touch_pad_filter_t;
 static touch_pad_filter_t *s_touch_pad_filter = NULL;
-// check if touch pad be inited.
+// check if touch pad be initialized.
 static uint16_t s_touch_pad_init_bit = 0x0000;
 static filter_cb_t s_filter_cb = NULL;
 static SemaphoreHandle_t rtc_touch_mux = NULL;
@@ -61,7 +59,7 @@ static SemaphoreHandle_t rtc_touch_mux = NULL;
 static const char *TOUCH_TAG = "TOUCH_SENSOR";
 #define TOUCH_CHECK(a, str, ret_val) ({                                             \
     if (!(a)) {                                                                     \
-        ESP_LOGE(TOUCH_TAG,"%s:%d (%s):%s", __FILE__, __LINE__, __FUNCTION__, str);   \
+        ESP_LOGE(TOUCH_TAG,"%s(%d): %s", __FUNCTION__, __LINE__, str);              \
         return (ret_val);                                                           \
     }                                                                               \
 })
@@ -189,9 +187,9 @@ esp_err_t touch_pad_get_trigger_source(touch_trigger_src_t *src)
 
 esp_err_t touch_pad_set_group_mask(uint16_t set1_mask, uint16_t set2_mask, uint16_t en_mask)
 {
-    TOUCH_CHECK((set1_mask <= SOC_TOUCH_SENSOR_BIT_MASK_MAX), "touch set1 bitmask error", ESP_ERR_INVALID_ARG);
-    TOUCH_CHECK((set2_mask <= SOC_TOUCH_SENSOR_BIT_MASK_MAX), "touch set2 bitmask error", ESP_ERR_INVALID_ARG);
-    TOUCH_CHECK((en_mask <= SOC_TOUCH_SENSOR_BIT_MASK_MAX), "touch work_en bitmask error", ESP_ERR_INVALID_ARG);
+    TOUCH_CHECK((set1_mask <= TOUCH_PAD_BIT_MASK_ALL), "touch set1 bitmask error", ESP_ERR_INVALID_ARG);
+    TOUCH_CHECK((set2_mask <= TOUCH_PAD_BIT_MASK_ALL), "touch set2 bitmask error", ESP_ERR_INVALID_ARG);
+    TOUCH_CHECK((en_mask <= TOUCH_PAD_BIT_MASK_ALL), "touch work_en bitmask error", ESP_ERR_INVALID_ARG);
 
     TOUCH_ENTER_CRITICAL();
     touch_hal_set_group_mask(set1_mask, set2_mask);
@@ -213,9 +211,9 @@ esp_err_t touch_pad_get_group_mask(uint16_t *set1_mask, uint16_t *set2_mask, uin
 
 esp_err_t touch_pad_clear_group_mask(uint16_t set1_mask, uint16_t set2_mask, uint16_t en_mask)
 {
-    TOUCH_CHECK((set1_mask <= SOC_TOUCH_SENSOR_BIT_MASK_MAX), "touch set1 bitmask error", ESP_ERR_INVALID_ARG);
-    TOUCH_CHECK((set2_mask <= SOC_TOUCH_SENSOR_BIT_MASK_MAX), "touch set2 bitmask error", ESP_ERR_INVALID_ARG);
-    TOUCH_CHECK((en_mask <= SOC_TOUCH_SENSOR_BIT_MASK_MAX), "touch work_en bitmask error", ESP_ERR_INVALID_ARG);
+    TOUCH_CHECK((set1_mask <= TOUCH_PAD_BIT_MASK_ALL), "touch set1 bitmask error", ESP_ERR_INVALID_ARG);
+    TOUCH_CHECK((set2_mask <= TOUCH_PAD_BIT_MASK_ALL), "touch set2 bitmask error", ESP_ERR_INVALID_ARG);
+    TOUCH_CHECK((en_mask <= TOUCH_PAD_BIT_MASK_ALL), "touch work_en bitmask error", ESP_ERR_INVALID_ARG);
 
     TOUCH_ENTER_CRITICAL();
     touch_hal_clear_channel_mask(en_mask);
@@ -227,7 +225,7 @@ esp_err_t touch_pad_clear_group_mask(uint16_t set1_mask, uint16_t set2_mask, uin
 esp_err_t touch_pad_intr_enable(void)
 {
     TOUCH_ENTER_CRITICAL();
-    touch_hal_enable_interrupt();
+    touch_hal_intr_enable();
     TOUCH_EXIT_CRITICAL();
     return ESP_OK;
 }
@@ -235,9 +233,22 @@ esp_err_t touch_pad_intr_enable(void)
 esp_err_t touch_pad_intr_disable(void)
 {
     TOUCH_ENTER_CRITICAL();
-    touch_hal_disable_interrupt();
+    touch_hal_intr_disable();
     TOUCH_EXIT_CRITICAL();
     return ESP_OK;
+}
+
+esp_err_t touch_pad_intr_clear(void)
+{
+    TOUCH_ENTER_CRITICAL();
+    touch_hal_intr_clear();
+    TOUCH_EXIT_CRITICAL();
+    return ESP_OK;
+}
+
+bool touch_pad_meas_is_done(void)
+{
+    return touch_hal_meas_is_done();
 }
 
 esp_err_t touch_pad_config(touch_pad_t touch_num, uint16_t threshold)
@@ -276,6 +287,10 @@ esp_err_t touch_pad_config(touch_pad_t touch_num, uint16_t threshold)
 
 esp_err_t touch_pad_init(void)
 {
+#ifdef CONFIG_ESP32_RTC_EXT_CRYST_ADDIT_CURRENT_V2
+    ESP_LOGE(TOUCH_TAG, "Touch Pad can't work because it provides current to external XTAL");
+    return ESP_ERR_NOT_SUPPORTED;
+#endif // CONFIG_ESP32_RTC_EXT_CRYST_ADDIT_CURRENT_V2
     if (rtc_touch_mux == NULL) {
         rtc_touch_mux = xSemaphoreCreateMutex();
     }
@@ -419,7 +434,7 @@ esp_err_t touch_pad_filter_start(uint32_t filter_period_ms)
     }
     if (s_touch_pad_filter->timer == NULL) {
         s_touch_pad_filter->timer = xTimerCreate("filter_tmr", filter_period_ms / portTICK_PERIOD_MS, pdFALSE,
-                                    NULL, touch_pad_filter_cb);
+                                    NULL, (TimerCallbackFunction_t) touch_pad_filter_cb);
         if (s_touch_pad_filter->timer == NULL) {
             free(s_touch_pad_filter);
             s_touch_pad_filter = NULL;

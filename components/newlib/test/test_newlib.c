@@ -8,6 +8,7 @@
 #include <sys/time.h>
 #include "unity.h"
 #include "sdkconfig.h"
+#include "soc/soc.h"
 
 TEST_CASE("test ctype functions", "[newlib]")
 {
@@ -19,7 +20,7 @@ TEST_CASE("test ctype functions", "[newlib]")
     TEST_ASSERT_FALSE( isspace('0') || isspace('9') || isspace(')') || isspace('A') || isspace('*') || isspace('\x81') || isspace('a'));
 }
 
-TEST_CASE("test atoX functions", "[newlib][ignore]")
+TEST_CASE("test atoX functions", "[newlib]")
 {
     TEST_ASSERT_EQUAL_INT(-2147483648, atoi("-2147483648"));
     TEST_ASSERT_EQUAL_INT(2147483647, atoi("2147483647"));
@@ -36,7 +37,7 @@ TEST_CASE("test sprintf function", "[newlib]")
     char *res = NULL;
     asprintf(&res, "%d %011i %lu %p %x %c %.4f\n", 42, 2147483647, 2147483648UL, (void *) 0x40010000, 0x40020000, 'Q', 1.0f / 137.0f);
     TEST_ASSERT_NOT_NULL(res);
-    TEST_ASSERT_EQUAL_STRING(res, "42 02147483647 2147483648 0x40010000 40020000 Q 0.0073\n");
+    TEST_ASSERT_EQUAL_STRING("42 02147483647 2147483648 0x40010000 40020000 Q 0.0073\n", res);
     free(res);
 }
 
@@ -116,29 +117,39 @@ TEST_CASE("test asctime", "[newlib]")
     TEST_ASSERT_EQUAL_STRING(buf, time_str);
 }
 
-static bool fn_in_rom(void *fn, const char *name)
+static bool fn_in_rom(void *fn)
 {
     const int fnaddr = (int)fn;
-    return (fnaddr >= 0x40000000) && (fnaddr < 0x40070000);
+    return (fnaddr >= SOC_IROM_MASK_LOW && fnaddr < SOC_IROM_MASK_HIGH);
 }
 
 
 TEST_CASE("check if ROM or Flash is used for functions", "[newlib]")
 {
-#if defined(CONFIG_NEWLIB_NANO_FORMAT) && !defined(CONFIG_SPIRAM)
-    TEST_ASSERT(fn_in_rom(printf, "printf"));
-    TEST_ASSERT(fn_in_rom(sscanf, "sscanf"));
+#if defined(CONFIG_NEWLIB_NANO_FORMAT)
+    TEST_ASSERT(fn_in_rom(vfprintf));
 #else
-    TEST_ASSERT_FALSE(fn_in_rom(printf, "printf"));
-    TEST_ASSERT_FALSE(fn_in_rom(sscanf, "sscanf"));
-#endif
-#if !defined(CONFIG_SPIRAM)
-    TEST_ASSERT(fn_in_rom(atoi,   "atoi"));
-    TEST_ASSERT(fn_in_rom(strtol, "strtol"));
+    TEST_ASSERT_FALSE(fn_in_rom(vfprintf));
+#endif // CONFIG_NEWLIB_NANO_FORMAT
+
+#if defined(CONFIG_IDF_TARGET_ESP32) && defined(CONFIG_NEWLIB_NANO_FORMAT)
+    TEST_ASSERT(fn_in_rom(sscanf));
 #else
-    TEST_ASSERT_FALSE(fn_in_rom(atoi,   "atoi"));
-    TEST_ASSERT_FALSE(fn_in_rom(strtol, "strtol"));
-#endif
+    TEST_ASSERT_FALSE(fn_in_rom(sscanf));
+#endif // CONFIG_IDF_TARGET_ESP32 && CONFIG_NEWLIB_NANO_FORMAT
+
+#if defined(CONFIG_IDF_TARGET_ESP32) && !defined(CONFIG_SPIRAM)
+    TEST_ASSERT(fn_in_rom(atoi));
+    TEST_ASSERT(fn_in_rom(strtol));
+#elif defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C3)
+    /* S3 and C3 always use these from ROM */
+    TEST_ASSERT(fn_in_rom(atoi));
+    TEST_ASSERT(fn_in_rom(strtol));
+#else
+    /* S2 do not have these in ROM */
+    TEST_ASSERT_FALSE(fn_in_rom(atoi));
+    TEST_ASSERT_FALSE(fn_in_rom(strtol));
+#endif // defined(CONFIG_IDF_TARGET_ESP32) && !defined(CONFIG_SPIRAM)
 }
 
 #ifndef CONFIG_NEWLIB_NANO_FORMAT
@@ -158,8 +169,8 @@ TEST_CASE("test 64bit int formats", "[newlib]")
     TEST_ASSERT_EQUAL(1, ret);
     TEST_ASSERT_EQUAL(val, sval);
 }
-#else
-TEST_CASE("test 64bit int formats", "[newlib][ignore]")
+#else // CONFIG_NEWLIB_NANO_FORMAT
+TEST_CASE("test 64bit int formats", "[newlib]")
 {
     char* res = NULL;
     const uint64_t val = 123456789012LL;
@@ -174,7 +185,7 @@ TEST_CASE("test 64bit int formats", "[newlib][ignore]")
 
     TEST_ASSERT_EQUAL(0, ret);
 }
-#endif
+#endif // CONFIG_NEWLIB_NANO_FORMAT
 
 
 TEST_CASE("fmod and fmodf work as expected", "[newlib]")

@@ -23,7 +23,7 @@
  *
  ******************************************************************************/
 
-// #include <assert.h>
+#include <assert.h>
 #include <string.h>
 
 #include "bta/bta_sys.h"
@@ -973,6 +973,17 @@ void bta_dm_pm_btm_status(tBTA_DM_MSG *p_data)
     default:
         break;
     }
+
+    if ( bta_dm_cb.p_sec_cback ) {
+        if (p_data->pm_status.status <= BTM_PM_STS_PARK
+            /*&& p_data->pm_status.status >= BTM_PM_STS_ACTIVE*/  // comparison is always true due to limited range of data type
+            ) {
+            tBTA_DM_SEC conn;
+            conn.mode_chg.mode = p_data->pm_status.status;
+            bdcpy(conn.mode_chg.bd_addr, p_data->pm_status.bd_addr);
+            bta_dm_cb.p_sec_cback(BTA_DM_PM_MODE_CHG_EVT, (tBTA_DM_SEC *)&conn);
+        }
+    }
 }
 
 
@@ -1159,4 +1170,3 @@ tBTA_DM_CONTRL_STATE bta_dm_pm_obtain_controller_state(void)
 }
 
 #endif
-

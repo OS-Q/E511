@@ -24,12 +24,16 @@ typedef enum {
     BTC_GATTC_ACT_APP_REGISTER = 0,
     BTC_GATTC_ACT_APP_UNREGISTER,
     BTC_GATTC_ACT_OPEN,
+#if (BLE_50_FEATURE_SUPPORT == TRUE)
+    BTC_GATTC_ACT_AUX_OPEN,
+#endif // #if (BLE_50_FEATURE_SUPPORT == TRUE)
     BTC_GATTC_ACT_CLOSE,
     BTC_GATTC_ACT_CFG_MTU,
     BTC_GATTC_ACT_SEARCH_SERVICE,
     BTC_GATTC_ACT_READ_CHAR,
     BTC_GATTC_ACT_READ_MULTIPLE_CHAR,
     BTC_GATTC_ACT_READ_CHAR_DESCR,
+    BTC_GATTC_ACT_READ_BY_TYPE,
     BTC_GATTC_ACT_WRITE_CHAR,
     BTC_GATTC_ACT_WRITE_CHAR_DESCR,
     BTC_GATTC_ACT_PREPARE_WRITE,
@@ -59,6 +63,7 @@ typedef union {
         esp_bd_addr_t remote_bda;
         esp_ble_addr_type_t remote_addr_type;
         bool is_direct;
+        bool is_aux;
     } open;
     //BTC_GATTC_ACT_CLOSE,
     struct close_arg {
@@ -113,6 +118,14 @@ typedef union {
         uint16_t handle;
         esp_gatt_auth_req_t auth_req;
     } read_descr;
+    // BTC_GATTC_ACT_READ_BY_TYPE
+    struct read_by_type_arg {
+        uint16_t conn_id;
+        uint16_t s_handle;
+        uint16_t e_handle;
+        esp_bt_uuid_t uuid;
+        esp_gatt_auth_req_t auth_req;
+    } read_by_type;
     //BTC_GATTC_ACT_WRITE_CHAR,
     struct write_char_arg {
         uint16_t conn_id;
@@ -190,7 +203,7 @@ typedef union {
 void btc_gattc_call_handler(btc_msg_t *msg);
 void btc_gattc_cb_handler(btc_msg_t *msg);
 void btc_gattc_arg_deep_copy(btc_msg_t *msg, void *p_dest, void *p_src);
-esp_gatt_status_t btc_ble_gattc_get_service(uint16_t conn_id, esp_bt_uuid_t *svc_uuid, 
+esp_gatt_status_t btc_ble_gattc_get_service(uint16_t conn_id, esp_bt_uuid_t *svc_uuid,
                                             esp_gattc_service_elem_t *result,
                                             uint16_t *count, uint16_t offset);
 esp_gatt_status_t btc_ble_gattc_get_all_char(uint16_t conn_id,
@@ -236,7 +249,7 @@ esp_gatt_status_t btc_ble_gattc_get_attr_count(uint16_t conn_id,
                                                uint16_t char_handle,
                                                uint16_t *count);
 
-esp_gatt_status_t btc_ble_gattc_get_db(uint16_t conn_id, uint16_t start_handle, uint16_t end_handle, 
+esp_gatt_status_t btc_ble_gattc_get_db(uint16_t conn_id, uint16_t start_handle, uint16_t end_handle,
                                        esp_gattc_db_elem_t *db, uint16_t *count);
 
 

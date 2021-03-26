@@ -746,7 +746,7 @@ void bta_gatts_open (tBTA_GATTS_CB *p_cb, tBTA_GATTS_DATA *p_msg)
     if ((p_rcb = bta_gatts_find_app_rcb_by_app_if(p_msg->api_open.server_if)) != NULL) {
         /* should always get the connection ID */
         if (GATT_Connect(p_rcb->gatt_if, p_msg->api_open.remote_bda, BLE_ADDR_UNKNOWN_TYPE,
-                         p_msg->api_open.is_direct, p_msg->api_open.transport)) {
+                         p_msg->api_open.is_direct, p_msg->api_open.transport, FALSE)) {
             status = BTA_GATT_OK;
 
             if (GATT_GetConnIdIfConnected(p_rcb->gatt_if, p_msg->api_open.remote_bda,
@@ -1002,6 +1002,7 @@ static void bta_gatts_conn_cback (tGATT_IF gatt_if, BD_ADDR bda, UINT16 conn_id,
                 cb_data.conn.conn_params.interval = p_lcb->current_used_conn_interval;
                 cb_data.conn.conn_params.latency = p_lcb->current_used_conn_latency;
                 cb_data.conn.conn_params.timeout = p_lcb->current_used_conn_timeout;
+                cb_data.conn.link_role = p_lcb->link_role;
             }else {
                 APPL_TRACE_WARNING("%s not found connection parameters of the device ", __func__);
             }

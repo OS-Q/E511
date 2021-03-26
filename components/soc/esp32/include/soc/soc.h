@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef _ESP32_SOC_H_
-#define _ESP32_SOC_H_
+#pragma once
 
 #ifndef __ASSEMBLER__
 #include <stdint.h>
@@ -65,7 +64,7 @@
 #define DR_REG_SPI_ENCRYPT_BASE                 0x3ff5B000
 #define DR_REG_NRX_BASE                         0x3ff5CC00
 #define DR_REG_BB_BASE                          0x3ff5D000
-#define DR_REG_PWM_BASE                         0x3ff5E000
+#define DR_REG_PWM0_BASE                        0x3ff5E000
 #define DR_REG_TIMERGROUP0_BASE                 0x3ff5F000
 #define DR_REG_TIMERGROUP1_BASE                 0x3ff60000
 #define DR_REG_RTCMEM0_BASE                     0x3ff61000
@@ -82,8 +81,6 @@
 #define DR_REG_PWM1_BASE                        0x3ff6C000
 #define DR_REG_I2S1_BASE                        0x3ff6D000
 #define DR_REG_UART2_BASE                       0x3ff6E000
-#define DR_REG_PWM2_BASE                        0x3ff6F000
-#define DR_REG_PWM3_BASE                        0x3ff70000
 #define PERIPHS_SPI_ENCRYPT_BASEADDR            DR_REG_SPI_ENCRYPT_BASE
 
 //Registers Operation {{
@@ -256,6 +253,8 @@
 #define SOC_EXTRAM_DATA_LOW     0x3F800000
 #define SOC_EXTRAM_DATA_HIGH    0x3FC00000
 
+#define SOC_EXTRAM_DATA_SIZE (SOC_EXTRAM_DATA_HIGH - SOC_EXTRAM_DATA_LOW)
+
 //First and last words of the D/IRAM region, for both the DRAM address as well as the IRAM alias.
 #define SOC_DIRAM_IRAM_LOW    0x400A0000
 #define SOC_DIRAM_IRAM_HIGH   0x400C0000
@@ -323,11 +322,10 @@
 #define ETS_ETH_MAC_INTR_SOURCE                 38/**< interrupt of ethernet mac, level*/
 #define ETS_PWM0_INTR_SOURCE                    39/**< interrupt of PWM0, level, Reserved*/
 #define ETS_PWM1_INTR_SOURCE                    40/**< interrupt of PWM1, level, Reserved*/
-#define ETS_PWM2_INTR_SOURCE                    41/**< interrupt of PWM2, level*/
-#define ETS_PWM3_INTR_SOURCE                    42/**< interruot of PWM3, level*/
 #define ETS_LEDC_INTR_SOURCE                    43/**< interrupt of LED PWM, level*/
 #define ETS_EFUSE_INTR_SOURCE                   44/**< interrupt of efuse, level, not likely to use*/
-#define ETS_CAN_INTR_SOURCE                     45/**< interrupt of can, level*/
+#define ETS_TWAI_INTR_SOURCE                    45/**< interrupt of twai, level*/
+#define ETS_CAN_INTR_SOURCE                     ETS_TWAI_INTR_SOURCE
 #define ETS_RTC_CORE_INTR_SOURCE                46/**< interrupt of rtc core, level, include rtc watchdog*/
 #define ETS_RMT_INTR_SOURCE                     47/**< interrupt of remote controller, level*/
 #define ETS_PCNT_INTR_SOURCE                    48/**< interrupt of pluse count, level*/
@@ -398,7 +396,9 @@
 #define ETS_TG0_T1_INUM                         10 /**< use edge interrupt*/
 #define ETS_FRC1_INUM                           22
 #define ETS_T1_WDT_INUM                         24
-#define ETS_CACHEERR_INUM                       25
+#define ETS_MEMACCESS_ERR_INUM                  25
+/* backwards compatibility only, use ETS_MEMACCESS_ERR_INUM instead*/
+#define ETS_CACHEERR_INUM                       ETS_MEMACCESS_ERR_INUM
 #define ETS_DPORT_INUM                          28
 
 //CPU0 Interrupt number used in ROM, should be cancelled in SDK
@@ -409,5 +409,3 @@
 
 //Invalid interrupt for number interrupt matrix
 #define ETS_INVALID_INUM                        6
-
-#endif /* _ESP32_SOC_H_ */

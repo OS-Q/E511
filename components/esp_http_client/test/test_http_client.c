@@ -104,7 +104,7 @@ TEST_CASE("Username is unmodified when we change to new path", "[ESP HTTP CLIENT
 
 /**
  * Test case to test that, the esp_http_client_set_url do not reset the auth credentials
- * Explicit APIs esp_http_client_set_username and esp_http_client_set_password are used to change 
+ * Explicit APIs esp_http_client_set_username and esp_http_client_set_password are used to change
  * the auth credentials
  **/
 TEST_CASE("Username and password will not reset if new absolute URL doesnot specify auth credentials.", "[ESP HTTP CLIENT]")
@@ -124,7 +124,10 @@ TEST_CASE("Username and password will not reset if new absolute URL doesnot spec
     TEST_ASSERT_EQUAL_STRING(USERNAME, value);
     esp_http_client_set_url(client, "http://" HOST "/get");
     esp_http_client_set_username(client, value);
-    esp_http_client_set_password(client, value);
+    // esp_http_client_set_username sets new username and thus invalidates the original one
+    // which we still reference in the local variable `value` (better forget it)
+    value = NULL;
+    esp_http_client_set_password(client, USERNAME);
     //checks if username is set or not
     r = esp_http_client_get_username(client, &value);
     TEST_ASSERT_EQUAL(ESP_OK, r);

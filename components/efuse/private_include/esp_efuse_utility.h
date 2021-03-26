@@ -23,11 +23,7 @@ extern "C" {
 #include "esp_err.h"
 #include "esp_efuse.h"
 #include "sdkconfig.h"
-#if CONFIG_IDF_TARGET_ESP32
-#include "esp32/esp_efuse_utility.h"
-#elif CONFIG_IDF_TARGET_ESP32S2BETA
-#include "esp32s2beta/esp_efuse_utility.h"
-#endif
+#include_next "esp_efuse_utility.h"
 
 /**
  * @brief Structure range address by blocks

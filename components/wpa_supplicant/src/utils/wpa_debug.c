@@ -82,34 +82,34 @@ void  wpa_debug_print_timestamp(void)
     struct os_time tv;
     os_get_time(&tv);
     wpa_printf(MSG_DEBUG, "%ld.%06u: ", (long) tv.sec, (unsigned int) tv.usec);
-#endif	
+#endif
 }
 
 void  wpa_hexdump(int level, const char *title, const u8 *buf, size_t len)
 {
-#ifdef DEBUG_PRINT 
+#ifdef DEBUG_PRINT
 	size_t i;
 	char output[50];
 
-	if (level < MSG_MSGDUMP)
+	if (level < MSG_ERROR)
 		return;
 
-	wpa_printf(MSG_DEBUG, "%s - hexdump(len=%lu):", title, (unsigned long) len);
+	wpa_printf(level, "%s - hexdump(len=%lu):", title, (unsigned long) len);
 	if (buf == NULL) {
-		wpa_printf(MSG_DEBUG, " [NULL]");
+		wpa_printf(level, " [NULL]");
 	} else {
 		for (i = 0; i < len / 16; i++) {
 			_wpa_snprintf_hex(output, 50, buf + i * 16, 16, 0, 1);
-			wpa_printf(MSG_DEBUG, "%s", output);
+			wpa_printf(level, "%s", output);
 		}
 		if (len % 16) {
 			int bytes_printed = (len / 16) * 16;
 			_wpa_snprintf_hex(output, 50, buf + bytes_printed,
 							  len - bytes_printed, 0, 1);
-			wpa_printf(MSG_DEBUG, "%s", output);
+			wpa_printf(level, "%s", output);
 		}
-	} 
-#endif	
+	}
+#endif
 }
 
 void  wpa_hexdump_key(int level, const char *title, const u8 *buf, size_t len)
@@ -121,7 +121,7 @@ void  wpa_hexdump_key(int level, const char *title, const u8 *buf, size_t len)
 int  eloop_cancel_timeout(eloop_timeout_handler handler,
 			 void *eloop_data, void *user_data)
 {
-    return 0;	
+    return 0;
 }
 
 int  eloop_register_timeout(unsigned int secs, unsigned int usecs,
@@ -131,4 +131,3 @@ int  eloop_register_timeout(unsigned int secs, unsigned int usecs,
     return 0;
 }
 #endif // ESP_SUPPLICANT
-

@@ -61,26 +61,18 @@ File    : SEGGER_SYSVIEW_Config_FreeRTOS.c
 Purpose : Sample setup configuration of SystemView with FreeRTOS.
 Revision: $Rev: 3734 $
 */
+#include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
 #include "SEGGER_SYSVIEW.h"
-#if CONFIG_IDF_TARGET_ESP32
-#include "esp32/rom/ets_sys.h"
-#include "esp32/clk.h"
-#elif CONFIG_IDF_TARGET_ESP32S2BETA
-#include "esp32s2beta/rom/ets_sys.h"
-#include "esp32s2beta/clk.h"
-#endif
 #include "esp_app_trace.h"
 #include "esp_app_trace_util.h"
 #include "esp_intr_alloc.h"
 #include "soc/soc.h"
 #include "soc/interrupts.h"
 #if CONFIG_IDF_TARGET_ESP32
-#include "esp32/rom/ets_sys.h"
 #include "esp32/clk.h"
-#elif CONFIG_IDF_TARGET_ESP32S2BETA
-#include "esp32s2beta/rom/ets_sys.h"
-#include "esp32s2beta/clk.h"
+#elif CONFIG_IDF_TARGET_ESP32S2
+#include "esp32s2/clk.h"
 #endif
 
 
@@ -140,7 +132,7 @@ extern const SEGGER_SYSVIEW_OS_API SYSVIEW_X_OS_TraceAPI;
 // CCOUNT is incremented at CPU frequency
 #if CONFIG_IDF_TARGET_ESP32
 #define SYSVIEW_TIMESTAMP_FREQ  (CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ * 1000000)
-#elif CONFIG_IDF_TARGET_ESP32S2BETA
+#elif CONFIG_IDF_TARGET_ESP32S2
 #define SYSVIEW_TIMESTAMP_FREQ  (CONFIG_ESP32S2_DEFAULT_CPU_FREQ_MHZ * 1000000)
 #endif
 #endif // TS_USE_CCOUNT

@@ -31,7 +31,8 @@ extern "C" {
 
 typedef uint8_t esp_a2d_mct_t;
 
-/// A2DP media codec capabilities union
+/** A2DP media codec capabilities union
+ */
 typedef struct {
     esp_a2d_mct_t type;                        /*!< A2DP media codec type */
 #define ESP_A2D_CIE_LEN_SBC          (4)
@@ -39,10 +40,10 @@ typedef struct {
 #define ESP_A2D_CIE_LEN_M24          (6)
 #define ESP_A2D_CIE_LEN_ATRAC        (7)
     union {
-        uint8_t sbc[ESP_A2D_CIE_LEN_SBC];
-        uint8_t m12[ESP_A2D_CIE_LEN_M12];
-        uint8_t m24[ESP_A2D_CIE_LEN_M24];
-        uint8_t atrac[ESP_A2D_CIE_LEN_ATRAC];
+        uint8_t sbc[ESP_A2D_CIE_LEN_SBC];      /*!< SBC codec capabilities */
+        uint8_t m12[ESP_A2D_CIE_LEN_M12];      /*!< MPEG-1,2 audio codec capabilities */
+        uint8_t m24[ESP_A2D_CIE_LEN_M24];      /*!< MPEG-2, 4 AAC audio codec capabilities */
+        uint8_t atrac[ESP_A2D_CIE_LEN_ATRAC];  /*!< ATRAC family codec capabilities */
     } cie;                                     /*!< A2DP codec information element */
 } __attribute__((packed)) esp_a2d_mcc_t;
 
@@ -76,12 +77,18 @@ typedef enum {
 
 /// A2DP media control commands
 typedef enum {
-    ESP_A2D_MEDIA_CTRL_NONE = 0,               /*!< dummy command */
+    ESP_A2D_MEDIA_CTRL_NONE = 0,               /*!< Not for application use, use inside stack only. */
     ESP_A2D_MEDIA_CTRL_CHECK_SRC_RDY,          /*!< check whether AVDTP is connected, only used in A2DP source */
     ESP_A2D_MEDIA_CTRL_START,                  /*!< command to set up media transmission channel */
     ESP_A2D_MEDIA_CTRL_STOP,                   /*!< command to stop media transmission */
     ESP_A2D_MEDIA_CTRL_SUSPEND,                /*!< command to suspend media transmission  */
 } esp_a2d_media_ctrl_t;
+
+/// Bluetooth A2DP Initiation states
+typedef enum {
+    ESP_A2D_DEINIT_SUCCESS = 0,                /*!< A2DP profile deinit successful event */
+    ESP_A2D_INIT_SUCCESS                       /*!< A2DP profile deinit successful event */
+} esp_a2d_init_state_t;
 
 /// A2DP callback events
 typedef enum {
@@ -89,6 +96,7 @@ typedef enum {
     ESP_A2D_AUDIO_STATE_EVT,                   /*!< audio stream transmission state changed event */
     ESP_A2D_AUDIO_CFG_EVT,                     /*!< audio codec is configured, only used for A2DP SINK */
     ESP_A2D_MEDIA_CTRL_ACK_EVT,                /*!< acknowledge event in response to media control commands */
+    ESP_A2D_PROF_STATE_EVT,                    /*!< indicate a2dp init&deinit complete */
 } esp_a2d_cb_event_t;
 
 /// A2DP state callback parameters
@@ -125,6 +133,12 @@ typedef union {
         esp_a2d_media_ctrl_t cmd;              /*!< media control commands to acknowledge */
         esp_a2d_media_ctrl_ack_t status;       /*!< acknowledgement to media control commands */
     } media_ctrl_stat;                         /*!< status in acknowledgement to media control commands */
+    /**
+     * @brief ESP_A2D_PROF_STATE_EVT
+     */
+    struct a2d_prof_stat_param {
+        esp_a2d_init_state_t init_state;       /*!< a2dp profile state param */
+    } a2d_prof_stat;                           /*!< status to indicate a2d prof init or deinit */
 } esp_a2d_cb_param_t;
 
 /**
@@ -137,9 +151,11 @@ typedef union {
 typedef void (* esp_a2d_cb_t)(esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param);
 
 /**
- * @brief           A2DP profile data callback function
- * @param[in]       buf : data received from A2DP source device and is PCM format decoder from SBC decoder;
+ * @brief           A2DP sink data callback function
+ *
+ * @param[in]       buf : pointer to the data received from A2DP source device and is PCM format decoded from SBC decoder;
  *                  buf references to a static memory block and can be overwritten by upcoming data
+ *
  * @param[in]       len : size(in bytes) in buf
  */
 typedef void (* esp_a2d_sink_data_cb_t)(const uint8_t *buf, uint32_t len);
@@ -177,7 +193,7 @@ esp_err_t esp_a2d_register_callback(esp_a2d_cb_t callback);
  * @brief           Register A2DP sink data output function; For now the output is PCM data stream decoded
  *                  from SBC format. This function should be called only after esp_bluedroid_enable()
  *                  completes successfully, used only by A2DP sink. The callback is invoked in the context
- *                  of A2DP sink task whose stack size is configurable through menuconfig
+ *                  of A2DP sink task whose stack size is configurable through menuconfig.
  *
  * @param[in]       callback: A2DP sink data callback function
  *
@@ -193,7 +209,10 @@ esp_err_t esp_a2d_sink_register_data_callback(esp_a2d_sink_data_cb_t callback);
 /**
  *
  * @brief           Initialize the bluetooth A2DP sink module. This function should be called
- *                  after esp_bluedroid_enable() completes successfully
+ *                  after esp_bluedroid_enable() completes successfully, and ESP_A2D_PROF_STATE_EVT
+ *                  with ESP_A2D_INIT_SUCCESS will reported to the APP layer. Note: A2DP can work independently.
+ *                  If you want to use AVRC together, you should initiate AVRC first. This
+ *                  function should be called after esp_bluedroid_enable() completes successfully.
  *
  * @return
  *                  - ESP_OK: if the initialization request is sent successfully
@@ -207,10 +226,11 @@ esp_err_t esp_a2d_sink_init(void);
 /**
  *
  * @brief           De-initialize for A2DP sink module. This function
- *                  should be called only after esp_bluedroid_enable() completes successfully
+ *                  should be called only after esp_bluedroid_enable() completes successfully,
+ *                  and ESP_A2D_PROF_STATE_EVT with ESP_A2D_DEINIT_SUCCESS will reported to APP layer.
  *
  * @return
- *                  - ESP_OK: success
+ *                  - ESP_OK: if the deinitialization request is sent successfully
  *                  - ESP_INVALID_STATE: if bluetooth stack is not yet enabled
  *                  - ESP_FAIL: others
  *
@@ -220,12 +240,13 @@ esp_err_t esp_a2d_sink_deinit(void);
 
 /**
  *
- * @brief           Connect to remote bluetooth A2DP source device, must after esp_a2d_sink_init()
+ * @brief           Connect to remote bluetooth A2DP source device. This API must be called after
+ *                  esp_a2d_sink_init() and before esp_a2d_sink_deinit().
  *
  * @param[in]       remote_bda: remote bluetooth device address
  *
  * @return
- *                  - ESP_OK: connect request is sent to lower layer
+ *                  - ESP_OK: connect request is sent to lower layer successfully
  *                  - ESP_INVALID_STATE: if bluetooth stack is not yet enabled
  *                  - ESP_FAIL: others
  *
@@ -235,11 +256,13 @@ esp_err_t esp_a2d_sink_connect(esp_bd_addr_t remote_bda);
 
 /**
  *
- * @brief           Disconnect from the remote A2DP source device
+ * @brief           Disconnect from the remote A2DP source device. This API must be called after
+ *                  esp_a2d_sink_init() and before esp_a2d_sink_deinit().
  *
  * @param[in]       remote_bda: remote bluetooth device address
+ *
  * @return
- *                  - ESP_OK: disconnect request is sent to lower layer
+ *                  - ESP_OK: disconnect request is sent to lower layer successfully
  *                  - ESP_INVALID_STATE: if bluetooth stack is not yet enabled
  *                  - ESP_FAIL: others
  *
@@ -249,11 +272,13 @@ esp_err_t esp_a2d_sink_disconnect(esp_bd_addr_t remote_bda);
 
 /**
  *
- * @brief           media control commands; this API can be used for both A2DP sink and source
+ * @brief           Media control commands. This API can be used for both A2DP sink and source
+ *                  and must be called after esp_a2d_sink_init() and before esp_a2d_sink_deinit().
  *
  * @param[in]       ctrl: control commands for A2DP data channel
+ *
  * @return
- *                  - ESP_OK: control command is sent to lower layer
+ *                  - ESP_OK: control command is sent to lower layer successfully
  *                  - ESP_INVALID_STATE: if bluetooth stack is not yet enabled
  *                  - ESP_FAIL: others
  *
@@ -263,11 +288,14 @@ esp_err_t esp_a2d_media_ctrl(esp_a2d_media_ctrl_t ctrl);
 
 /**
  *
- * @brief           Initialize the bluetooth A2DP source module. This function should be called
- *                  after esp_bluedroid_enable() completes successfully
+ * @brief           Initialize the bluetooth A2DP source module. A2DP can work independently.
+ *                  If you want to use AVRC together, you should initiate AVRC first. This function should be called
+ *                  after esp_bluedroid_enable() completes successfully, and ESP_A2D_PROF_STATE_EVT
+ *                  with ESP_A2D_INIT_SUCCESS will reported to the APP layer. Note: A2DP can work independently.
+ *                  If you want to use AVRC together, you should initiate AVRC first.
  *
  * @return
- *                  - ESP_OK: if the initialization request is sent successfully
+ *                  - ESP_OK: if the initialization request is sent to lower layer successfully
  *                  - ESP_INVALID_STATE: if bluetooth stack is not yet enabled
  *                  - ESP_FAIL: others
  *
@@ -278,7 +306,8 @@ esp_err_t esp_a2d_source_init(void);
 /**
  *
  * @brief           De-initialize for A2DP source module. This function
- *                  should be called only after esp_bluedroid_enable() completes successfully
+ *                  should be called only after esp_bluedroid_enable() completes successfully,
+ *                  and ESP_A2D_PROF_STATE_EVT with ESP_A2D_DEINIT_SUCCESS will reported to APP layer.
  *
  * @return
  *                  - ESP_OK: success
@@ -290,10 +319,10 @@ esp_err_t esp_a2d_source_deinit(void);
 
 
 /**
- * @brief           Register A2DP source data input function; For now the input is PCM data stream.
+ * @brief           Register A2DP source data input function. For now, the input shoule be PCM data stream.
  *                  This function should be called only after esp_bluedroid_enable() completes
  *                  successfully. The callback is invoked in the context of A2DP source task whose
- *                  stack size is configurable through menuconfig
+ *                  stack size is configurable through menuconfig.
  *
  * @param[in]       callback: A2DP source data callback function
  *
@@ -308,12 +337,13 @@ esp_err_t esp_a2d_source_register_data_callback(esp_a2d_source_data_cb_t callbac
 
 /**
  *
- * @brief           Connect to remote A2DP sink device, must after esp_a2d_source_init()
+ * @brief           Connect to remote A2DP sink device. This API must be called
+ *                  after esp_a2d_source_init() and before esp_a2d_source_deinit().
  *
  * @param[in]       remote_bda: remote bluetooth device address
  *
  * @return
- *                  - ESP_OK: connect request is sent to lower layer
+ *                  - ESP_OK: connect request is sent to lower layer successfully
  *                  - ESP_INVALID_STATE: if bluetooth stack is not yet enabled
  *                  - ESP_FAIL: others
  *
@@ -323,7 +353,8 @@ esp_err_t esp_a2d_source_connect(esp_bd_addr_t remote_bda);
 
 /**
  *
- * @brief           Disconnect from the remote A2DP sink device
+ * @brief           Disconnect from the remote A2DP sink device. This API must be called
+ *                  after esp_a2d_source_init() and before esp_a2d_source_deinit().
  *
  * @param[in]       remote_bda: remote bluetooth device address
  * @return

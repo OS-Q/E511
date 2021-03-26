@@ -32,6 +32,8 @@
 #include "esp_compiler.h"
 
 #define NIMBLE_VHCI_TIMEOUT_MS  2000
+#define BLE_HCI_EVENT_HDR_LEN               (2)
+#define BLE_HCI_CMD_HDR_LEN                 (3)
 
 static ble_hci_trans_rx_cmd_fn *ble_hci_rx_cmd_hs_cb;
 static void *ble_hci_rx_cmd_hs_arg;
@@ -211,7 +213,9 @@ void ble_hci_trans_buf_free(uint8_t *buf)
  */
 int ble_hci_trans_set_acl_free_cb(os_mempool_put_fn *cb, void *arg)
 {
-    return BLE_ERR_UNSUPPORTED;
+    ble_hci_acl_pool.mpe_put_cb = cb;
+    ble_hci_acl_pool.mpe_put_arg = arg;
+    return 0;
 }
 
 int ble_hci_trans_reset(void)
@@ -341,6 +345,13 @@ static int host_rcv_pkt(uint8_t *data, uint16_t len)
 
         totlen = BLE_HCI_EVENT_HDR_LEN + data[2];
         assert(totlen <= UINT8_MAX + BLE_HCI_EVENT_HDR_LEN);
+
+        if (totlen > MYNEWT_VAL(BLE_HCI_EVT_BUF_SIZE)) {
+            ESP_LOGE(TAG, "Received HCI data length at host (%d) exceeds maximum configured HCI event buffer size (%d).",
+                     totlen, MYNEWT_VAL(BLE_HCI_EVT_BUF_SIZE));
+            ble_hs_sched_reset(BLE_HS_ECONTROLLER);
+            return 0;
+        }
 
         if (data[1] == BLE_HCI_EVCODE_HW_ERROR) {
             assert(0);

@@ -16,6 +16,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include "multi_heap.h"
+#include <sdkconfig.h>
+#include "esp_err.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,7 +39,25 @@ extern "C" {
 #define MALLOC_CAP_SPIRAM           (1<<10) ///< Memory must be in SPI RAM
 #define MALLOC_CAP_INTERNAL         (1<<11) ///< Memory must be internal; specifically it should not disappear when flash/spiram cache is switched off
 #define MALLOC_CAP_DEFAULT          (1<<12) ///< Memory can be returned in a non-capability-specific memory allocation (e.g. malloc(), calloc()) call
+#define MALLOC_CAP_IRAM_8BIT        (1<<13) ///< Memory must be in IRAM and allow unaligned access
+#define MALLOC_CAP_RETENTION        (1<<14)
+
 #define MALLOC_CAP_INVALID          (1<<31) ///< Memory can't be used / list end marker
+
+/**
+ * @brief callback called when a allocation operation fails, if registered
+ * @param size in bytes of failed allocation
+ * @param caps capabillites requested of failed allocation
+ * @param function_name function which generated the failure
+ */
+typedef void (*esp_alloc_failed_hook_t) (size_t size, uint32_t caps, const char * function_name);
+
+/**
+ * @brief registers a callback function to be invoked if a memory allocation operation fails
+ * @param callback caller defined callback to be invoked
+ * @return ESP_OK if callback was registered.
+ */
+esp_err_t heap_caps_register_failed_alloc_callback(esp_alloc_failed_hook_t callback);
 
 /**
  * @brief Allocate a chunk of memory which has the given capabilities
@@ -83,7 +103,7 @@ void heap_caps_free( void *ptr);
  *
  * @return Pointer to a new buffer of size 'size' with capabilities 'caps', or NULL if allocation failed.
  */
-void *heap_caps_realloc( void *ptr, size_t size, int caps);
+void *heap_caps_realloc( void *ptr, size_t size, uint32_t caps);
 
 /**
  * @brief Allocate a aligned chunk of memory which has the given capabilities
@@ -96,12 +116,18 @@ void *heap_caps_realloc( void *ptr, size_t size, int caps);
  *                    of memory to be returned
  *
  * @return A pointer to the memory allocated on success, NULL on failure
- * 
- * @note Any memory allocated with heaps_caps_aligned_alloc() MUST 
- * be freed with heap_caps_aligned_free() and CANNOT be passed to free()
- * 
+ *
+ *
  */
-void *heap_caps_aligned_alloc(size_t alignment, size_t size, int caps);
+void *heap_caps_aligned_alloc(size_t alignment, size_t size, uint32_t caps);
+
+/**
+ * @brief Used to deallocate memory previously allocated with heap_caps_aligned_alloc
+ *
+ * @param ptr Pointer to the memory allocated
+ * @note This function is deprecated, plase consider using heap_caps_free() instead
+ */
+void __attribute__((deprecated))  heap_caps_aligned_free(void *ptr);
 
 /**
  * @brief Allocate a aligned chunk of memory which has the given capabilities. The initialized value in the memory is set to zero.
@@ -114,21 +140,10 @@ void *heap_caps_aligned_alloc(size_t alignment, size_t size, int caps);
  *                    of memory to be returned
  *
  * @return A pointer to the memory allocated on success, NULL on failure
- * 
- * @note Any memory allocated with heap_caps_aligned_calloc() MUST 
- * be freed with heap_caps_aligned_free() and CANNOT be passed to free()
+ *
  */
 void *heap_caps_aligned_calloc(size_t alignment, size_t n, size_t size, uint32_t caps);
 
-/**
- * @brief Used to deallocate memory previously allocated with heap_caps_aligned_alloc
- * 
- * @param ptr Pointer to the memory allocated
- * @note This function is aimed to deallocate only memory allocated with
- *       heap_caps_aligned_alloc, memory allocated with heap_caps_malloc
- *       MUST not be passed to this function
- */
-void heap_caps_aligned_free(void *ptr);
 
 /**
  * @brief Allocate a chunk of memory which has the given capabilities. The initialized value in the memory is set to zero.
@@ -291,7 +306,7 @@ bool heap_caps_check_integrity(uint32_t caps, bool print_errors);
 bool heap_caps_check_integrity_addr(intptr_t addr, bool print_errors);
 
 /**
- * @brief Enable malloc() in external memory and set limit below which 
+ * @brief Enable malloc() in external memory and set limit below which
  *        malloc() attempts are placed in internal memory.
  *
  * When external memory is in use, the allocation strategy is to initially try to
@@ -372,13 +387,13 @@ void heap_caps_dump_all(void);
 /**
  * @brief Return the size that a particular pointer was allocated with.
  *
- * @param ptr Pointer to currently allocated heap memory. Must be a pointer value previously 
+ * @param ptr Pointer to currently allocated heap memory. Must be a pointer value previously
  * returned by heap_caps_malloc,malloc,calloc, etc. and not yet freed.
  *
  * @note The app will crash with an assertion failure if the pointer is not valid.
- * 
+ *
  * @return Size of the memory allocated at this block.
- * 
+ *
  */
 size_t heap_caps_get_allocated_size( void *ptr );
 

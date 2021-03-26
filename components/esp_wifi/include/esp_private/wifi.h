@@ -13,12 +13,12 @@
 // limitations under the License.
 
 /*
- * All the APIs declared here are internal only APIs, it can only be used by 
- * espressif internal modules, such as SSC, LWIP, TCPIP adapter etc, espressif 
+ * All the APIs declared here are internal only APIs, it can only be used by
+ * espressif internal modules, such as SSC, LWIP, TCPIP adapter etc, espressif
  * customers are not recommended to use them.
  *
  * If someone really want to use specified APIs declared in here, please contact
- * espressif AE/developer to make sure you know the limitations or risk of 
+ * espressif AE/developer to make sure you know the limitations or risk of
  * the API, otherwise you may get unexpected behavior!!!
  *
  */
@@ -53,13 +53,14 @@ typedef struct {
   *
   */
 typedef enum {
-    WIFI_LOG_ERROR = 0,   /*enabled by default*/
+    WIFI_LOG_NONE = 0,
+    WIFI_LOG_ERROR ,      /*enabled by default*/
     WIFI_LOG_WARNING,     /*enabled by default*/
     WIFI_LOG_INFO,        /*enabled by default*/
     WIFI_LOG_DEBUG,       /*can be set in menuconfig*/
     WIFI_LOG_VERBOSE,     /*can be set in menuconfig*/
 } wifi_log_level_t;
-  
+
 /**
   * @brief WiFi log module definition
   *
@@ -70,6 +71,17 @@ typedef enum {
     WIFI_LOG_MODULE_COEX, /*logs related to WiFi and BT(or BLE) coexist*/
     WIFI_LOG_MODULE_MESH, /*logs related to Mesh*/
 } wifi_log_module_t;
+
+/**
+  * @brief FTM Report log levels configuration
+  *
+  */
+typedef struct {
+    uint8_t show_rtt:1;     /**< Display all valid Round-Trip-Time readings for FTM frames */
+    uint8_t show_diag:1;    /**< Display dialogue tokens for all FTM frames with valid readings */
+    uint8_t show_t1t2t3t4:1;/**< Display all valid T1, T2, T3, T4 readings considered while calculating RTT */
+    uint8_t show_rxrssi:1;  /**< Display RSSI for each FTM frame with valid readings */
+} ftm_report_log_level_t;
 
 /**
   * @brief WiFi log submodule definition
@@ -120,15 +132,6 @@ esp_err_t esp_wifi_init_internal(const wifi_init_config_t *config);
 esp_err_t esp_wifi_deinit_internal(void);
 
 /**
-  * @brief  get whether the wifi driver is allowed to transmit data or not
-  *
-  * @return
-  *     - true  : upper layer should stop to transmit data to wifi driver
-  *     - false : upper layer can transmit data to wifi driver
-  */
-bool esp_wifi_internal_tx_is_stop(void);
-
-/**
   * @brief  free the rx buffer which allocated by wifi driver
   *
   * @param  void* buffer: rx buffer pointer
@@ -138,17 +141,99 @@ void esp_wifi_internal_free_rx_buffer(void* buffer);
 /**
   * @brief  transmit the buffer via wifi driver
   *
+  * This API makes a copy of the input buffer and then forwards the buffer
+  * copy to WiFi driver.
+  *
   * @param  wifi_interface_t wifi_if : wifi interface id
   * @param  void *buffer : the buffer to be tansmit
   * @param  uint16_t len : the length of buffer
   *
   * @return
-  *    - ERR_OK  : Successfully transmit the buffer to wifi driver
-  *    - ERR_MEM : Out of memory
-  *    - ERR_IF : WiFi driver error
-  *    - ERR_ARG : Invalid argument
+  *    - ESP_OK  : Successfully transmit the buffer to wifi driver
+  *    - ESP_ERR_NO_MEM: out of memory
+  *    - ESP_ERR_WIFI_ARG: invalid argument
+  *    - ESP_ERR_WIFI_IF : WiFi interface is invalid
+  *    - ESP_ERR_WIFI_CONN : WiFi interface is not created, e.g. send the data to STA while WiFi mode is AP mode
+  *    - ESP_ERR_WIFI_NOT_STARTED : WiFi is not started
+  *    - ESP_ERR_WIFI_STATE : WiFi internal state is not ready, e.g. WiFi is not started
+  *    - ESP_ERR_WIFI_NOT_ASSOC : WiFi is not associated
+  *    - ESP_ERR_WIFI_TX_DISALLOW : WiFi TX is disallowed, e.g. WiFi hasn't pass the authentication
+  *    - ESP_ERR_WIFI_POST : caller fails to post event to WiFi task
   */
 int esp_wifi_internal_tx(wifi_interface_t wifi_if, void *buffer, uint16_t len);
+
+/**
+  * @brief     The net stack buffer reference counter callback function
+  *
+  */
+typedef void (*wifi_netstack_buf_ref_cb_t)(void *netstack_buf);
+
+/**
+  * @brief     The net stack buffer free callback function
+  *
+  */
+typedef void (*wifi_netstack_buf_free_cb_t)(void *netstack_buf);
+
+/**
+  * @brief  transmit the buffer by reference via wifi driver
+  *
+  * This API firstly increases the reference counter of the input buffer and
+  * then forwards the buffer to WiFi driver. The WiFi driver will free the buffer
+  * after processing it. Use esp_wifi_internal_tx() if the uplayer buffer doesn't
+  * supports reference counter.
+  *
+  * @param  wifi_if : wifi interface id
+  * @param  buffer : the buffer to be tansmit
+  * @param  len : the length of buffer
+  * @param  netstack_buf : the netstack buffer related to bufffer
+  *
+  * @return
+  *    - ESP_OK  : Successfully transmit the buffer to wifi driver
+  *    - ESP_ERR_NO_MEM: out of memory
+  *    - ESP_ERR_WIFI_ARG: invalid argument
+  *    - ESP_ERR_WIFI_IF : WiFi interface is invalid
+  *    - ESP_ERR_WIFI_CONN : WiFi interface is not created, e.g. send the data to STA while WiFi mode is AP mode
+  *    - ESP_ERR_WIFI_NOT_STARTED : WiFi is not started
+  *    - ESP_ERR_WIFI_STATE : WiFi internal state is not ready, e.g. WiFi is not started
+  *    - ESP_ERR_WIFI_NOT_ASSOC : WiFi is not associated
+  *    - ESP_ERR_WIFI_TX_DISALLOW : WiFi TX is disallowed, e.g. WiFi hasn't pass the authentication
+  *    - ESP_ERR_WIFI_POST : caller fails to post event to WiFi task
+  */
+esp_err_t esp_wifi_internal_tx_by_ref(wifi_interface_t ifx, void *buffer, size_t len, void *netstack_buf);
+
+/**
+  * @brief     Initialize WAPI function when wpa_supplicant initialize.
+  *
+  * This API is privately used, be careful not open to external applicantion.
+  *
+  * @return
+  *          - ESP_OK : succeed
+  *          - ESP_ERR_WAPI_INTERNAL : Internal error
+  */
+esp_err_t esp_wifi_internal_wapi_init(void);
+
+/**
+  * @brief     De-initialize WAPI function when wpa_supplicant de-initialize.
+  *
+  * This API is privately used, be careful not open to external applicantion.
+  *
+  * @return
+  *          - ESP_OK : succeed
+  */
+esp_err_t esp_wifi_internal_wapi_deinit(void);
+
+/**
+  * @brief  register the net stack buffer reference increasing and free callback
+  *
+  * @param  ref : net stack buffer reference callback
+  * @param  free: net stack buffer free callback
+  *
+  * @return
+  *    - ESP_OK  : Successfully transmit the buffer to wifi driver
+  *    - others  : failed to register the callback
+  */
+esp_err_t esp_wifi_internal_reg_netstack_buf_cb(wifi_netstack_buf_ref_cb_t ref, wifi_netstack_buf_free_cb_t free);
+
 
 /**
   * @brief     The WiFi RX callback function
@@ -326,7 +411,7 @@ typedef esp_err_t (* wifi_mac_time_update_cb_t)( uint32_t time_delta );
 esp_err_t esp_wifi_internal_update_mac_time( uint32_t time_delta );
 
 /**
-  * @brief     Set current WiFi log level     
+  * @brief     Set current WiFi log level
   *
   * @param     level   Log level.
   *
@@ -355,7 +440,7 @@ esp_err_t esp_wifi_internal_set_log_level(wifi_log_level_t level);
 esp_err_t esp_wifi_internal_set_log_mod(wifi_log_module_t module, uint32_t submodule, bool enable);
 
 /**
-  * @brief     Get current WiFi log info     
+  * @brief     Get current WiFi log info
   *
   * @param     log_level  the return log level.
   * @param     log_mod    the return log module and submodule
@@ -371,48 +456,158 @@ esp_err_t esp_wifi_internal_get_log(wifi_log_level_t *log_level, uint32_t *log_m
   * @param     cmd : ioctl command type
   * @param     cfg : configuration for the command
   *
-  * @return    
+  * @return
   *    - ESP_OK: succeed
   *    - others: failed
   */
 esp_err_t esp_wifi_internal_ioctl(int cmd, wifi_ioctl_config_t *cfg);
 
 /**
-  * @brief     Get the user-configured channel info 
+  * @brief     Get the user-configured channel info
   *
-  * @param     ifx : WiFi interface 
-  * @param     primary : store the configured primary channel 
+  * @param     ifx : WiFi interface
+  * @param     primary : store the configured primary channel
   * @param     second : store the configured second channel
   *
-  * @return    
+  * @return
   *    - ESP_OK: succeed
   */
 esp_err_t esp_wifi_internal_get_config_channel(wifi_interface_t ifx, uint8_t *primary, uint8_t *second);
 
 /**
-  * @brief     Get the negotiated channel info after WiFi connection established 
+  * @brief     Get the negotiated channel info after WiFi connection established
   *
-  * @param     ifx : WiFi interface 
-  * @param     aid : the connection number when a STA connects to the softAP    
-  * @param     primary : store the negotiated primary channel 
+  * @param     ifx : WiFi interface
+  * @param     aid : the connection number when a STA connects to the softAP
+  * @param     primary : store the negotiated primary channel
   * @param     second : store the negotiated second channel
-  * @attention the aid param is only works when the ESP32 in softAP/softAP+STA mode 
+  * @attention the aid param is only works when the ESP32 in softAP/softAP+STA mode
   *
-  * @return    
+  * @return
   *    - ESP_OK: succeed
   */
 esp_err_t esp_wifi_internal_get_negotiated_channel(wifi_interface_t ifx, uint8_t aid, uint8_t *primary, uint8_t *second);
 
 /**
-  * @brief     Get the negotiated bandwidth info after WiFi connection established 
+  * @brief     Get the negotiated bandwidth info after WiFi connection established
   *
-  * @param     ifx : WiFi interface 
-  * @param     bw : store the negotiated bandwidth 
+  * @param     ifx : WiFi interface
+  * @param     bw : store the negotiated bandwidth
   *
-  * @return    
+  * @return
   *    - ESP_OK: succeed
   */
 esp_err_t esp_wifi_internal_get_negotiated_bandwidth(wifi_interface_t ifx, uint8_t aid, uint8_t *bw);
+
+#if SOC_WIFI_HW_TSF
+/**
+  * @brief     Check if WiFi TSF is active
+  *
+  * @return
+  *    - true: Active
+  *    - false: Not active
+  */
+bool esp_wifi_internal_is_tsf_active(void);
+
+/**
+  * @brief     Update WIFI light sleep wake ahead time
+  *
+  */
+void esp_wifi_internal_update_light_sleep_wake_ahead_time(uint32_t);
+#endif
+
+#if CONFIG_MAC_BB_PD
+/**
+  * @brief     Enable or disable powering down MAC and baseband when Wi-Fi is sleeping.
+  *
+  * @param     enable : enable or disable
+  *
+  * @return
+  *    - ESP_OK: succeed
+  */
+esp_err_t esp_wifi_internal_set_mac_sleep(bool enable);
+
+/**
+ * @brief mac bb sleep.
+ */
+void pm_mac_sleep(void);
+
+/**
+ * @brief mac bb wakeup.
+ */
+void pm_mac_wakeup(void);
+#endif
+
+/**
+  * @breif    TxDone callback function type. Should be registered using esp_wifi_set_tx_done_cb()
+  *
+  * @param    ifidx The interface id that the tx callback has been triggered from
+  * @param    data Pointer to the data transmitted
+  * @param    data_len Length of the data transmitted
+  * @param    txStatus True:if the data was transmitted sucessfully False: if data transmission failed
+  */
+typedef void (* wifi_tx_done_cb_t)(uint8_t ifidx, uint8_t *data, uint16_t *data_len, bool txStatus);
+
+/**
+  * @brief    Register the txDone callback function of type wifi_tx_done_cb_t
+  *
+  * @param    cb The callback function
+  *
+  * @return
+  *    - ESP_OK: succeed
+  *    - ESP_ERR_WIFI_NOT_INIT: WiFi is not initialized by esp_wifi_init
+  *    - ESP_ERR_WIFI_NOT_STARTED: WiFi is not started by esp_wifi_start
+  */
+esp_err_t esp_wifi_set_tx_done_cb(wifi_tx_done_cb_t cb);
+
+/**
+ * @brief     Set device spp amsdu attributes
+ *
+ * @param     ifx: WiFi interface
+ * @param     spp_cap: spp amsdu capable
+ * @param     spp_req: spp amsdu require
+ *
+ * @return
+ *     - ESP_OK: succeed
+ *     - ESP_ERR_WIFI_NOT_INIT: WiFi is not initialized by esp_wifi_init
+ *     - ESP_ERR_WIFI_IF : invalid WiFi interface
+ */
+esp_err_t esp_wifi_internal_set_spp_amsdu(wifi_interface_t ifidx, bool spp_cap, bool spp_req);
+
+/**
+ * @brief   Update WIFI light sleep default parameters
+ *
+ * @param   min_freq_mhz: minimum frequency of DFS
+ * @param   max_freq_mhz: maximum frequency of DFS
+ */
+void esp_wifi_internal_update_light_sleep_default_params(int min_freq_mhz, int max_freq_mhz);
+
+/**
+ * @brief   Set the delay time for wifi to enter the sleep state when light sleep
+ *
+ * @param   return_to_sleep_delay: minimum timeout time  for waiting to receive
+ *                      data, when no data is received during the timeout period,
+ *                      the wifi enters the sleep process.
+ */
+void esp_wifi_set_sleep_delay_time(uint32_t return_to_sleep_delay);
+
+/**
+ * @brief   Set wifi keep alive time
+ *
+ * @param   keep_alive_time: keep alive time
+ */
+void esp_wifi_set_keep_alive_time(uint32_t keep_alive_time);
+
+/**
+ * @brief Set FTM Report log level
+ *
+ * @param   log_lvl Log levels configuration
+ *
+ * @return
+ *    - ESP_OK: succeed
+ *    - ESP_ERR_NOT_SUPPORTED: No FTM support
+ */
+esp_err_t esp_wifi_set_ftm_report_log_level(ftm_report_log_level_t *log_lvl);
 
 #ifdef __cplusplus
 }

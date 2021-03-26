@@ -209,6 +209,7 @@ typedef union {
      */
     struct gattc_connect_evt_param {
         uint16_t conn_id;               /*!< Connection id */
+        uint8_t link_role;              /*!< Link role : master role = 0  ; slave role = 1*/
         esp_bd_addr_t remote_bda;       /*!< Remote bluetooth device address */
         esp_gatt_conn_params_t conn_params; /*!< current connection parameters */
     } connect;                          /*!< Gatt client callback param of ESP_GATTC_CONNECT_EVT */
@@ -305,7 +306,7 @@ esp_err_t esp_ble_gattc_app_register(uint16_t app_id);
  */
 esp_err_t esp_ble_gattc_app_unregister(esp_gatt_if_t gattc_if);
 
-
+#if (BLE_42_FEATURE_SUPPORT == TRUE)
 /**
  * @brief           Open a direct connection or add a background auto connection
  *
@@ -320,8 +321,11 @@ esp_err_t esp_ble_gattc_app_unregister(esp_gatt_if_t gattc_if);
  *
  */
 esp_err_t esp_ble_gattc_open(esp_gatt_if_t gattc_if, esp_bd_addr_t remote_bda, esp_ble_addr_type_t remote_addr_type, bool is_direct);
+#endif // #if (BLE_42_FEATURE_SUPPORT == TRUE)
 
-
+#if (BLE_50_FEATURE_SUPPORT == TRUE)
+esp_err_t esp_ble_gattc_aux_open(esp_gatt_if_t gattc_if, esp_bd_addr_t remote_bda, esp_ble_addr_type_t remote_addr_type, bool is_direct);
+#endif // #if (BLE_50_FEATURE_SUPPORT == TRUE)
 /**
  * @brief           Close the virtual connection to the GATT server. gattc may have multiple virtual GATT server connections when multiple app_id registered,
  *                  this API only close one virtual GATT server connection. if there exist other virtual GATT server connections,
@@ -357,8 +361,8 @@ esp_err_t esp_ble_gattc_send_mtu_req (esp_gatt_if_t gattc_if, uint16_t conn_id);
 
 
 /**
- * @brief           This function is called to get service from local cache. 
- *                  This function report service search result by a callback 
+ * @brief           This function is called to get service from local cache.
+ *                  This function report service search result by a callback
  *                  event, and followed by a service search complete event.
  *
  * @param[in]       gattc_if: Gatt client access interface.
@@ -613,6 +617,29 @@ esp_err_t esp_ble_gattc_read_char (esp_gatt_if_t gattc_if,
                                    esp_gatt_auth_req_t auth_req);
 
 /**
+ * @brief           This function is called to read a service's characteristics of
+ *                  the given characteristic UUID
+ *
+ * @param[in]       gattc_if: Gatt client access interface.
+ * @param[in]       conn_id : connection ID.
+ * @param[in]       start_handle : the attribute start handle.
+ * @param[in]       end_handle : the attribute end handle
+ * @param[in]       uuid : The UUID of attribute which will be read.
+ * @param[in]       auth_req : authenticate request type
+ *
+ * @return
+ *                  - ESP_OK: success
+ *                  - other: failed
+ *
+ */
+esp_err_t esp_ble_gattc_read_by_type (esp_gatt_if_t gattc_if,
+                                      uint16_t conn_id,
+                                      uint16_t start_handle,
+                                      uint16_t end_handle,
+                                      esp_bt_uuid_t *uuid,
+                                      esp_gatt_auth_req_t auth_req);
+
+/**
  * @brief           This function is called to read multiple characteristic or
  *                  characteristic descriptors.
  *
@@ -814,10 +841,10 @@ esp_err_t esp_ble_gattc_cache_refresh(esp_bd_addr_t remote_bda);
 
 /**
 * @brief           Add or delete the associated address with the source address.
-*                  Note: The role of this API is mainly when the client side has stored a server-side database, 
-*                        when it needs to connect another device, but the device's attribute database is the same 
-*                        as the server database stored on the client-side, calling this API can use the database 
-*                        that the device has stored used as the peer server database to reduce the attribute 
+*                  Note: The role of this API is mainly when the client side has stored a server-side database,
+*                        when it needs to connect another device, but the device's attribute database is the same
+*                        as the server database stored on the client-side, calling this API can use the database
+*                        that the device has stored used as the peer server database to reduce the attribute
 *                        database search and discovery process and speed up the connection time.
 *                        The associated address mains that device want to used the database has stored in the local cache.
 *                        The source address mains that device want to share the database to the associated address device.
@@ -831,7 +858,7 @@ esp_err_t esp_ble_gattc_cache_refresh(esp_bd_addr_t remote_bda);
 *                  - other: failed
 *
 */
-esp_err_t esp_ble_gattc_cache_assoc(esp_gatt_if_t gattc_if, esp_bd_addr_t src_addr, 
+esp_err_t esp_ble_gattc_cache_assoc(esp_gatt_if_t gattc_if, esp_bd_addr_t src_addr,
                                       esp_bd_addr_t assoc_addr, bool is_assoc);
 /**
 * @brief           Get the address list which has store the attribute table in the gattc cache. There will
@@ -846,7 +873,7 @@ esp_err_t esp_ble_gattc_cache_assoc(esp_gatt_if_t gattc_if, esp_bd_addr_t src_ad
 esp_err_t esp_ble_gattc_cache_get_addr_list(esp_gatt_if_t gattc_if);
 
 /**
-* @brief           Clean the service cache of this device in the gattc stack, 
+* @brief           Clean the service cache of this device in the gattc stack,
 *
 * @param[in]       remote_bda: remote device BD address.
 *

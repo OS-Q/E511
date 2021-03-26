@@ -37,7 +37,7 @@ extern "C" {
  * CRC-8        x8+x2+x1+1                                              0x07
  * CRC16-CCITT  x16+x12+x5+1                                            0x1021
  * CRC32        x32+x26+x23+x22+x16+x12+x11+x10+x8+x7+x5+x4+x2+x1+1     0x04c11db7
- * 
+ *
  * These group of CRC APIs are designed to calculate the data in buffers either continuous or not.
  * To make it easy, we had added a `~` at the beginning and the end of the functions.
  * To calculate non-continuous buffers, we can write the code like this:
@@ -57,7 +57,7 @@ extern "C" {
  * Here are some examples for CRC16:
  * CRC-16/CCITT, poly = 0x1021, init = 0x0000, refin = true, refout = true, xorout = 0x0000
  *     crc = ~crc16_le((uint16_t)~0x0000, buf, length);
- * 
+ *
  * CRC-16/CCITT-FALSE, poly = 0x1021, init = 0xffff, refin = false, refout = false, xorout = 0x0000
  *     crc = ~crc16_be((uint16_t)~0xffff, buf, length);
  *
@@ -67,7 +67,7 @@ extern "C" {
  * CRC-16/XMODEM, poly= 0x1021, init = 0x0000, refin = false, refout = false, xorout = 0x0000
  *     crc = ~crc16_be((uint16_t)~0x0000, buf, length);
  *
- *     
+ *
  */
 
 /**

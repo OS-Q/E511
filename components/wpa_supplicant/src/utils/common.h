@@ -13,6 +13,7 @@
 #endif /* ets */
 #include "os.h"
 #include "esp_bit_defs.h"
+#include "list.h"
 
 /* Define platform specific variable type macros */
 #if defined(ESP_PLATFORM)
@@ -27,16 +28,14 @@ typedef int16_t s16;
 typedef int8_t s8;
 #endif /*ESP_PLATFORM*/
 
-#if defined(__XTENSA__)
+#if defined(__linux__) || defined(__GLIBC__)
+#include <endian.h>
+#include <byteswap.h>
+#else
 #include <machine/endian.h>
 #define __BYTE_ORDER     BYTE_ORDER
 #define __LITTLE_ENDIAN  LITTLE_ENDIAN
 #define __BIG_ENDIAN     BIG_ENDIAN
-#endif /*__XTENSA__*/
-
-#if defined(__linux__) || defined(__GLIBC__) || defined(__ets__)
-#include <endian.h>
-#include <byteswap.h>
 #endif /* __linux__ */
 
 /* Define platform specific byte swapping macros */
@@ -85,16 +84,16 @@ static inline unsigned int wpa_swap_32(unsigned int v)
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #define le_to_host16(n) ((__force u16) (le16) (n))
 #define host_to_le16(n) ((__force le16) (u16) (n))
-#define be_to_host16(n) __bswap_16((__force u16) (be16) (n))
-#define host_to_be16(n) ((__force be16) __bswap_16((n)))
+#define be_to_host16(n) __builtin_bswap16((__force u16) (be16) (n))
+#define host_to_be16(n) ((__force be16) __builtin_bswap16((n)))
 #define le_to_host32(n) ((__force u32) (le32) (n))
 #define host_to_le32(n) ((__force le32) (u32) (n))
-#define be_to_host32(n) __bswap_32((__force u32) (be32) (n))
-#define host_to_be32(n) ((__force be32) __bswap_32((n)))
+#define be_to_host32(n) __builtin_bswap32((__force u32) (be32) (n))
+#define host_to_be32(n) ((__force be32) __builtin_bswap32((n)))
 #define le_to_host64(n) ((__force u64) (le64) (n))
 #define host_to_le64(n) ((__force le64) (u64) (n))
-#define be_to_host64(n) __bswap_64((__force u64) (be64) (n))
-#define host_to_be64(n) ((__force be64) bswap_64((n)))
+#define be_to_host64(n) __builtin_bswap64((__force u64) (be64) (n))
+#define host_to_be64(n) ((__force be64) __builtin_bswap64((n)))
 #elif __BYTE_ORDER == __BIG_ENDIAN
 #define le_to_host16(n) __bswap_16(n)
 #define host_to_le16(n) __bswap_16(n)
@@ -117,6 +116,12 @@ static inline unsigned int wpa_swap_32(unsigned int v)
 #define WPA_BYTE_SWAP_DEFINED
 #endif /* !WPA_BYTE_SWAP_DEFINED */
 
+#define SSID_MAX_LEN 32
+
+struct wpa_ssid_value {
+	u8 ssid[SSID_MAX_LEN];
+	size_t ssid_len;
+};
 
 /* Macros for handling unaligned memory accesses */
 
@@ -381,6 +386,10 @@ int wpa_snprintf_hex_uppercase(char *buf, size_t buf_size, const u8 *data,
 			       size_t len);
 
 int hwaddr_mask_txt(char *buf, size_t len, const u8 *addr, const u8 *mask);
+u8 rssi_to_rcpi(int rssi);
+int os_time_expired(struct os_time *now,
+		struct os_time *ts,
+		os_time_t timeout_secs);
 
 #ifdef CONFIG_NATIVE_WINDOWS
 void wpa_unicode2ascii_inplace(TCHAR *str);
@@ -434,6 +443,11 @@ struct wpa_freq_range_list {
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
 void wpa_bin_clear_free(void *bin, size_t len);
+int int_array_len(const int *a);
+void bin_clear_free(void *bin, size_t len);
+void str_clear_free(char *str);
+char * get_param(const char *cmd, const char *param);
+void * os_memdup(const void *src, size_t len);
 
 /*
  * gcc 4.4 ends up generating strict-aliasing warnings about some very common

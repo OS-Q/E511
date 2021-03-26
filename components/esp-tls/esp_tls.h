@@ -18,6 +18,7 @@
 #include <sys/socket.h>
 #include <fcntl.h>
 #include "esp_err.h"
+#include "esp_tls_errors.h"
 #ifdef CONFIG_ESP_TLS_USING_MBEDTLS
 #include "mbedtls/platform.h"
 #include "mbedtls/net_sockets.h"
@@ -35,46 +36,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#define ESP_ERR_ESP_TLS_BASE           0x8000             /*!< Starting number of ESP-TLS error codes */
-#define ESP_ERR_ESP_TLS_CANNOT_RESOLVE_HOSTNAME           (ESP_ERR_ESP_TLS_BASE + 0x01)  /*!< Error if hostname couldn't be resolved upon tls connection */
-#define ESP_ERR_ESP_TLS_CANNOT_CREATE_SOCKET              (ESP_ERR_ESP_TLS_BASE + 0x02)  /*!< Failed to create socket */
-#define ESP_ERR_ESP_TLS_UNSUPPORTED_PROTOCOL_FAMILY       (ESP_ERR_ESP_TLS_BASE + 0x03)  /*!< Unsupported protocol family */
-#define ESP_ERR_ESP_TLS_FAILED_CONNECT_TO_HOST            (ESP_ERR_ESP_TLS_BASE + 0x04)  /*!< Failed to connect to host */
-#define ESP_ERR_ESP_TLS_SOCKET_SETOPT_FAILED              (ESP_ERR_ESP_TLS_BASE + 0x05)  /*!< failed to set socket option */
-#define ESP_ERR_MBEDTLS_CERT_PARTLY_OK                    (ESP_ERR_ESP_TLS_BASE + 0x06)  /*!< mbedtls parse certificates was partly successful */
-#define ESP_ERR_MBEDTLS_CTR_DRBG_SEED_FAILED              (ESP_ERR_ESP_TLS_BASE + 0x07)  /*!< mbedtls api returned error */
-#define ESP_ERR_MBEDTLS_SSL_SET_HOSTNAME_FAILED           (ESP_ERR_ESP_TLS_BASE + 0x08)  /*!< mbedtls api returned error */
-#define ESP_ERR_MBEDTLS_SSL_CONFIG_DEFAULTS_FAILED        (ESP_ERR_ESP_TLS_BASE + 0x09)  /*!< mbedtls api returned error */
-#define ESP_ERR_MBEDTLS_SSL_CONF_ALPN_PROTOCOLS_FAILED    (ESP_ERR_ESP_TLS_BASE + 0x0A)  /*!< mbedtls api returned error */
-#define ESP_ERR_MBEDTLS_X509_CRT_PARSE_FAILED             (ESP_ERR_ESP_TLS_BASE + 0x0B)  /*!< mbedtls api returned error */
-#define ESP_ERR_MBEDTLS_SSL_CONF_OWN_CERT_FAILED          (ESP_ERR_ESP_TLS_BASE + 0x0C)  /*!< mbedtls api returned error */
-#define ESP_ERR_MBEDTLS_SSL_SETUP_FAILED                  (ESP_ERR_ESP_TLS_BASE + 0x0D)  /*!< mbedtls api returned error */
-#define ESP_ERR_MBEDTLS_SSL_WRITE_FAILED                  (ESP_ERR_ESP_TLS_BASE + 0x0E)  /*!< mbedtls api returned error */
-#define ESP_ERR_MBEDTLS_PK_PARSE_KEY_FAILED               (ESP_ERR_ESP_TLS_BASE + 0x0F)  /*!< mbedtls api returned failed  */
-#define ESP_ERR_MBEDTLS_SSL_HANDSHAKE_FAILED              (ESP_ERR_ESP_TLS_BASE + 0x10)  /*!< mbedtls api returned failed  */
-#define ESP_ERR_MBEDTLS_SSL_CONF_PSK_FAILED               (ESP_ERR_ESP_TLS_BASE + 0x11)  /*!< mbedtls api returned failed  */
-#define ESP_ERR_ESP_TLS_CONNECTION_TIMEOUT                (ESP_ERR_ESP_TLS_BASE + 0x12)  /*!< new connection in esp_tls_low_level_conn connection timeouted */
-
-#ifdef CONFIG_ESP_TLS_USING_MBEDTLS
-#define ESP_TLS_ERR_SSL_WANT_READ                          MBEDTLS_ERR_SSL_WANT_READ
-#define ESP_TLS_ERR_SSL_WANT_WRITE                         MBEDTLS_ERR_SSL_WANT_WRITE
-#define ESP_TLS_ERR_SSL_TIMEOUT                            MBEDTLS_ERR_SSL_TIMEOUT
-#elif CONFIG_ESP_TLS_USING_WOLFSSL /* CONFIG_ESP_TLS_USING_MBEDTLS */
-#define ESP_TLS_ERR_SSL_WANT_READ                          WOLFSSL_ERROR_WANT_READ
-#define ESP_TLS_ERR_SSL_WANT_WRITE                         WOLFSSL_ERROR_WANT_WRITE
-#define ESP_TLS_ERR_SSL_TIMEOUT                            WOLFSSL_CBIO_ERR_TIMEOUT
-#endif /*CONFIG_ESP_TLS_USING_WOLFSSL */
-typedef struct esp_tls_last_error* esp_tls_error_handle_t;
-
-/**
-*  @brief Error structure containing relevant errors in case tls error occurred
-*/
-typedef struct esp_tls_last_error {
-    esp_err_t last_error;               /*!< error code (based on ESP_ERR_ESP_TLS_BASE) of the last occurred error */
-    int       esp_tls_error_code;       /*!< esp_tls error code from last esp_tls failed api */
-    int       esp_tls_flags;            /*!< last certification verification flags */
-} esp_tls_last_error_t;
 
 /**
  *  @brief ESP-TLS Connection State
@@ -102,8 +63,18 @@ typedef struct psk_key_hint {
 } psk_hint_key_t;
 
 /**
- * @brief      ESP-TLS configuration parameters 
- * 
+*  @brief Keep alive parameters structure
+*/
+typedef struct tls_keep_alive_cfg {
+    bool keep_alive_enable;               /*!< Enable keep-alive timeout */
+    int keep_alive_idle;                  /*!< Keep-alive idle time (second) */
+    int keep_alive_interval;              /*!< Keep-alive interval time (second) */
+    int keep_alive_count;                 /*!< Keep-alive packet retry send count */
+} tls_keep_alive_cfg_t;
+
+/**
+ * @brief      ESP-TLS configuration parameters
+ *
  * @note       Note about format of certificates:
  *             - This structure includes certificates of a Certificate Authority, of client or server as well
  *             as private keys, which may be of PEM or DER format. In case of PEM format, the buffer must be
@@ -113,17 +84,17 @@ typedef struct psk_key_hint {
  *             - Variables names of certificates and private key buffers and sizes are defined as unions providing
  *             backward compatibility for legacy *_pem_buf and *_pem_bytes names which suggested only PEM format
  *             was supported. It is encouraged to use generic names such as cacert_buf and cacert_bytes.
- */ 
+ */
 typedef struct esp_tls_cfg {
     const char **alpn_protos;               /*!< Application protocols required for HTTP2.
                                                  If HTTP2/ALPN support is required, a list
-                                                 of protocols that should be negotiated. 
+                                                 of protocols that should be negotiated.
                                                  The format is length followed by protocol
-                                                 name. 
+                                                 name.
                                                  For the most common cases the following is ok:
                                                  const char **alpn_protos = { "h2", NULL };
                                                  - where 'h2' is the protocol name */
- 
+
     union {
     const unsigned char *cacert_buf;        /*!< Certificate Authority's certificate in a buffer.
                                                  Format may be PEM or DER, depending on mbedtls-support
@@ -171,9 +142,12 @@ typedef struct esp_tls_cfg {
     unsigned int clientkey_password_len;    /*!< String length of the password pointed to by
                                                  clientkey_password */
 
-    bool non_block;                         /*!< Configure non-blocking mode. If set to true the 
-                                                 underneath socket will be configured in non 
+    bool non_block;                         /*!< Configure non-blocking mode. If set to true the
+                                                 underneath socket will be configured in non
                                                  blocking mode after tls session is established */
+
+    bool use_secure_element;                /*!< Enable this option to use secure element or
+                                                 atecc608a chip ( Integrated with ESP32-WROOM-32SE ) */
 
     int timeout_ms;                         /*!< Network timeout in milliseconds */
 
@@ -185,10 +159,20 @@ typedef struct esp_tls_cfg {
 
     bool skip_common_name;                  /*!< Skip any validation of server certificate CN field */
 
+    tls_keep_alive_cfg_t *keep_alive_cfg;   /*!< Enable TCP keep-alive timeout for SSL connection */
+
     const psk_hint_key_t* psk_hint_key;     /*!< Pointer to PSK hint and key. if not NULL (and certificates are NULL)
                                                  then PSK authentication is enabled with configured setup.
                                                  Important note: the pointer must be valid for connection */
 
+    esp_err_t (*crt_bundle_attach)(void *conf);
+                                            /*!< Function pointer to esp_crt_bundle_attach. Enables the use of certification
+                                                 bundle for server verification, must be enabled in menuconfig */
+
+    void *ds_data;                          /*!< Pointer for digital signature peripheral context */
+    bool is_plain_tcp;                      /*!< Use non-TLS connection: When set to true, the esp-tls uses
+                                                 plain TCP transport rather then TLS/SSL connection */
+    struct ifreq *if_name;                  /*!< The name of interface for data to go through. Use the default interface without setting */
 } esp_tls_cfg_t;
 
 #ifdef CONFIG_ESP_TLS_SERVER
@@ -247,24 +231,24 @@ typedef struct esp_tls_cfg_server {
 #endif /* ! CONFIG_ESP_TLS_SERVER */
 
 /**
- * @brief      ESP-TLS Connection Handle 
+ * @brief      ESP-TLS Connection Handle
  */
 typedef struct esp_tls {
 #ifdef CONFIG_ESP_TLS_USING_MBEDTLS
     mbedtls_ssl_context ssl;                                                    /*!< TLS/SSL context */
- 
+
     mbedtls_entropy_context entropy;                                            /*!< mbedTLS entropy context structure */
- 
+
     mbedtls_ctr_drbg_context ctr_drbg;                                          /*!< mbedTLS ctr drbg context structure.
-                                                                                     CTR_DRBG is deterministic random 
+                                                                                     CTR_DRBG is deterministic random
                                                                                      bit generation based on AES-256 */
- 
-    mbedtls_ssl_config conf;                                                    /*!< TLS/SSL configuration to be shared 
-                                                                                     between mbedtls_ssl_context 
+
+    mbedtls_ssl_config conf;                                                    /*!< TLS/SSL configuration to be shared
+                                                                                     between mbedtls_ssl_context
                                                                                      structures */
- 
+
     mbedtls_net_context server_fd;                                              /*!< mbedTLS wrapper type for sockets */
- 
+
     mbedtls_x509_crt cacert;                                                    /*!< Container for the X.509 CA certificate */
 
     mbedtls_x509_crt *cacert_ptr;                                               /*!< Pointer to the cacert being used. */
@@ -284,10 +268,10 @@ typedef struct esp_tls {
     void *priv_ssl;
 #endif
     int sockfd;                                                                 /*!< Underlying socket file descriptor. */
- 
+
     ssize_t (*read)(struct esp_tls  *tls, char *data, size_t datalen);          /*!< Callback function for reading data from TLS/SSL
                                                                                      connection. */
- 
+
     ssize_t (*write)(struct esp_tls *tls, const char *data, size_t datalen);    /*!< Callback function for writing data to TLS/SSL
                                                                                      connection. */
 
@@ -367,7 +351,7 @@ int esp_tls_conn_new_sync(const char *hostname, int hostlen, int port, const esp
  * @brief      Create a new blocking TLS/SSL connection with a given "HTTP" url
  *
  * The behaviour is same as esp_tls_conn_new() API. However this API accepts host's url.
- * 
+ *
  * @param[in]  url  url of host.
  * @param[in]  cfg  TLS configuration as esp_tls_cfg_t. If you wish to open
  *                  non-TLS connection, keep this NULL. For TLS connection,
@@ -376,7 +360,7 @@ int esp_tls_conn_new_sync(const char *hostname, int hostlen, int port, const esp
  * @return pointer to esp_tls_t, or NULL if connection couldn't be opened.
  */
 esp_tls_t *esp_tls_conn_http_new(const char *url, const esp_tls_cfg_t *cfg);
-   
+
 /**
  * @brief      Create a new non-blocking TLS/SSL connection
  *
@@ -415,18 +399,16 @@ int esp_tls_conn_http_new_async(const char *url, const esp_tls_cfg_t *cfg, esp_t
 
 /**
  * @brief      Write from buffer 'data' into specified tls connection.
- * 
+ *
  * @param[in]  tls      pointer to esp-tls as esp-tls handle.
  * @param[in]  data     Buffer from which data will be written.
  * @param[in]  datalen  Length of data buffer.
- * 
- * @return 
- *             - >0  if write operation was successful, the return value is the number 
- *                   of bytes actually written to the TLS/SSL connection.  
- *             -  0  if write operation was not successful. The underlying
- *                   connection was closed.
- *             - <0  if write operation was not successful, because either an 
- *                   error occured or an action must be taken by the calling process.   
+ *
+ * @return
+ *             - >=0  if write operation was successful, the return value is the number
+ *                   of bytes actually written to the TLS/SSL connection.
+ *             - <0  if write operation was not successful, because either an
+ *                   error occured or an action must be taken by the calling process.
  */
 static inline ssize_t esp_tls_conn_write(esp_tls_t *tls, const void *data, size_t datalen)
 {
@@ -435,10 +417,10 @@ static inline ssize_t esp_tls_conn_write(esp_tls_t *tls, const void *data, size_
 
 /**
  * @brief      Read from specified tls connection into the buffer 'data'.
- * 
+ *
  * @param[in]  tls      pointer to esp-tls as esp-tls handle.
  * @param[in]  data     Buffer to hold read data.
- * @param[in]  datalen  Length of data buffer. 
+ * @param[in]  datalen  Length of data buffer.
  *
  * @return
  *             - >0  if read operation was successful, the return value is the number
@@ -454,14 +436,26 @@ static inline ssize_t esp_tls_conn_read(esp_tls_t *tls, void  *data, size_t data
 }
 
 /**
- * @brief      Close the TLS/SSL connection and free any allocated resources.
- * 
- * This function should be called to close each tls connection opened with esp_tls_conn_new() or
- * esp_tls_conn_http_new() APIs. 
+ * @brief      Compatible version of esp_tls_conn_destroy() to close the TLS/SSL connection
  *
- * @param[in]  tls  pointer to esp-tls as esp-tls handle.    
+ * @note This API will be removed in IDFv5.0
+ *
+ * @param[in]  tls  pointer to esp-tls as esp-tls handle.
  */
 void esp_tls_conn_delete(esp_tls_t *tls);
+
+/**
+ * @brief      Close the TLS/SSL connection and free any allocated resources.
+ *
+ * This function should be called to close each tls connection opened with esp_tls_conn_new() or
+ * esp_tls_conn_http_new() APIs.
+ *
+ * @param[in]  tls  pointer to esp-tls as esp-tls handle.
+ *
+ * @return    - 0 on success
+ *            - -1 if socket error or an invalid argument
+ */
+int esp_tls_conn_destroy(esp_tls_t *tls);
 
 /**
  * @brief      Return the number of application data bytes remaining to be
@@ -477,6 +471,18 @@ void esp_tls_conn_delete(esp_tls_t *tls);
  *              record read buffer
  */
 ssize_t esp_tls_get_bytes_avail(esp_tls_t *tls);
+
+/**
+ * @brief       Returns the connection socket file descriptor from esp_tls session
+ *
+ * @param[in]   tls          handle to esp_tls context
+ *
+ * @param[out]  sockfd       int pointer to sockfd value.
+ *
+ * @return     - ESP_OK on success and value of sockfd will be updated with socket file descriptor for connection
+ *             - ESP_ERR_INVALID_ARG if (tls == NULL || sockfd == NULL)
+ */
+esp_err_t esp_tls_get_conn_sockfd(esp_tls_t *tls, int *sockfd);
 
 /**
  * @brief      Create a global CA store, initially empty.
@@ -535,6 +541,20 @@ void esp_tls_free_global_ca_store(void);
  */
 esp_err_t esp_tls_get_and_clear_last_error(esp_tls_error_handle_t h, int *esp_tls_code, int *esp_tls_flags);
 
+/**
+ * @brief      Returns the last error captured in esp_tls of a specific type
+ *             The error information is cleared internally upon return
+ *
+ * @param[in]  h              esp-tls error handle.
+ * @param[in]  err_type       specific error type
+ * @param[out] error_code     last error code returned from mbedtls api (set to zero if none)
+ *                            This pointer could be NULL if caller does not care about esp_tls_code
+ * @return
+ *            - ESP_ERR_INVALID_STATE if invalid parameters
+ *            - ESP_OK if a valid error returned and was cleared
+ */
+esp_err_t esp_tls_get_and_clear_error_type(esp_tls_error_handle_t h, esp_tls_error_type_t err_type, int *error_code);
+
 #if CONFIG_ESP_TLS_USING_MBEDTLS
 /**
  * @brief      Get the pointer to the global CA store currently being used.
@@ -550,6 +570,7 @@ esp_err_t esp_tls_get_and_clear_last_error(esp_tls_error_handle_t h, int *esp_tl
  */
 mbedtls_x509_crt *esp_tls_get_global_ca_store(void);
 
+#endif /* CONFIG_ESP_TLS_USING_MBEDTLS */
 #ifdef CONFIG_ESP_TLS_SERVER
 /**
  * @brief      Create TLS/SSL server session
@@ -577,7 +598,6 @@ int esp_tls_server_session_create(esp_tls_cfg_server_t *cfg, int sockfd, esp_tls
  */
 void esp_tls_server_session_delete(esp_tls_t *tls);
 #endif /* ! CONFIG_ESP_TLS_SERVER */
-#endif /* CONFIG_ESP_TLS_USING_MBEDTLS */
 
 #ifdef __cplusplus
 }

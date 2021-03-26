@@ -9,7 +9,6 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "freertos/queue.h"
-#include "freertos/xtensa_api.h"
 #include "unity.h"
 
 TEST_CASE("Panic handler", "[freertos][ignore]")
@@ -18,4 +17,3 @@ TEST_CASE("Panic handler", "[freertos][ignore]")
     i = (volatile int *)0x0;
     *i = 1;
 }
-

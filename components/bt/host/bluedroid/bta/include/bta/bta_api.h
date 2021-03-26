@@ -655,6 +655,7 @@ typedef UINT8 tBTA_SIG_STRENGTH_MASK;
 #define BTA_DM_ENER_INFO_READ           28      /* Energy info read */
 #define BTA_DM_BLE_DEV_UNPAIRED_EVT     29      /* BLE unpair event */
 #define BTA_DM_SP_KEY_REQ_EVT           30      /* Simple Pairing Passkey request */
+#define BTA_DM_PM_MODE_CHG_EVT          31      /* Mode changed event */
 
 typedef UINT8 tBTA_DM_SEC_EVT;
 
@@ -784,6 +785,7 @@ typedef struct {
     tBLE_ADDR_TYPE  addr_type;          /* Peer device address type */
     tBT_DEVICE_TYPE dev_type;
     UINT8           auth_mode;
+    BOOLEAN           sc_support;         /* Denotes if peer device supported secure connection while bonding. */
 } tBTA_DM_AUTH_CMPL;
 
 
@@ -799,6 +801,7 @@ typedef struct {
 
 /* Structure associated with BTA_DM_LINK_UP_EVT */
 typedef struct {
+    BOOLEAN         sc_downgrade;       /* Security downgrade state. */
     BD_ADDR         bd_addr;            /* BD address peer device. */
 #if BLE_INCLUDED == TRUE
     tBTA_TRANSPORT  link_type;
@@ -875,6 +878,12 @@ typedef tBTM_LE_AUTH_REQ       tBTA_LE_AUTH_REQ;       /* combination of the abo
 #endif
 typedef tBTM_OOB_DATA   tBTA_OOB_DATA;
 
+#define BTA_PM_MD_ACTIVE    BTM_PM_MD_ACTIVE    /* 0 Active mode */
+#define BTA_PM_MD_HOLD      BTM_PM_MD_HOLD      /* 1 Hold mode */
+#define BTA_PM_MD_SNIFF     BTM_PM_MD_SNIFF     /* 2 Sniff mode */
+#define BTA_PM_MD_PARK      BTM_PM_MD_PARK      /* 3 Park state */
+typedef tBTM_PM_MODE tBTA_PM_MODE;
+
 /* Structure associated with BTA_DM_SP_CFM_REQ_EVT */
 typedef struct {
     /* Note: First 3 data members must be, bd_addr, dev_class, and bd_name in order */
@@ -933,13 +942,20 @@ typedef struct {
     tBTA_STATUS     result;    /* TRUE of bond cancel succeeded, FALSE if failed. */
 } tBTA_DM_BOND_CANCEL_CMPL;
 
+/* Structure associated with BTA_DM_PM_MODE_CHG_EVT */
+typedef struct {
+    BD_ADDR         bd_addr;            /* BD address peer device. */
+    tBTA_PM_MODE    mode;               /* the new connection role */
+} tBTA_DM_MODE_CHG;
+
+
 /* Union of all security callback structures */
 typedef union {
     tBTA_DM_ENABLE              enable;             /* BTA enabled */
     tBTA_DM_PIN_REQ             pin_req;            /* PIN request. */
     tBTA_DM_AUTH_CMPL           auth_cmpl;          /* Authentication complete indication. */
     tBTA_DM_AUTHORIZE           authorize;          /* Authorization request. */
-    tBTA_DM_LINK_UP             link_up;            /* ACL connection down event */
+    tBTA_DM_LINK_UP             link_up;            /* ACL connection up event */
     tBTA_DM_LINK_DOWN           link_down;          /* ACL connection down event */
     tBTA_DM_BUSY_LEVEL          busy_level;         /* System busy level */
     tBTA_DM_SP_CFM_REQ          cfm_req;            /* user confirm request */
@@ -953,6 +969,9 @@ typedef union {
     tBTA_DM_BLE_KEY             ble_key;            /* BLE SMP keys used when pairing */
     tBTA_BLE_LOCAL_ID_KEYS      ble_id_keys;        /* IR event */
     BT_OCTET16                  ble_er;             /* ER event data */
+#if BTA_DM_PM_INCLUDED
+    tBTA_DM_MODE_CHG            mode_chg;           /* mode change event */
+#endif ///BTA_DM_PM_INCLUDED
 } tBTA_DM_SEC;
 
 /* Security callback */
@@ -1396,6 +1415,155 @@ typedef UINT8 tBTA_DM_LINK_TYPE;
 #define BATCH_DELY_MODE      0x02
 #define ALLOW_ALL_FILTER     0x00
 #define LOWEST_RSSI_VALUE     129
+#if (BLE_50_FEATURE_SUPPORT == TRUE)
+#define BTA_DM_BLE_GAP_SET_EXT_ADV_PROP_CONNECTABLE       (1 << 0)
+#define BTA_DM_BLE_GAP_SET_EXT_ADV_PROP_SCANNABLE         (1 << 1)
+#define BTA_DM_BLE_GAP_SET_EXT_ADV_PROP_DIRECTED          (1 << 2)
+#define BTA_DM_BLE_GAP_SET_EXT_ADV_PROP_HD_DIRECTED       (1 << 3)
+#define BTA_DM_BLE_GAP_SET_EXT_ADV_PROP_LEGACY            (1 << 4)
+#define BTA_DM_BLE_GAP_SET_EXT_ADV_PROP_ANON_ADV          (1 << 5)
+#define BTA_DM_BLE_GAP_SET_EXT_ADV_PROP_INCLUDE_TX_PWR    (1 << 6)
+#define BTA_DM_BLE_GAP_SET_EXT_ADV_PROP_MASK              (0x7F)
+
+#define BTA_DM_BLE_GAP_SET_EXT_ADV_PROP_LEGACY_IND        (ESP_BLE_GAP_SET_EXT_ADV_PROP_LEGACY |\
+                                                        ESP_BLE_GAP_SET_EXT_ADV_PROP_CONNECTABLE |\
+                                                        ESP_BLE_GAP_SET_EXT_ADV_PROP_SCANNABLE)
+#define BTA_DM_BLE_GAP_SET_EXT_ADV_PROP_LEGACY_LD_DIR     (ESP_BLE_GAP_SET_EXT_ADV_PROP_LEGACY |\
+                                                        ESP_BLE_GAP_SET_EXT_ADV_PROP_CONNECTABLE |\
+                                                        ESP_BLE_GAP_SET_EXT_ADV_PROP_DIRECTED)
+#define BTA_DM_BLE_GAP_SET_EXT_ADV_PROP_LEGACY_HD_DIR     (ESP_BLE_GAP_SET_EXT_ADV_PROP_LEGACY |\
+                                                        ESP_BLE_GAP_SET_EXT_ADV_PROP_CONNECTABLE |\
+                                                        ESP_BLE_GAP_SET_EXT_ADV_PROP_HD_DIRECTED)
+#define BTA_DM_BLE_GAP_SET_EXT_ADV_PROP_LEGACY_SCAN       (ESP_BLE_GAP_SET_EXT_ADV_PROP_LEGACY |\
+                                                        ESP_BLE_GAP_SET_EXT_ADV_PROP_SCANNABLE)
+#define BTA_DM_BLE_GAP_SET_EXT_ADV_PROP_LEGACY_NONCONN    (ESP_BLE_GAP_SET_EXT_ADV_PROP_LEGACY)
+typedef UINT16 tBTA_DM_BLE_EXT_ADV_TYPE_MASK;
+
+
+#define BTA_DM_BLE_GAP_PHY_1M                             1
+#define BTA_DM_BLE_GAP_PHY_2M                             2
+#define BTA_DM_BLE_GAP_PHY_CODED                          3
+typedef UINT8 tBTA_DM_BLE_GAP_PHY;
+
+#define BTA_DM_BLE_GAP_PHY_NO_TX_PREF_MASK                (0x01)
+#define BTA_DM_BLE_GAP_PHY_NO_RX_PREF_MASK                (0x02)
+#define BTA_DM_BLE_GAP_PHY_1M_PREF_MASK                   (0x03)
+#define BTA_DM_BLE_GAP_PHY_2M_PREF_MASK                   (0x04)
+#define BTA_DM_BLE_GAP_PHY_CODED_PREF_MASK                (0x05)
+typedef UINT8 tBTA_DM_BLE_GAP_PHY_MASK;
+
+#define BTA_DM_BLE_GAP_EXT_SCAN_UNCODE_MASK                0x01
+#define BTA_DM_BLE_GAP_EXT_SCAN_CODE_MASK                  0x02
+typedef UINT8 tBTA_DM_BLE_EXT_SCAN_CFG_MASK;
+
+
+typedef struct {
+    tBTA_DM_BLE_EXT_ADV_TYPE_MASK type;
+    UINT32 interval_min;
+    UINT32 interval_max;
+    tBTA_BLE_ADV_CHNL_MAP channel_map;
+    tBLE_ADDR_TYPE own_addr_type;
+    tBLE_ADDR_TYPE peer_addr_type;
+    BD_ADDR peer_addr;
+    tBTA_BLE_AFP filter_policy;
+    UINT8 tx_power;
+    tBTA_DM_BLE_GAP_PHY primary_phy;
+    UINT8 max_skip;
+    tBTA_DM_BLE_GAP_PHY secondary_phy;
+    UINT8 sid;
+    BOOLEAN scan_req_notif;
+} tBTA_DM_BLE_GAP_EXT_ADV_PARAMS;
+
+typedef struct {
+    UINT8 instance;
+    int duration;
+    int max_events;
+} tBTA_DM_BLE_EXT_ADV;
+
+typedef struct {
+    UINT16 interval_min;
+    UINT16 interval_max;
+    UINT8  properties;
+} tBTA_DM_BLE_Periodic_Adv_Params;
+
+typedef struct {
+    UINT8 filter_policy;
+    UINT8 sid;
+    tBLE_ADDR_TYPE addr_type;
+    BD_ADDR addr;
+    UINT16 skip;
+    UINT16 sync_timeout;
+} tBTA_DM_BLE_Periodic_Sync_Params;
+
+typedef struct {
+    tBLE_SCAN_MODE scan_type;
+    UINT16 scan_interval;
+    UINT16 scan_window;
+} tBTA_DM_BLE_EXT_SCAN_CFG;
+
+typedef struct {
+    tBLE_ADDR_TYPE own_addr_type;
+    UINT8 filter_policy;
+    UINT8  scan_duplicate;
+    tBTA_DM_BLE_EXT_SCAN_CFG_MASK cfg_mask;
+    tBTA_DM_BLE_EXT_SCAN_CFG uncoded_cfg;
+    tBTA_DM_BLE_EXT_SCAN_CFG coded_cfg;
+} tBTA_DM_BLE_EXT_SCAN_PARAMS;
+
+typedef struct {
+    UINT16 scan_interval;
+    UINT16 scan_window;
+    UINT16 interval_min;
+    UINT16 interval_max;
+    UINT16 latency;
+    UINT16 supervision_timeout;
+    UINT16 min_ce_len;
+    UINT16 max_ce_len;
+} tBTA_DM_BLE_CONN_PARAMS;
+
+#define BTA_DM_BLE_5_GAP_READ_PHY_COMPLETE_EVT                     BTM_BLE_5_GAP_READ_PHY_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_SET_PREFERED_DEFAULT_PHY_COMPLETE_EVT     BTM_BLE_5_GAP_SET_PREFERED_DEFAULT_PHY_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_SET_PREFERED_PHY_COMPLETE_EVT             BTM_BLE_5_GAP_SET_PREFERED_PHY_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_EXT_ADV_SET_RAND_ADDR_COMPLETE_EVT        BTM_BLE_5_GAP_EXT_ADV_SET_RAND_ADDR_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_EXT_ADV_SET_PARAMS_COMPLETE_EVT           BTM_BLE_5_GAP_EXT_ADV_SET_PARAMS_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_EXT_ADV_DATA_SET_COMPLETE_EVT             BTM_BLE_5_GAP_EXT_ADV_DATA_SET_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_EXT_SCAN_RSP_DATA_SET_COMPLETE_EVT        BTM_BLE_5_GAP_EXT_SCAN_RSP_DATA_SET_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_EXT_ADV_START_COMPLETE_EVT                BTM_BLE_5_GAP_EXT_ADV_START_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_EXT_ADV_STOP_COMPLETE_EVT                 BTM_BLE_5_GAP_EXT_ADV_STOP_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_EXT_ADV_SET_REMOVE_COMPLETE_EVT           BTM_BLE_5_GAP_EXT_ADV_SET_REMOVE_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_EXT_ADV_SET_CLEAR_COMPLETE_EVT            BTM_BLE_5_GAP_EXT_ADV_SET_CLEAR_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_PERIODIC_ADV_SET_PARAMS_COMPLETE_EVT      BTM_BLE_5_GAP_PERIODIC_ADV_SET_PARAMS_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_PERIODIC_ADV_DATA_SET_COMPLETE_EVT        BTM_BLE_5_GAP_PERIODIC_ADV_DATA_SET_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_PERIODIC_ADV_START_COMPLETE_EVT           BTM_BLE_5_GAP_PERIODIC_ADV_START_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_PERIODIC_ADV_STOP_COMPLETE_EVT            BTM_BLE_5_GAP_PERIODIC_ADV_STOP_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_PERIODIC_ADV_CREATE_SYNC_COMPLETE_EVT     BTM_BLE_5_GAP_PERIODIC_ADV_CREATE_SYNC_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_PERIODIC_ADV_SYNC_CANCEL_COMPLETE_EVT     BTM_BLE_5_GAP_PERIODIC_ADV_SYNC_CANCEL_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_PERIODIC_ADV_SYNC_TERMINATE_COMPLETE_EVT  BTM_BLE_5_GAP_PERIODIC_ADV_SYNC_TERMINATE_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_PERIODIC_ADV_ADD_DEV_COMPLETE_EVT         BTM_BLE_5_GAP_PERIODIC_ADV_ADD_DEV_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_PERIODIC_ADV_REMOVE_DEV_COMPLETE_EVT      BTM_BLE_5_GAP_PERIODIC_ADV_REMOVE_DEV_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_PERIODIC_ADV_CLEAR_DEV_COMPLETE_EVT       BTM_BLE_5_GAP_PERIODIC_ADV_CLEAR_DEV_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_SET_EXT_SCAN_PARAMS_COMPLETE_EVT          BTM_BLE_5_GAP_SET_EXT_SCAN_PARAMS_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_EXT_SCAN_START_COMPLETE_EVT               BTM_BLE_5_GAP_EXT_SCAN_START_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_EXT_SCAN_STOP_COMPLETE_EVT                BTM_BLE_5_GAP_EXT_SCAN_STOP_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_PREFER_EXT_CONN_PARAMS_SET_COMPLETE_EVT   BTM_BLE_5_GAP_PREFER_EXT_CONN_PARAMS_SET_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_PHY_UPDATE_COMPLETE_EVT                   BTM_BLE_5_GAP_PHY_UPDATE_COMPLETE_EVT
+#define BTA_DM_BLE_5_GAP_EXT_ADV_REPORT_EVT                        BTM_BLE_5_GAP_EXT_ADV_REPORT_EVT
+#define BTA_DM_BLE_5_GAP_SCAN_TIMEOUT_EVT                          BTM_BLE_5_GAP_SCAN_TIMEOUT_EVT
+#define BTA_DM_BLE_5_GAP_ADV_TERMINATED_EVT                        BTM_BLE_5_GAP_ADV_TERMINATED_EVT
+#define BTA_DM_BLE_5_GAP_SCAN_REQ_RECEIVED_EVT                     BTM_BLE_5_GAP_SCAN_REQ_RECEIVED_EVT
+#define BTA_DM_BLE_5_GAP_CHANNEL_SELETE_ALGORITHM_EVT              BTM_BLE_5_GAP_CHANNEL_SELETE_ALGORITHM_EVT
+#define BTA_DM_BLE_5_GAP_PERIODIC_ADV_REPORT_EVT                   BTM_BLE_5_GAP_PERIODIC_ADV_REPORT_EVT
+#define BTA_DM_BLE_5_GAP_PERIODIC_ADV_SYNC_LOST_EVT                BTM_BLE_5_GAP_PERIODIC_ADV_SYNC_LOST_EVT
+#define BTA_DM_BLE_5_GAP_PERIODIC_ADV_SYNC_ESTAB_EVT               BTM_BLE_5_GAP_PERIODIC_ADV_SYNC_ESTAB_EVT
+#define BTA_DM_BLE_5_GAP_UNKNOWN_EVT                              BTM_BLE_5_GAP_UNKNOWN_EVT
+typedef tBTM_BLE_5_GAP_EVENT tBTA_DM_BLE_5_GAP_EVENT;
+
+typedef tBTM_BLE_5_GAP_CB_PARAMS tBTA_DM_BLE_5_GAP_CB_PARAMS;
+typedef tBTM_BLE_5_HCI_CBACK tBTA_DM_BLE_5_HCI_CBCAK;
+
+extern tBTM_BLE_5_HCI_CBACK ble_5_hci_cb;
+
+#endif // #if (BLE_50_FEATURE_SUPPORT == TRUE)
 
 /*****************************************************************************
 **  External Function Declarations
@@ -1508,6 +1676,20 @@ extern void BTA_DmConfigEir(tBTA_DM_EIR_CONF *eir_config);
 *******************************************************************************/
 void BTA_DmSetAfhChannels(const uint8_t *channels, tBTA_CMPL_CB  *set_afh_cb);
 
+#if (BTA_DM_QOS_INCLUDED == TRUE)
+/*******************************************************************************
+**
+** Function         BTA_DmSetQos
+**
+** Description      This function sets the QOS
+**
+**
+** Returns          void
+**
+*******************************************************************************/
+void BTA_DmSetQos(BD_ADDR bd_addr, UINT32 t_poll, tBTM_CMPL_CB *p_cb);
+#endif /// (BTA_DM_QOS_INCLUDED == TRUE)
+
 #if (BLE_INCLUDED == TRUE)
 /*******************************************************************************
 **
@@ -1523,10 +1705,12 @@ void BTA_DmBleSetChannels(const uint8_t *channels, tBTA_CMPL_CB  *set_channels_c
 
 extern void BTA_DmUpdateWhiteList(BOOLEAN add_remove,  BD_ADDR remote_addr, tBLE_ADDR_TYPE addr_type, tBTA_ADD_WHITELIST_CBACK *add_wl_cb);
 
+extern void BTA_DmClearWhiteList(void);
+
 extern void BTA_DmBleReadAdvTxPower(tBTA_CMPL_CB *cmpl_cb);
 #endif  ///BLE_INCLUDED == TRUE
 
-extern void BTA_DmBleReadRSSI(BD_ADDR remote_addr, tBTA_TRANSPORT transport, tBTA_CMPL_CB *cmpl_cb);
+extern void BTA_DmReadRSSI(BD_ADDR remote_addr, tBTA_TRANSPORT transport, tBTA_CMPL_CB *cmpl_cb);
 
 /*******************************************************************************
 **
@@ -1755,7 +1939,8 @@ extern void BTA_DmPasskeyReqReply(BOOLEAN accept, BD_ADDR bd_addr, UINT32 passke
 extern void BTA_DmAddDevice(BD_ADDR bd_addr, DEV_CLASS dev_class,
                             LINK_KEY link_key, tBTA_SERVICE_MASK trusted_mask,
                             BOOLEAN is_trusted, UINT8 key_type,
-                            tBTA_IO_CAP io_cap, UINT8 pin_length);
+                            tBTA_IO_CAP io_cap, UINT8 pin_length,
+                            UINT8 sc_support);
 
 /*******************************************************************************
 **
@@ -2683,6 +2868,72 @@ extern void BTA_VendorInit  (void);
 **
 *******************************************************************************/
 extern void BTA_VendorCleanup (void);
+
+#if (BLE_50_FEATURE_SUPPORT == TRUE)
+extern void BTA_DmBleGapReadPHY(BD_ADDR addr);
+
+extern void BTA_DmBleGapSetPreferedDefaultPHY(tBTA_DM_BLE_GAP_PHY_MASK tx_phy_mask,
+                                                          tBTA_DM_BLE_GAP_PHY_MASK rx_phy_mask);
+
+extern void BTA_DmBleGapSetPreferedPHY(BD_ADDR addr,
+                                               UINT8 all_phys,
+                                               tBTA_DM_BLE_GAP_PHY_MASK tx_phy_mask,
+                                               tBTA_DM_BLE_GAP_PHY_MASK rx_phy_mask,
+                                               UINT16 phy_options);
+
+extern void BTA_DmBleGapExtAdvSetRandaddr(UINT16 instance, BD_ADDR addr);
+
+extern void BTA_DmBleGapExtAdvSetParams(UINT16 instance,
+                                                 const tBTA_DM_BLE_GAP_EXT_ADV_PARAMS *params);
+
+extern void BTA_DmBleGapConfigExtAdvDataRaw(BOOLEAN is_scan_rsp, UINT8 instance, UINT16 length,
+                                                        const UINT8 *data);
+
+extern void BTA_DmBleGapStartExtAdv(UINT8 num, tBTA_DM_BLE_EXT_ADV *ext_adv);
+
+extern void BTA_DmBleGapExtAdvEnable(BOOLEAN enable, UINT8 num, tBTA_DM_BLE_EXT_ADV *ext_adv);
+
+extern void BTA_DmBleGapExtAdvSetRemove(UINT8 instance);
+
+extern void BTA_DmBleGapExtAdvSetClear(void);
+
+extern void BTA_DmBleGapPeriodicAdvSetParams(UINT8 instance,
+                                                         tBTA_DM_BLE_Periodic_Adv_Params *params);
+
+extern void BTA_DmBleGapPeriodicAdvCfgDataRaw(UINT8 instance, UINT16 length,
+                                                           const UINT8 *data);
+
+extern void BTA_DmBleGapPeriodicAdvEnable(BOOLEAN enable, UINT8 instance);
+
+extern void BTA_DmBleGapPeriodicAdvCreateSync(tBTA_DM_BLE_Periodic_Sync_Params *params);
+
+extern void BTA_DmBleGapPeriodicAdvSyncCancel(void);
+
+extern void BTA_DmBleGapPeriodicAdvSyncTerm(UINT16 sync_handle);
+
+extern void BTA_DmBleGapPeriodicAdvAddDevToList(tBLE_ADDR_TYPE addr_type,
+                                                              BD_ADDR addr,
+                                                              UINT16 sid);
+
+extern void BTA_DmBleGapPeriodicAdvRemoveDevFromList(tBLE_ADDR_TYPE addr_type,
+                                                              BD_ADDR addr,
+                                                              UINT16 sid);
+
+extern void BTA_DmBleGapPeriodicAdvClearDev(void);
+
+extern void BTA_DmBleGapSetExtScanParams(tBTA_DM_BLE_EXT_SCAN_PARAMS *params);
+
+extern void BTA_DmBleGapExtScan(BOOLEAN start, UINT32 duration, UINT16 period);
+
+extern void BTA_DmBleGapPreferExtConnectParamsSet(BD_ADDR bd_addr,
+                                                  UINT8 phy_mask,
+                                                  const tBTA_DM_BLE_CONN_PARAMS *phy_1m_conn_params,
+                                                  const tBTA_DM_BLE_CONN_PARAMS *phy_2m_conn_params,
+                                                  const tBTA_DM_BLE_CONN_PARAMS *phy_coded_conn_params);
+
+extern void BTA_DmBleGapExtConnect(tBLE_ADDR_TYPE own_addr_type, const BD_ADDR peer_addr);
+#endif // #if (BLE_50_FEATURE_SUPPORT == TRUE)
+
 #endif
 
 enum {

@@ -1,4 +1,4 @@
 idf_component_register(SRC_DIRS .
-                       INCLUDE_DIRS .
-                       PRIV_REQUIRES unity test_utils esp_eth esp_http_client
-                      )
+                       PRIV_INCLUDE_DIRS .
+                       PRIV_REQUIRES cmock test_utils esp_eth esp_http_client
+                       EMBED_TXTFILES dl_espressif_com_root_cert.pem)

@@ -359,7 +359,7 @@ void gatt_profile_db_init (void)
 
     GATT_TRACE_DEBUG ("gatt_profile_db_init:  handle of service changed%d\n",
                       gatt_cb.handle_of_h_r);
-    
+
     tBT_UUID descr_uuid = {LEN_UUID_16, {GATT_UUID_CHAR_CLIENT_CONFIG}};
     uint8_t ccc_value[2] ={ 0x00, 0x00};
 
@@ -564,7 +564,7 @@ void GATT_ConfigServiceChangeCCC (BD_ADDR remote_bda, BOOLEAN enable, tBT_TRANSP
         p_clcb->connected = TRUE;
     }
     /* hold the link here */
-    GATT_Connect(gatt_cb.gatt_if, remote_bda, BLE_ADDR_UNKNOWN_TYPE, TRUE, transport);
+    GATT_Connect(gatt_cb.gatt_if, remote_bda, BLE_ADDR_UNKNOWN_TYPE, TRUE, transport, FALSE);
     p_clcb->ccc_stage = GATT_SVC_CHANGED_CONNECTING;
 
     if (!p_clcb->connected) {

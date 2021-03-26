@@ -34,6 +34,7 @@
 #include "gatt_int.h"
 #include "stack/l2c_api.h"
 #include "btm_int.h"
+#include "common/bte_appl.h"
 
 /********************************************************************************
 **              L O C A L    F U N C T I O N     P R O T O T Y P E S            *
@@ -124,10 +125,14 @@ static tGATT_STATUS gatts_check_attr_readability(tGATT_ATTR16 *p_attr,
     tGATT_PERM      perm = p_attr->permission;
 
     UNUSED(offset);
+#if SMP_INCLUDED == TRUE
+    min_key_size = bte_appl_cfg.ble_appl_enc_key_size;
+#else
     min_key_size = (((perm & GATT_ENCRYPT_KEY_SIZE_MASK) >> 12));
     if (min_key_size != 0 ) {
         min_key_size += 6;
     }
+#endif
 
     if (!(perm & GATT_READ_ALLOWED)) {
         GATT_TRACE_ERROR( "GATT_READ_NOT_PERMIT\n");
@@ -154,7 +159,11 @@ static tGATT_STATUS gatts_check_attr_readability(tGATT_ATTR16 *p_attr,
         GATT_TRACE_ERROR( "GATT_INSUF_KEY_SIZE\n");
         return GATT_INSUF_KEY_SIZE;
     }
-
+    /* LE Authorization check*/
+    if ((perm & GATT_READ_AUTHORIZATION) && (!(sec_flag & GATT_SEC_FLAG_LKEY_AUTHED) || !(sec_flag & GATT_SEC_FLAG_AUTHORIZATION))) {
+        GATT_TRACE_ERROR( "GATT_INSUF_AUTHORIZATION\n");
+        return GATT_INSUF_AUTHORIZATION;
+    }
 
     if (read_long) {
         switch (p_attr->uuid) {
@@ -279,7 +288,7 @@ static tGATT_STATUS read_attr_value (void *p_attr,
 			/*if offset equal to max_len, should respond with zero byte value
             //if offset is greater than max_len, should respond with an error*/
                 status = GATT_INVALID_OFFSET;
-            } else { 
+            } else {
                 UINT8 *value = (UINT8 *)(p_attr16->p_value->attr_val.attr_val) + offset;
                 UINT16 len_left = p_attr16->p_value->attr_val.attr_len - offset;
                 len = (mtu >= len_left) ? (len_left) : mtu;
@@ -557,7 +566,7 @@ UINT16 gatts_add_characteristic (tGATT_SVC_DB *p_db, tGATT_PERM perm,
                 //add mask to indicate that p_value->attr_val.attr_val is dynamic allocated
                 p_char_val->mask |= GATT_ATTR_VALUE_ALLOCATED;
             }
-            
+
             //initiate characteristic attribute value part
             memset(p_char_val->p_value->attr_val.attr_val, 0, attr_val->attr_max_len);
             if (attr_val->attr_val != NULL) {
@@ -961,15 +970,15 @@ tGATT_STATUS gatts_write_attr_value_by_handle(tGATT_SVC_DB *p_db,
                     return GATT_APP_RSP;
                 }
 
-                if ((p_attr->p_value != NULL) && 
-                    (p_attr->p_value->attr_val.attr_max_len >= offset + len) && 
+                if ((p_attr->p_value != NULL) &&
+                    (p_attr->p_value->attr_val.attr_max_len >= offset + len) &&
                     p_attr->p_value->attr_val.attr_val != NULL) {
                     memcpy(p_attr->p_value->attr_val.attr_val + offset, p_value, len);
                     p_attr->p_value->attr_val.attr_len = len + offset;
                     return GATT_SUCCESS;
                 } else if (p_attr->p_value->attr_val.attr_max_len < offset + len){
                     GATT_TRACE_DEBUG("Remote device try to write with a length larger then attribute's max length\n");
-                    return GATT_INVALID_ATTR_LEN;               
+                    return GATT_INVALID_ATTR_LEN;
                 } else if ((p_attr->p_value == NULL) || (p_attr->p_value->attr_val.attr_val == NULL)){
                     GATT_TRACE_ERROR("Error in %s, line=%d, %s should not be NULL here\n", __func__, __LINE__, \
                                     (p_attr->p_value == NULL) ? "p_value" : "attr_val.attr_val");
@@ -1068,10 +1077,14 @@ tGATT_STATUS gatts_write_attr_perm_check (tGATT_SVC_DB *p_db, UINT8 op_code,
         while (p_attr != NULL) {
             if (p_attr->handle == handle) {
                 perm = p_attr->permission;
+            #if SMP_INCLUDED == TRUE
+                min_key_size = bte_appl_cfg.ble_appl_enc_key_size;
+            #else
                 min_key_size = (((perm & GATT_ENCRYPT_KEY_SIZE_MASK) >> 12));
                 if (min_key_size != 0 ) {
                     min_key_size += 6;
                 }
+            #endif
                 GATT_TRACE_DEBUG( "gatts_write_attr_perm_check p_attr->permission =0x%04x min_key_size==0x%04x",
                                   p_attr->permission,
                                   min_key_size);
@@ -1117,6 +1130,11 @@ tGATT_STATUS gatts_write_attr_perm_check (tGATT_SVC_DB *p_db, UINT8 op_code,
                 } else if ((perm & GATT_WRITE_ENCRYPTED_PERM ) && (sec_flag & GATT_SEC_FLAG_ENCRYPTED) && (key_size < min_key_size)) {
                     status = GATT_INSUF_KEY_SIZE;
                     GATT_TRACE_ERROR( "gatts_write_attr_perm_check - GATT_INSUF_KEY_SIZE");
+                }
+                /* LE Authorization check*/
+                else if ((perm & GATT_WRITE_AUTHORIZATION) && (!(sec_flag & GATT_SEC_FLAG_LKEY_AUTHED) || !(sec_flag & GATT_SEC_FLAG_AUTHORIZATION))){
+                    status = GATT_INSUF_AUTHORIZATION;
+                    GATT_TRACE_ERROR( "gatts_write_attr_perm_check - GATT_INSUF_AUTHORIZATION");
                 }
                 /* LE security mode 2 attribute  */
                 else if (perm & GATT_WRITE_SIGNED_PERM && op_code != GATT_SIGN_CMD_WRITE && !(sec_flag & GATT_SEC_FLAG_ENCRYPTED)
@@ -1425,7 +1443,7 @@ static tGATT_STATUS gatts_send_app_read_request(tGATT_TCB *p_tcb, UINT8 op_code,
 
         gatt_sr_send_req_callback(conn_id,
                                   trans_id, GATTS_REQ_TYPE_READ, &sr_data);
-        
+
         if (need_rsp) {
             return (tGATT_STATUS) GATT_PENDING;
         }

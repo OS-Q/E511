@@ -24,7 +24,7 @@ static void mdns_print_results(mdns_result_t * results)
 {
     mdns_result_t * r = results;
     mdns_ip_addr_t * a = NULL;
-    int i = 1, t;
+    int i = 1;
     while (r) {
         printf("%d: Interface: %s, Type: %s\n", i++, if_str[r->tcpip_if], ip_protocol_str[r->ip_protocol]);
         if (r->instance_name) {
@@ -35,7 +35,7 @@ static void mdns_print_results(mdns_result_t * results)
         }
         if (r->txt_count) {
             printf("  TXT : [%u] ", r->txt_count);
-            for (t=0; t<r->txt_count; t++) {
+            for (size_t t=0; t<r->txt_count; t++) {
                 printf("%s=%s; ", r->txt[t].key, r->txt[t].value);
             }
             printf("\n");
@@ -116,6 +116,7 @@ static void register_mdns_query_a(void)
     ESP_ERROR_CHECK( esp_console_cmd_register(&cmd_init) );
 }
 
+#if CONFIG_LWIP_IPV6
 static int cmd_mdns_query_aaaa(int argc, char** argv)
 {
     int nerrors = arg_parse(argc, argv, (void**) &mdns_query_a_args);
@@ -172,6 +173,7 @@ static void register_mdns_query_aaaa(void)
 
     ESP_ERROR_CHECK( esp_console_cmd_register(&cmd_init) );
 }
+#endif
 
 static struct {
     struct arg_str *instance;
@@ -1049,7 +1051,9 @@ void mdns_console_register(void)
     register_mdns_service_remove_all();
 
     register_mdns_query_a();
+#if CONFIG_LWIP_IPV6
     register_mdns_query_aaaa();
+#endif
     register_mdns_query_txt();
     register_mdns_query_srv();
     register_mdns_query_ptr();
@@ -1057,4 +1061,3 @@ void mdns_console_register(void)
     register_mdns_query_ip();
     register_mdns_query_svc();
 }
-

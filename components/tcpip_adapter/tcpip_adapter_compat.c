@@ -58,7 +58,7 @@ static void wifi_create_and_start_ap(void *esp_netif, esp_event_base_t base, int
         esp_netif_t *ap_netif = esp_netif_new(&cfg);
 
         esp_netif_attach_wifi_ap(ap_netif);
-        esp_wifi_set_default_wifi_sta_handlers();
+        esp_wifi_set_default_wifi_ap_handlers();
         s_esp_netifs[TCPIP_ADAPTER_IF_AP] = ap_netif;
     }
 }
@@ -178,7 +178,12 @@ esp_err_t tcpip_adapter_set_default_wifi_handlers(void)
 
 esp_err_t tcpip_adapter_clear_default_wifi_handlers(void)
 {
-    return _esp_wifi_clear_default_wifi_handlers();
+    if (s_tcpip_adapter_compat) {
+        // Clear default handlers only if tcpip-adapter mode used
+        return _esp_wifi_clear_default_wifi_handlers();
+    }
+    // No action if tcpip-adapter compatibility enabled, but interfaces created/configured with esp-netif
+    return ESP_OK;
 }
 
 tcpip_adapter_if_t tcpip_adapter_if_from_esp_netif(esp_netif_t *esp_netif)
@@ -195,6 +200,7 @@ esp_err_t tcpip_adapter_get_ip_info(tcpip_adapter_if_t tcpip_if, tcpip_adapter_i
     return esp_netif_get_ip_info(netif_from_if(tcpip_if), (esp_netif_ip_info_t *)ip_info);
 }
 
+#if CONFIG_LWIP_IPV6
 esp_err_t tcpip_adapter_get_ip6_linklocal(tcpip_adapter_if_t tcpip_if, ip6_addr_t *if_ip6)
 {
     return esp_netif_get_ip6_linklocal(netif_from_if(tcpip_if), (esp_ip6_addr_t*)if_ip6);
@@ -204,6 +210,7 @@ esp_err_t tcpip_adapter_get_ip6_global(tcpip_adapter_if_t tcpip_if, ip6_addr_t *
 {
     return esp_netif_get_ip6_global(netif_from_if(tcpip_if), (esp_ip6_addr_t*)if_ip6);
 }
+#endif
 
 esp_err_t tcpip_adapter_dhcpc_get_status(tcpip_adapter_if_t tcpip_if, tcpip_adapter_dhcp_status_t *status)
 {
@@ -225,12 +232,12 @@ esp_err_t tcpip_adapter_get_netif(tcpip_adapter_if_t tcpip_if, void ** netif)
     }
     return ESP_ERR_INVALID_ARG;
 }
-
+#if CONFIG_LWIP_IPV6
 esp_err_t tcpip_adapter_create_ip6_linklocal(tcpip_adapter_if_t tcpip_if)
 {
     return esp_netif_create_ip6_linklocal(netif_from_if(tcpip_if));
 }
-
+#endif
 esp_err_t tcpip_adapter_dhcps_stop(tcpip_adapter_if_t tcpip_if)
 {
     return esp_netif_dhcps_stop(netif_from_if(tcpip_if));

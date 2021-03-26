@@ -71,6 +71,24 @@ menu "Driver configurations"
 
     endmenu # SPI Configuration
 
+    menu "TWAI configuration"
+
+        config TWAI_ISR_IN_IRAM
+            bool "Place TWAI ISR function into IRAM"
+            default n
+            help
+                Place the TWAI ISR in to IRAM. This will allow the ISR to avoid
+                cache misses, and also be able to run whilst the cache is disabled
+                (such as when writing to SPI Flash).
+                Note that if this option is enabled:
+                - Users should also set the ESP_INTR_FLAG_IRAM in the driver
+                configuration structure when installing the driver (see docs for
+                specifics).
+                - Alert logging (i.e., setting of the TWAI_ALERT_AND_LOG flag)
+                will have no effect.
+
+    endmenu # TWAI Configuration
+
     menu "UART configuration"
 
         config UART_ISR_IN_IRAM
@@ -83,6 +101,7 @@ menu "Driver configurations"
     endmenu # UART Configuration
 
     menu "RTCIO configuration"
+        visible if IDF_TARGET_ESP32
 
         config RTCIO_SUPPORT_RTC_GPIO_DESC
             bool "Support array `rtc_gpio_desc` for ESP32"
@@ -94,5 +113,19 @@ menu "Driver configurations"
                 If user use this array, please enable this configuration.
 
     endmenu # RTCIO Configuration
+
+    menu "GPIO Configuration"
+        visible if IDF_TARGET_ESP32
+
+        config GPIO_ESP32_SUPPORT_SWITCH_SLP_PULL
+            bool "Support light sleep GPIO pullup/pulldown configuration for ESP32"
+            depends on IDF_TARGET_ESP32
+            help
+                This option is intended to fix the bug that ESP32 is not able to switch to configured
+                pullup/pulldown mode in sleep.
+                If this option is selected, chip will automatically emulate the behaviour of switching,
+                and about 450B of source codes would be placed into IRAM.
+
+    endmenu # GPIO Configuration
 
 endmenu  # Driver configurations

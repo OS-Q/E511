@@ -196,6 +196,7 @@ typedef union {
      */
     struct gatts_connect_evt_param {
         uint16_t conn_id;               /*!< Connection id */
+        uint8_t link_role;              /*!< Link role : master role = 0  ; slave role = 1*/
         esp_bd_addr_t remote_bda;       /*!< Remote bluetooth device address */
         esp_gatt_conn_params_t conn_params; /*!< current Connection parameters */
     } connect;                          /*!< Gatt server callback param of ESP_GATTS_CONNECT_EVT */
@@ -326,7 +327,7 @@ esp_err_t esp_ble_gatts_app_unregister(esp_gatt_if_t gatts_if);
 
 /**
  * @brief           Create a service. When service creation is done, a callback
- *                  event BTA_GATTS_CREATE_SRVC_EVT is called to report status
+ *                  event ESP_GATTS_CREATE_EVT is called to report status
  *                  and service ID to the profile. The service ID obtained in
  *                  the callback function needs to be used when adding included
  *                  service and characteristics/descriptors into the service.
@@ -345,7 +346,7 @@ esp_err_t esp_ble_gatts_create_service(esp_gatt_if_t gatts_if,
 
 
 /**
- * @brief               Create a service attribute tab. 
+ * @brief               Create a service attribute tab.
  * @param[in]       gatts_attr_db: the pointer to the service attr tab
  * @param[in]       gatts_if: GATT server access interface
  * @param[in]       max_nb_attr: the number of attribute to be added to the service database.
@@ -356,14 +357,14 @@ esp_err_t esp_ble_gatts_create_service(esp_gatt_if_t gatts_if,
  *                  - other  : failed
  *
  */
-esp_err_t esp_ble_gatts_create_attr_tab(const esp_gatts_attr_db_t *gatts_attr_db, 
+esp_err_t esp_ble_gatts_create_attr_tab(const esp_gatts_attr_db_t *gatts_attr_db,
                                             esp_gatt_if_t gatts_if,
                                             uint8_t max_nb_attr,
                                             uint8_t srvc_inst_id);
 /**
- * @brief           This function is called to add an included service. This function have to be called between 
+ * @brief           This function is called to add an included service. This function have to be called between
  *                  'esp_ble_gatts_create_service' and 'esp_ble_gatts_add_char'.  After included
- *                  service is included, a callback event BTA_GATTS_ADD_INCL_SRVC_EVT
+ *                  service is included, a callback event ESP_GATTS_ADD_INCL_SRVC_EVT
  *                  is reported the included service ID.
  *
  * @param[in]       service_handle: service handle to which this included service is to
@@ -387,7 +388,7 @@ esp_err_t esp_ble_gatts_add_included_service(uint16_t service_handle, uint16_t i
  * @param[in]       char_uuid : Characteristic UUID.
  * @param[in]       perm      : Characteristic value declaration attribute permission.
  * @param[in]       property  : Characteristic Properties
- * @param[in]       char_val    : Characteristic value 
+ * @param[in]       char_val    : Characteristic value
  * @param[in]       control : attribute response control byte
  *
  * @return
@@ -402,14 +403,14 @@ esp_err_t esp_ble_gatts_add_char(uint16_t service_handle,  esp_bt_uuid_t  *char_
 
 /**
  * @brief           This function is called to add characteristic descriptor. When
- *                  it's done, a callback event BTA_GATTS_ADD_DESCR_EVT is called
+ *                  it's done, a callback event ESP_GATTS_ADD_DESCR_EVT is called
  *                  to report the status and an ID number for this descriptor.
  *
  * @param[in]       service_handle: service handle to which this characteristic descriptor is to
  *                              be added.
  * @param[in]       perm: descriptor access permission.
  * @param[in]       descr_uuid: descriptor UUID.
- * @param[in]       char_descr_val  : Characteristic descriptor value 
+ * @param[in]       char_descr_val  : Characteristic descriptor value
  * @param[in]       control : attribute response control byte
  * @return
  *                  - ESP_OK : success
@@ -425,7 +426,7 @@ esp_err_t esp_ble_gatts_add_char_descr (uint16_t service_handle,
 
 /**
  * @brief           This function is called to delete a service. When this is done,
- *                  a callback event BTA_GATTS_DELETE_EVT is report with the status.
+ *                  a callback event ESP_GATTS_DELETE_EVT is report with the status.
  *
  * @param[in]       service_handle: service_handle to be deleted.
  *

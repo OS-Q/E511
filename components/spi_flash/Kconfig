@@ -49,8 +49,26 @@ menu "SPI Flash driver"
         default y
         help
             Enable this flag to use patched versions of SPI flash ROM driver functions.
-            This option is needed to write to flash on ESP32-D2WD, and any configuration
-            where external SPI flash is connected to non-default pins.
+            This option should be enabled, if any one of the following is true: (1) need to write
+            to flash on ESP32-D2WD; (2) main SPI flash is connected to non-default pins; (3) main
+            SPI flash chip is manufactured by ISSI.
+
+    config SPI_FLASH_ROM_IMPL
+        bool "Use esp_flash implementation in ROM"
+        depends on IDF_TARGET_ESP32S3 || IDF_TARGET_ESP32C3
+        default n
+        help
+            Enable this flag to use new SPI flash driver functions from ROM instead of ESP-IDF.
+
+            If keeping this as "n" in your project, you will have less free IRAM.
+            But you can use all of our flash features.
+
+            If making this as "y" in your project, you will increase free IRAM.
+            But you may miss out on some flash features and support for new flash chips.
+
+            Currently the ROM cannot support the following features:
+
+            - SPI_FLASH_AUTO_SUSPEND (C3, S3)
 
     choice SPI_FLASH_DANGEROUS_WRITE
         bool  "Writing to dangerous flash regions"
@@ -84,6 +102,21 @@ menu "SPI Flash driver"
             The implementation of SPI flash has been greatly changed in IDF v4.0.
             Enable this option to use the legacy implementation.
 
+    config SPI_FLASH_SHARE_SPI1_BUS
+        bool  "Support other devices attached to SPI1 bus"
+        default n
+        # The bus lock on SPI1 is meaningless when the legacy implementation is used, or the SPI
+        # driver does not support SPI1.
+        depends on !SPI_FLASH_USE_LEGACY_IMPL && !IDF_TARGET_ESP32S2
+        help
+            Each SPI bus needs a lock for arbitration among devices. This allows multiple
+            devices on a same bus, but may reduce the speed of esp_flash driver access to the
+            main flash chip.
+
+            If you only need to use esp_flash driver to access the main flash chip, disable
+            this option, and the lock will be bypassed on SPI1 bus. Otherwise if extra devices
+            are needed to attach to SPI1 bus, enable this option.
+
     config SPI_FLASH_BYPASS_BLOCK_ERASE
         bool "Bypass a block erase and always do sector erase"
         default n
@@ -108,11 +141,48 @@ menu "SPI Flash driver"
             then it will yield CPUs after finishing a current command.
 
     config SPI_FLASH_ERASE_YIELD_TICKS
-        int "CPU release time (tick)"
+        int "CPU release time (tick) for an erase operation"
         depends on SPI_FLASH_YIELD_DURING_ERASE
         default 1
         help
             Defines how many ticks will be before returning to continue a erasing.
+
+    config SPI_FLASH_AUTO_SUSPEND
+        bool "Auto suspend long erase/write operations"
+        default n if !IDF_TARGET_ESP32C3
+        default y if IDF_TARGET_ESP32C3
+        depends on IDF_TARGET_ESP32C3 && !SPI_FLASH_USE_LEGACY_IMPL && !SPI_FLASH_ROM_IMPL
+        help
+            This option is default n before ESP32-C3, because it needs bootloader support.
+
+            CAUTION: If you want to OTA to an app with this feature turned on, please make
+            sure the bootloader has the support for it. (later than IDF v4.3)
+
+    config SPI_FLASH_WRITE_CHUNK_SIZE
+        int "Flash write chunk size"
+        default 8192
+        range 256 8192
+        help
+            Flash write is broken down in terms of multiple (smaller) write operations.
+            This configuration options helps to set individual write chunk size, smaller
+            value here ensures that cache (and non-IRAM resident interrupts) remains
+            disabled for shorter duration.
+
+    config SPI_FLASH_SIZE_OVERRIDE
+        bool "Override flash size in bootloader header by ESPTOOLPY_FLASHSIZE"
+        default n
+        help
+            SPI Flash driver uses the flash size configured in bootloader header by default.
+            Enable this option to override flash size with latest ESPTOOLPY_FLASHSIZE value from
+            the app header if the size in the bootloader header is incorrect.
+
+    config SPI_FLASH_CHECK_ERASE_TIMEOUT_DISABLED
+        bool "Flash timeout checkout disabled"
+        depends on !SPI_FLASH_USE_LEGACY_IMPL
+        default n
+        help
+            This option is helpful if you are using a flash chip whose timeout is quite large or unpredictable.
+
 
     menu "Auto-detect flash chips"
 
@@ -121,6 +191,14 @@ menu "SPI Flash driver"
             default y
             help
                 Enable this to support auto detection of ISSI chips if chip vendor not directly
+                given by ``chip_drv`` member of the chip struct. This adds support for variant
+                chips, however will extend detecting time.
+
+        config SPI_FLASH_SUPPORT_MXIC_CHIP
+            bool "MXIC"
+            default y
+            help
+                Enable this to support auto detection of MXIC chips if chip vendor not directly
                 given by ``chip_drv`` member of the chip struct. This adds support for variant
                 chips, however will extend detecting time.
 
@@ -137,6 +215,32 @@ menu "SPI Flash driver"
                 size. Note that the default chip driver supports the GD chips with product ID
                 60H.
 
+        config SPI_FLASH_SUPPORT_WINBOND_CHIP
+            bool "Winbond"
+            default y
+            help
+                Enable this to support auto detection of Winbond chips if chip vendor not directly
+                given by ``chip_drv`` member of the chip struct. This adds support for variant
+                chips, however will extend detecting time.
+
+        config SPI_FLASH_SUPPORT_BOYA_CHIP
+            bool "BOYA"
+            depends on !IDF_TARGET_ESP32
+            default y
+            help
+                Enable this to support auto detection of BOYA chips if chip vendor not directly
+                given by ``chip_drv`` member of the chip struct. This adds support for variant
+                chips, however will extend detecting time.
+
     endmenu #auto detect flash chips
+
+    config SPI_FLASH_ENABLE_ENCRYPTED_READ_WRITE
+        bool "Enable encrypted partition read/write operations"
+        default y
+        help
+            This option enables flash read/write operations to encrypted partition/s. This option
+            is kept enabled irrespective of state of flash encryption feature. However, in case
+            application is not using flash encryption feature and is in need of some additional
+            memory from IRAM region (~1KB) then this config can be disabled.
 
 endmenu

@@ -15,7 +15,7 @@
 #pragma once
 
 #include "esp_err.h"
-#include <freertos/FreeRTOSConfig.h>
+#include "freertos/FreeRTOSConfig.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,7 +37,7 @@ typedef struct {
 /**
  * @brief Creates a default pthread configuration based
  * on the values set via menuconfig.
- * 
+ *
  * @return
  *      A default configuration structure.
  */
@@ -81,6 +81,11 @@ esp_err_t esp_pthread_set_cfg(const esp_pthread_cfg_t *cfg);
  *      - ESP_ERR_NOT_FOUND if a configuration wasn't previously set
  */
 esp_err_t esp_pthread_get_cfg(esp_pthread_cfg_t *p);
+
+/**
+ * @brief Initialize pthread library
+ */
+esp_err_t esp_pthread_init(void);
 
 #ifdef __cplusplus
 }

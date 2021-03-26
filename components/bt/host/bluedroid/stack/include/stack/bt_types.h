@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "bt_common.h"
+#include "osi/semaphore.h"
 
 typedef uint8_t UINT8;
 typedef uint16_t UINT16;
@@ -52,6 +53,7 @@ typedef bool BOOLEAN;
 #define BT_EVT_MASK                 0xFF00
 #define BT_SUB_EVT_MASK             0x00FF
 #define BT_STATIC_RAND_ADDR_MASK    0xC0
+#define BT_NON_RPA_MASK             0x3F
 /* To Bluetooth Upper Layers        */
 /************************************/
 #define BT_EVT_TO_BTU_L2C_EVT       0x0900      /* L2CAP event */
@@ -195,6 +197,13 @@ typedef struct {
     uint16_t          layer_specific;
     uint8_t           data[];
 } BT_HDR;
+
+typedef struct {
+    uint8_t           status;
+    uint16_t          opcode;
+    osi_sem_t         sync_sem;
+} BlE_SYNC;
+
 
 #define BT_HDR_SIZE (sizeof (BT_HDR))
 

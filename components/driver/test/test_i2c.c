@@ -14,24 +14,36 @@
 #include "soc/gpio_periph.h"
 #include "soc/i2c_periph.h"
 #include "esp_system.h"
-#include "driver/pcnt.h"
 #include "soc/uart_struct.h"
 #include "driver/periph_ctrl.h"
+#include "esp_rom_gpio.h"
 
 
 #define DATA_LENGTH          512  /*!<Data buffer length for test buffer*/
 #define RW_TEST_LENGTH       129  /*!<Data length for r/w test, any value from 0-DATA_LENGTH*/
 #define DELAY_TIME_BETWEEN_ITEMS_MS   1234 /*!< delay time between different test items */
 
+#if CONFIG_IDF_TARGET_ESP32C3
+#define I2C_SLAVE_SCL_IO     5     /*!<gpio number for i2c slave clock  */
+#define I2C_SLAVE_SDA_IO     6     /*!<gpio number for i2c slave data */
+#else
 #define I2C_SLAVE_SCL_IO     19    /*!<gpio number for i2c slave clock  */
 #define I2C_SLAVE_SDA_IO     18    /*!<gpio number for i2c slave data */
+#endif
+
 #define I2C_SLAVE_NUM I2C_NUM_0    /*!<I2C port number for slave dev */
 #define I2C_SLAVE_TX_BUF_LEN  (2*DATA_LENGTH) /*!<I2C slave tx buffer size */
 #define I2C_SLAVE_RX_BUF_LEN  (2*DATA_LENGTH) /*!<I2C slave rx buffer size */
 
+#if CONFIG_IDF_TARGET_ESP32C3
+#define I2C_MASTER_SCL_IO     5     /*!<gpio number for i2c master clock  */
+#define I2C_MASTER_SDA_IO     6     /*!<gpio number for i2c master data */
+#else
 #define I2C_MASTER_SCL_IO    19    /*!< gpio number for I2C master clock */
-#define I2C_MASTER_SDA_IO    18    /*!< gpio number for I2C master data  */
-#define I2C_MASTER_NUM I2C_NUM_1   /*!< I2C port number for master dev */
+#define I2C_MASTER_SDA_IO    18   /*!< gpio number for I2C master data  */
+#endif
+
+#define I2C_MASTER_NUM I2C_NUM_0   /*!< I2C port number for master dev */
 #define I2C_MASTER_TX_BUF_DISABLE   0   /*!< I2C master do not need buffer */
 #define I2C_MASTER_RX_BUF_DISABLE   0   /*!< I2C master do not need buffer */
 #define I2C_MASTER_FREQ_HZ    100000     /*!< I2C master clock frequency */
@@ -50,7 +62,13 @@
 #define HIGHEST_LIMIT 10000
 #define LOWEST_LIMIT -10000
 
-static DRAM_ATTR i2c_dev_t *const I2C[I2C_NUM_MAX] = { &I2C0, &I2C1 };
+static DRAM_ATTR i2c_dev_t *const I2C[SOC_I2C_NUM] = { &I2C0,
+#if SOC_I2C_NUM > 1
+                                                       &I2C1,
+#endif
+};
+
+
 
 static esp_err_t i2c_master_write_slave(i2c_port_t i2c_num, uint8_t *data_wr, size_t size)
 {
@@ -73,6 +91,7 @@ static i2c_config_t i2c_master_init(void)
         .master.clk_speed = I2C_MASTER_FREQ_HZ,
         .sda_io_num = I2C_MASTER_SDA_IO,
         .scl_io_num = I2C_MASTER_SCL_IO,
+        .clk_flags = 0,
     };
     return conf_master;
 }
@@ -89,6 +108,11 @@ static i2c_config_t i2c_slave_init(void)
         .slave.slave_addr = ESP_SLAVE_ADDR,
     };
     return conf_slave;
+}
+
+TEST_CASE("I2C i2c_set_pin() fails if sda and scl gpios are same", "[i2c]")
+{
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, i2c_set_pin(0, 0, 0, true, true , I2C_MODE_SLAVE));
 }
 
 TEST_CASE("I2C config test", "[i2c]")
@@ -242,7 +266,7 @@ TEST_CASE("I2C driver memory leaking check", "[i2c]")
     TEST_ASSERT_INT_WITHIN(100, size, esp_get_free_heap_size());
 }
 
-#if !TEMPORARY_DISABLED_FOR_TARGETS(ESP32S2BETA)
+#if !TEMPORARY_DISABLED_FOR_TARGETS(ESP32S2, ESP32S3, ESP32C3)
 
 // print the reading buffer
 static void disp_buf(uint8_t *buf, int len)
@@ -372,7 +396,7 @@ static void slave_write_buffer_test(void)
 
 TEST_CASE_MULTIPLE_DEVICES("I2C master read slave test", "[i2c][test_env=UT_T2_I2C][timeout=150]", master_read_slave_test, slave_write_buffer_test);
 
-#if !TEMPORARY_DISABLED_FOR_TARGETS(ESP32S2BETA, ESP32)
+#if !TEMPORARY_DISABLED_FOR_TARGETS(ESP32S2, ESP32, ESP32C3)
 static void i2c_master_write_read_test(void)
 {
     uint8_t *data_rd = (uint8_t *) malloc(DATA_LENGTH);
@@ -513,8 +537,8 @@ static void i2c_slave_repeat_read(void)
 TEST_CASE_MULTIPLE_DEVICES("I2C repeat write test", "[i2c][test_env=UT_T2_I2C][timeout=150]", i2c_master_repeat_write, i2c_slave_repeat_read);
 
 
-#endif  //DISABLED_FOR_TARGET(ESP32S2BETA, ESP32)
-#endif  //DISABLED_FOR_TARGET(ESP32S2BETA)
+#endif  //!TEMPORARY_DISABLED_FOR_TARGETS(ESP32S2, ESP32S3, ESP32C3)
+#endif  //!TEMPORARY_DISABLED_FOR_TARGETS(ESP32S2, ESP32S3, ESP32C3)
 
 static volatile bool exit_flag;
 static bool test_read_func;
@@ -583,7 +607,12 @@ TEST_CASE("test i2c_slave_write_buffer is not blocked when ticks_to_wait=0", "[i
 
 TEST_CASE("I2C general API test", "[i2c]")
 {
-    const int i2c_num = 1;
+#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2
+#define I2C_TEST_TIME 0x3ff
+#else
+#define I2C_TEST_TIME 0x1f
+#endif
+    const int i2c_num = 0;
     i2c_config_t conf_master = {
         .mode = I2C_MODE_MASTER,
         .sda_pullup_en = GPIO_PULLUP_ENABLE,
@@ -594,7 +623,7 @@ TEST_CASE("I2C general API test", "[i2c]")
     };
     TEST_ESP_OK(i2c_param_config( i2c_num, &conf_master));
     int time_get0, time_get1;
-    for(int i = 10; i < 0x3ff; i++) {
+    for(int i = 10; i < I2C_TEST_TIME; i++) {
         //set period test
         TEST_ESP_OK(i2c_set_period(i2c_num, i, i));
         TEST_ESP_OK(i2c_get_period(i2c_num, &time_get0, &time_get1));
@@ -618,13 +647,14 @@ TEST_CASE("I2C general API test", "[i2c]")
     }
 }
 
+#if !TEMPORARY_DISABLED_FOR_TARGETS(ESP32S3, ESP32C3)
 //Init uart baud rate detection
 static void uart_aut_baud_det_init(int rxd_io_num)
 {
     PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[rxd_io_num], PIN_FUNC_GPIO);
     gpio_set_direction(rxd_io_num, GPIO_MODE_INPUT_OUTPUT);
-    gpio_matrix_out(rxd_io_num, I2CEXT1_SCL_OUT_IDX, 0, 0);
-    gpio_matrix_in(rxd_io_num, U1RXD_IN_IDX, 0);
+    esp_rom_gpio_connect_out_signal(rxd_io_num, I2CEXT1_SCL_OUT_IDX, 0, 0);
+    esp_rom_gpio_connect_in_signal(rxd_io_num, U1RXD_IN_IDX, 0);
     periph_module_enable(PERIPH_UART1_MODULE);
     UART1.int_ena.val = 0;
     UART1.int_clr.val = ~0;
@@ -680,3 +710,5 @@ TEST_CASE("I2C SCL freq test (local test)", "[i2c][ignore]")
     free(data);
     TEST_ESP_OK(i2c_driver_delete(i2c_num));
 }
+
+#endif // TEMPORARY_DISABLED_FOR_TARGETS(ESP32S3)

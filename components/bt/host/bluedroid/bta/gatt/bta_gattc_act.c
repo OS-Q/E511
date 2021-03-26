@@ -68,6 +68,8 @@ static void bta_gattc_cong_cback (UINT16 conn_id, BOOLEAN congested);
 static void bta_gattc_req_cback (UINT16 conn_id, UINT32 trans_id, tGATTS_REQ_TYPE type, tGATTS_DATA *p_data);
 static tBTA_GATTC_FIND_SERVICE_CB bta_gattc_register_service_change_notify(UINT16 conn_id, BD_ADDR remote_bda);
 
+extern void btc_gattc_congest_callback(tBTA_GATTC *param);
+
 static const tGATT_CBACK bta_gattc_cl_cback = {
     bta_gattc_conn_cback,
     bta_gattc_cmpl_cback,
@@ -495,7 +497,7 @@ void bta_gattc_open(tBTA_GATTC_CLCB *p_clcb, tBTA_GATTC_DATA *p_data)
     }
     /* open/hold a connection */
     if (!GATT_Connect(p_clcb->p_rcb->client_if, p_data->api_conn.remote_bda, p_data->api_conn.remote_addr_type,
-                      TRUE, p_data->api_conn.transport)) {
+                      TRUE, p_data->api_conn.transport, p_data->api_conn.is_aux)) {
         APPL_TRACE_ERROR("Connection open failure");
 
         bta_gattc_sm_execute(p_clcb, BTA_GATTC_INT_OPEN_FAIL_EVT, p_data);
@@ -530,7 +532,9 @@ void bta_gattc_init_bk_conn(tBTA_GATTC_API_OPEN *p_data, tBTA_GATTC_RCB *p_clreg
 
     if (bta_gattc_mark_bg_conn(p_data->client_if, p_data->remote_bda, TRUE, FALSE)) {
         /* always call open to hold a connection */
-        if (!GATT_Connect(p_data->client_if, p_data->remote_bda, p_data->remote_addr_type, FALSE, p_data->transport)) {
+        if (!GATT_Connect(p_data->client_if, p_data->remote_bda,
+                          p_data->remote_addr_type, FALSE,
+                          p_data->transport,  p_data->is_aux)) {
 #if (!CONFIG_BT_STACK_NO_LOG)
             uint8_t *bda = (uint8_t *)p_data->remote_bda;
 #endif
@@ -729,7 +733,7 @@ void bta_gattc_conncback(tBTA_GATTC_RCB *p_rcb, tBTA_GATTC_DATA *p_data)
     if (p_rcb) {
         bta_gattc_send_connect_cback(p_rcb,
                                      p_data->int_conn.remote_bda,
-                                     p_data->int_conn.hdr.layer_specific, p_data->int_conn.conn_params);
+                                     p_data->int_conn.hdr.layer_specific, p_data->int_conn.conn_params, p_data->int_conn.role);
 
     }
 }
@@ -1104,6 +1108,41 @@ void bta_gattc_read(tBTA_GATTC_CLCB *p_clcb, tBTA_GATTC_DATA *p_data)
 }
 /*******************************************************************************
 **
+** Function         bta_gattc_read_by_type
+**
+** Description      Read an attribute
+**
+** Returns          None.
+**
+*******************************************************************************/
+void bta_gattc_read_by_type(tBTA_GATTC_CLCB *p_clcb, tBTA_GATTC_DATA *p_data)
+{
+    if (!bta_gattc_enqueue(p_clcb, p_data)) {
+        return;
+    }
+
+    tGATT_READ_PARAM    read_param;
+    memset (&read_param, 0 ,sizeof(tGATT_READ_PARAM));
+    read_param.service.auth_req = p_data->api_read.auth_req;
+    read_param.service.s_handle = p_data->api_read.s_handle;
+    read_param.service.e_handle = p_data->api_read.e_handle;
+    memcpy(&(read_param.service.uuid), &(p_data->api_read.uuid), sizeof(tBT_UUID));
+
+    tBTA_GATT_STATUS status = GATTC_Read(p_clcb->bta_conn_id, GATT_READ_BY_TYPE, &read_param);
+
+    /* read fail */
+    if (status != BTA_GATT_OK) {
+        /* Dequeue the data, if it was enqueued */
+        if (p_clcb->p_q_cmd == p_data) {
+            p_clcb->p_q_cmd = NULL;
+            bta_gattc_pop_command_to_send(p_clcb);
+        }
+
+        bta_gattc_cmpl_sendmsg(p_clcb->bta_conn_id, GATTC_OPTYPE_READ, status, NULL);
+    }
+}
+/*******************************************************************************
+**
 ** Function         bta_gattc_read_multi
 **
 ** Description      read multiple
@@ -1122,7 +1161,7 @@ void bta_gattc_read_multi(tBTA_GATTC_CLCB *p_clcb, tBTA_GATTC_DATA *p_data)
             read_param.read_multiple.num_handles = p_data->api_read_multi.num_attr;
             read_param.read_multiple.auth_req = p_data->api_read_multi.auth_req;
             memcpy(&read_param.read_multiple.handles, p_data->api_read_multi.handles,
-                                        sizeof(UINT16) * p_data->api_read_multi.num_attr);
+                    sizeof(UINT16) * p_data->api_read_multi.num_attr);
 
             status = GATTC_Read(p_clcb->bta_conn_id, GATT_READ_MULTIPLE, &read_param);
         }
@@ -1397,7 +1436,7 @@ void  bta_gattc_op_cmpl(tBTA_GATTC_CLCB *p_clcb, tBTA_GATTC_DATA *p_data)
             return;
         }
         if (p_clcb->p_q_cmd->hdr.event != bta_gattc_opcode_to_int_evt[op - GATTC_OPTYPE_READ]) {
-            if (p_clcb->p_q_cmd->hdr.event != BTA_GATTC_API_READ_MULTI_EVT) {
+            if ((p_clcb->p_q_cmd->hdr.event != BTA_GATTC_API_READ_MULTI_EVT)&&(p_clcb->p_q_cmd->hdr.event != BTA_GATTC_API_READ_BY_TYPE_EVT)) {
                 mapped_op = p_clcb->p_q_cmd->hdr.event - BTA_GATTC_API_READ_EVT + GATTC_OPTYPE_READ;
                 if ( mapped_op > GATTC_OPTYPE_INDICATION) {
                     mapped_op = 0;
@@ -1665,7 +1704,7 @@ static void bta_gattc_conn_cback(tGATT_IF gattc_if, BD_ADDR bda, UINT16 conn_id,
             } else {
                 APPL_TRACE_WARNING("%s not found connection parameters of the device ", __func__);
             }
-        } 
+        }
         p_buf->int_conn.hdr.layer_specific   = conn_id;
         p_buf->int_conn.client_if            = gattc_if;
         p_buf->int_conn.role                 = L2CA_GetBleConnRole(bda);
@@ -2129,17 +2168,10 @@ static void bta_gattc_cmpl_sendmsg(UINT16 conn_id, tGATTC_OPTYPE op,
 ********************************************************************************/
 static void bta_gattc_cong_cback (UINT16 conn_id, BOOLEAN congested)
 {
-    tBTA_GATTC_CLCB *p_clcb;
     tBTA_GATTC cb_data;
-
-    if ((p_clcb = bta_gattc_find_clcb_by_conn_id(conn_id)) != NULL) {
-        if (p_clcb->p_rcb->p_cback) {
-            cb_data.congest.conn_id = conn_id;
-            cb_data.congest.congested = congested;
-
-            (*p_clcb->p_rcb->p_cback)(BTA_GATTC_CONGEST_EVT, &cb_data);
-        }
-    }
+    cb_data.congest.conn_id = conn_id;
+    cb_data.congest.congested = congested;
+    btc_gattc_congest_callback(&cb_data);
 }
 
 /*******************************************************************************

@@ -8,26 +8,62 @@
 #include "test_utils.h"
 #include "esp_expression_with_stack.h"
 
-//makes sure this is not the task stack...
-void another_external_stack_function(void) 
+#define SHARED_STACK_SIZE 8192
+
+static StackType_t *shared_stack_sp = NULL;
+
+void external_stack_function(void)
+{
+    printf("Executing this printf from external stack! sp=%p\n", esp_cpu_get_sp());
+
+    shared_stack_sp = (StackType_t *)esp_cpu_get_sp();
+
+    char *res = NULL;
+    /* Test return value from asprintf, this could potentially help catch a misaligned
+       stack pointer error */
+    asprintf(&res, "%d %011i %lu %p %x %c %.4f\n", 42, 2147483647, 2147483648UL, (void *) 0x40010000, 0x40020000, 'Q', 1.0f / 137.0f);
+    TEST_ASSERT_NOT_NULL(res);
+    TEST_ASSERT_EQUAL_STRING("42 02147483647 2147483648 0x40010000 40020000 Q 0.0073\n", res);
+    free(res);
+}
+
+void another_external_stack_function(void)
 {
     //We can even use Freertos resources inside of this context.
-    vTaskDelay(100);
-    printf("Executing this another printf inside a function with external stack");
+    printf("We can even use FreeRTOS resources... yielding, sp=%p\n", esp_cpu_get_sp());
+    taskYIELD();
+    shared_stack_sp = (StackType_t *)esp_cpu_get_sp();
 }
 
 TEST_CASE("test printf using shared buffer stack", "[newlib]")
 {
-    portSTACK_TYPE *shared_stack = malloc(8192 * sizeof(portSTACK_TYPE));
+    portSTACK_TYPE *shared_stack = malloc(SHARED_STACK_SIZE);
 
-    TEST_ASSERT(shared_stack != NULL);
+    TEST_ASSERT_NOT_NULL(shared_stack);
 
     SemaphoreHandle_t printf_lock = xSemaphoreCreateMutex();
     TEST_ASSERT_NOT_NULL(printf_lock);
+    printf("current task sp: %p\n", esp_cpu_get_sp());
+    printf("shared_stack: %p\n", (void *)shared_stack);
+    printf("shared_stack expected top: %p\n", (void *)(shared_stack + SHARED_STACK_SIZE));
 
-    ESP_EXECUTE_EXPRESSION_WITH_STACK(printf_lock, shared_stack,8192,printf("Executing this printf from external stack! \n"));
-    ESP_EXECUTE_EXPRESSION_WITH_STACK(printf_lock, shared_stack,8192,another_external_stack_function()); 
-    vSemaphoreDelete(printf_lock);   
+
+    esp_execute_shared_stack_function(printf_lock,
+                                    shared_stack,
+                                    SHARED_STACK_SIZE,
+                                    external_stack_function);
+
+    TEST_ASSERT(((shared_stack_sp >= shared_stack) &&
+                (shared_stack_sp < (shared_stack + SHARED_STACK_SIZE))));
+
+    esp_execute_shared_stack_function(printf_lock,
+                                    shared_stack,
+                                    SHARED_STACK_SIZE,
+                                    another_external_stack_function);
+
+    TEST_ASSERT(((shared_stack_sp >= shared_stack) &&
+                (shared_stack_sp < (shared_stack + SHARED_STACK_SIZE))));
+
+    vSemaphoreDelete(printf_lock);
     free(shared_stack);
 }
-

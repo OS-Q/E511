@@ -44,12 +44,13 @@ public:
      *
      * Sets value for key. Note that physical storage will not be updated until nvs_commit function is called.
      *
-     * @param[in]  key     Key name. Maximal length is determined by the underlying
-     *                     implementation, but is guaranteed to be at least
-     *                     15 characters. Shouldn't be empty.
-     * @param[in]  value   The value to set. Allowed types are the ones declared in ItemType.
+     * @param[in]  key     Key name. Maximal length is (NVS_KEY_NAME_MAX_SIZE-1) characters. Shouldn't be empty.
+     * @param[in]  value   The value to set. Allowed types are the ones declared in ItemType as well as enums.
      *                     For strings, the maximum length (including null character) is
-     *                     4000 bytes.
+     *                     4000 bytes, if there is one complete page free for writing.
+     *                     This decreases, however, if the free space is fragmented.
+     *                     Note that enums loose their type information when stored in NVS. Ensure that the correct
+     *                     enum type is used during retrieval with \ref get_item!
      *
      * @return
      *             - ESP_OK if value was set successfully
@@ -77,10 +78,10 @@ public:
      *
      * In case of any error, out_value is not modified.
      *
-     * @param[in]     key        Key name. Maximal length is determined by the underlying
-     *                           implementation, but is guaranteed to be at least
-     *                           15 characters. Shouldn't be empty.
-     * @param         value      The output value.
+     * @param[in]     key        Key name. Maximal length is (NVS_KEY_NAME_MAX_SIZE-1) characters. Shouldn't be empty.
+     * @param         value      The output value. All integral types which are declared in ItemType as well as enums
+     *                           are allowed. Note however that enums lost their type information when stored in NVS.
+     *                           Ensure that the correct enum type is used during retrieval with \ref get_item!
      *
      * @return
      *             - ESP_OK if the value was retrieved successfully
@@ -97,7 +98,7 @@ public:
      * This family of functions set value for the key, given its name. Note that
      * actual storage will not be updated until nvs_commit function is called.
      *
-     * @param[in]  key     Key name. Maximal length is 15 characters. Shouldn't be empty.
+     * @param[in]  key     Key name. Maximal length is (NVS_KEY_NAME_MAX_SIZE-1) characters. Shouldn't be empty.
      * @param[in]  blob    The blob value to set.
      * @param[in]  len     length of binary value to set, in bytes; Maximum length is
      *                     508000 bytes or (97.6% of the partition size - 4000) bytes
@@ -131,17 +132,14 @@ public:
      * Both functions expect out_value to be a pointer to an already allocated variable
      * of the given type.
      *
-     * It is suggested that nvs_get/set_str is used for zero-terminated C strings, and
-     * nvs_get/set_blob used for arbitrary data structures.
+     * It is suggested that nvs_get/set_str is used for zero-terminated short C strings, and
+     * nvs_get/set_blob is used for arbitrary data structures and long C strings.
      *
-     * @param[in]     key        Key name. Maximal length is determined by the underlying
-     *                           implementation, but is guaranteed to be at least
-     *                           15 characters. Shouldn't be empty.
+     * @param[in]     key        Key name. Maximum length is (NVS_KEY_NAME_MAX_SIZE-1) characters. Shouldn't be empty.
      * @param         out_str/   Pointer to the output value.
      *                out_blob
-     * @param[inout]  length     A non-zero pointer to the variable holding the length of out_value.
-     *                           It will be set to the actual length of the value
-     *                           written. For nvs_get_str this includes the zero terminator.
+     * @param[inout]  len        The length of the output buffer pointed to by out_str/out_blob.
+     *                           Use \c get_item_size to query the size of the item beforehand.
      *
      * @return
      *             - ESP_OK if the value was retrieved successfully
@@ -153,9 +151,16 @@ public:
     virtual esp_err_t get_blob(const char *key, void* out_blob, size_t len) = 0;
 
     /**
-     * @brief Looks up the size of an entry's data.
+     * @brief Look up the size of an entry's data.
      *
-     * For strings, this size includes the zero terminator.
+     * @param[in]     datatype   Data type to search for.
+     * @param[in]     key        Key name. Maximum length is (NVS_KEY_NAME_MAX_SIZE-1) characters. Shouldn't be empty.
+     * @param[out]    size       Size of the item, if it exists.
+     *                           For strings, this size includes the zero terminator.
+     *
+     * @return     - ESP_OK if the item with specified type and key exists. Its size will be returned via \c size.
+     *             - ESP_ERR_NVS_NOT_FOUND if an item with the requested key and type doesn't exist or any other
+     *               error occurs.
      */
     virtual esp_err_t get_item_size(ItemType datatype, const char *key, size_t &size) = 0;
 
@@ -173,6 +178,8 @@ public:
 
     /**
      * Commits all changes done through this handle so far.
+     * Currently, NVS writes to storage right after the set and get functions,
+     * but this is not guaranteed.
      */
     virtual esp_err_t commit() = 0;
 
@@ -233,7 +240,19 @@ std::unique_ptr<NVSHandle> open_nvs_handle(const char *ns_name,
         esp_err_t *err = nullptr);
 
 // Helper functions for template usage
+/**
+ * Help to translate all integral types into ItemType.
+ */
 template<typename T, typename std::enable_if<std::is_integral<T>::value, void*>::type = nullptr>
+constexpr ItemType itemTypeOf()
+{
+    return static_cast<ItemType>(((std::is_signed<T>::value)?0x10:0x00) | sizeof(T));
+}
+
+/**
+ * Help to translate all enum types into integral ItemType.
+ */
+template<typename T, typename std::enable_if<std::is_enum<T>::value, int>::type = 0>
 constexpr ItemType itemTypeOf()
 {
     return static_cast<ItemType>(((std::is_signed<T>::value)?0x10:0x00) | sizeof(T));
@@ -259,4 +278,3 @@ esp_err_t NVSHandle::get_item(const char *key, T &value) {
 } // nvs
 
 #endif // NVS_HANDLE_HPP_
-

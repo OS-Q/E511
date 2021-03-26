@@ -399,6 +399,14 @@ esp_err_t httpd_resp_send_err(httpd_req_t *req, httpd_err_code_t error, const ch
             status = "400 Bad Request";
             msg    = "Server unable to understand request due to invalid syntax";
             break;
+        case HTTPD_401_UNAUTHORIZED:
+            status = "401 Unauthorized";
+            msg    = "Server known the client's identify and it must authenticate itself to get he requested response";
+            break;
+        case HTTPD_403_FORBIDDEN:
+            status = "403 Forbidden";
+            msg    = "Server is refusing to give the requested resource to the client";
+            break;
         case HTTPD_404_NOT_FOUND:
             status = "404 Not Found";
             msg    = "This URI does not exist";
@@ -451,7 +459,7 @@ esp_err_t httpd_resp_send_err(httpd_req_t *req, httpd_err_code_t error, const ch
 #endif
 
     /* Send HTTP error message */
-    ret = httpd_resp_send(req, msg, strlen(msg));
+    ret = httpd_resp_send(req, msg, HTTPD_RESP_USE_STRLEN);
 
 #ifdef CONFIG_HTTPD_ERR_RESP_NO_DELAY
     /* If TCP_NODELAY was set successfully above, time to disable it */
@@ -598,4 +606,28 @@ int httpd_default_recv(httpd_handle_t hd, int sockfd, char *buf, size_t buf_len,
         return httpd_sock_err("recv", sockfd);
     }
     return ret;
+}
+
+int httpd_socket_send(httpd_handle_t hd, int sockfd, const char *buf, size_t buf_len, int flags)
+{
+    struct sock_db *sess = httpd_sess_get(hd, sockfd);
+    if (!sess) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!sess->send_fn) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    return sess->send_fn(hd, sockfd, buf, buf_len, flags);
+}
+
+int httpd_socket_recv(httpd_handle_t hd, int sockfd, char *buf, size_t buf_len, int flags)
+{
+    struct sock_db *sess = httpd_sess_get(hd, sockfd);
+    if (!sess) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!sess->recv_fn) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    return sess->recv_fn(hd, sockfd, buf, buf_len, flags);
 }

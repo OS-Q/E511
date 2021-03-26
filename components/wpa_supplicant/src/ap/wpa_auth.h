@@ -162,6 +162,7 @@ struct wpa_auth_config {
 #endif /* CONFIG_IEEE80211R */
 	int disable_gtk;
 	int ap_mlme;
+	struct rsn_sppamsdu_sup spp_sup;
 };
 
 typedef enum {
@@ -219,7 +220,7 @@ enum {
 	WPA_MGMT_FRAME_PROTECTION_VIOLATION, WPA_INVALID_MGMT_GROUP_CIPHER,
 	WPA_INVALID_MDIE, WPA_INVALID_PROTO
 };
-	
+
 int wpa_validate_wpa_ie(struct wpa_authenticator *wpa_auth,
 			struct wpa_state_machine *sm,
 			const u8 *wpa_ie, size_t wpa_ie_len/*,

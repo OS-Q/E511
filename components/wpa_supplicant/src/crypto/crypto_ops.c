@@ -22,14 +22,14 @@
 #include "esp_wpa.h"
 #include "ccmp.h"
 
-/* 
+/*
  * This structure is used to set the cyrpto callback function for station to connect when in security mode.
  * These functions either call MbedTLS API's if USE_MBEDTLS_CRYPTO flag is set through Kconfig, or native
  * API's otherwise. We recommend setting the flag since MbedTLS API's utilize hardware acceleration while
  * native API's are use software implementations.
  */
 const wpa_crypto_funcs_t g_wifi_default_wpa_crypto_funcs = {
-    .size = sizeof(wpa_crypto_funcs_t), 
+    .size = sizeof(wpa_crypto_funcs_t),
     .version = ESP_WIFI_CRYPTO_VERSION,
     .aes_wrap = (esp_aes_wrap_t)aes_wrap,
     .aes_unwrap = (esp_aes_unwrap_t)aes_unwrap,
@@ -50,6 +50,8 @@ const wpa_crypto_funcs_t g_wifi_default_wpa_crypto_funcs = {
     .aes_decrypt = (esp_aes_decrypt_t)aes_decrypt,
     .aes_decrypt_init = (esp_aes_decrypt_init_t)aes_decrypt_init,
     .aes_decrypt_deinit = (esp_aes_decrypt_deinit_t)aes_decrypt_deinit,
+    .aes_128_encrypt = (esp_aes_128_encrypt_t)aes_128_cbc_encrypt,
+    .aes_128_decrypt = (esp_aes_128_decrypt_t)aes_128_cbc_decrypt,
     .omac1_aes_128 = (esp_omac1_aes_128_t)omac1_aes_128,
     .ccmp_decrypt = (esp_ccmp_decrypt_t)ccmp_decrypt,
     .ccmp_encrypt = (esp_ccmp_encrypt_t)ccmp_encrypt

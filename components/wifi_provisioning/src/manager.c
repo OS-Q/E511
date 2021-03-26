@@ -268,7 +268,7 @@ static cJSON* wifi_prov_get_info_json(void)
 
 /* Declare the internal event handler */
 static void wifi_prov_mgr_event_handler_internal(void* arg, esp_event_base_t event_base,
-                                                 int event_id, void* event_data);
+                                                 int32_t event_id, void* event_data);
 
 static esp_err_t wifi_prov_mgr_start_service(const char *service_name, const char *service_key)
 {
@@ -801,7 +801,7 @@ esp_err_t wifi_prov_mgr_event_handler(void *ctx, system_event_t *event)
 }
 
 static void wifi_prov_mgr_event_handler_internal(
-    void* arg, esp_event_base_t event_base, int event_id, void* event_data)
+    void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
     if (!prov_ctx_lock) {
         ESP_LOGE(TAG, "Provisioning manager not initialized");
@@ -942,6 +942,7 @@ esp_err_t wifi_prov_mgr_wifi_scan_start(bool blocking, bool passive,
 
     if (esp_wifi_scan_start(&prov_ctx->scan_cfg, false) != ESP_OK) {
         ESP_LOGE(TAG, "Failed to start scan");
+        RELEASE_LOCK(prov_ctx_lock);
         return ESP_FAIL;
     }
 
@@ -1104,7 +1105,7 @@ esp_err_t wifi_prov_mgr_is_provisioned(bool *provisioned)
 
     /* Get Wi-Fi Station configuration */
     wifi_config_t wifi_cfg;
-    if (esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_cfg) != ESP_OK) {
+    if (esp_wifi_get_config(WIFI_IF_STA, &wifi_cfg) != ESP_OK) {
         return ESP_FAIL;
     }
 
@@ -1163,7 +1164,7 @@ esp_err_t wifi_prov_mgr_configure_sta(wifi_config_t *wifi_cfg)
     }
     /* Configure Wi-Fi station with host credentials
      * provided during provisioning */
-    if (esp_wifi_set_config(ESP_IF_WIFI_STA, wifi_cfg) != ESP_OK) {
+    if (esp_wifi_set_config(WIFI_IF_STA, wifi_cfg) != ESP_OK) {
         ESP_LOGE(TAG, "Failed to set Wi-Fi configuration");
         RELEASE_LOCK(prov_ctx_lock);
         return ESP_FAIL;
@@ -1211,7 +1212,7 @@ esp_err_t wifi_prov_mgr_init(wifi_prov_mgr_config_t config)
     };
 
     /* All function pointers in the scheme structure must be non-null */
-    for (int i = 0; i < sizeof(fn_ptrs)/sizeof(fn_ptrs[0]); i++) {
+    for (size_t i = 0; i < sizeof(fn_ptrs)/sizeof(fn_ptrs[0]); i++) {
         if (!fn_ptrs[i]) {
             return ESP_ERR_INVALID_ARG;
         }
@@ -1433,14 +1434,14 @@ esp_err_t wifi_prov_mgr_start_provisioning(wifi_prov_security_t security, const 
      * to the AP whose credentials were present earlier */
     wifi_config_t wifi_cfg_empty, wifi_cfg_old;
     memset(&wifi_cfg_empty, 0, sizeof(wifi_config_t));
-    esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_cfg_old);
+    esp_wifi_get_config(WIFI_IF_STA, &wifi_cfg_old);
     err = esp_wifi_set_storage(WIFI_STORAGE_RAM);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to set Wi-Fi storage to RAM");
         RELEASE_LOCK(prov_ctx_lock);
         return err;
     }
-    esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_cfg_empty);
+    esp_wifi_set_config(WIFI_IF_STA, &wifi_cfg_empty);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to set empty Wi-Fi credentials");
         RELEASE_LOCK(prov_ctx_lock);
@@ -1526,7 +1527,7 @@ esp_err_t wifi_prov_mgr_start_provisioning(wifi_prov_security_t security, const 
 err:
     prov_ctx->prov_state = WIFI_PROV_STATE_IDLE;
     esp_wifi_set_storage(WIFI_STORAGE_FLASH);
-    esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_cfg_old);
+    esp_wifi_set_config(WIFI_IF_STA, &wifi_cfg_old);
 
 exit:
     RELEASE_LOCK(prov_ctx_lock);
@@ -1551,4 +1552,16 @@ void wifi_prov_mgr_stop_provisioning(void)
     wifi_prov_mgr_stop_service(0);
 
     RELEASE_LOCK(prov_ctx_lock);
+}
+
+esp_err_t wifi_prov_mgr_reset_provisioning(void)
+{
+    esp_err_t ret = esp_wifi_restore();
+
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "esp_wifi_restore fail, ret is %d", ret);
+        ret = ESP_FAIL;
+    }
+
+    return ret;
 }

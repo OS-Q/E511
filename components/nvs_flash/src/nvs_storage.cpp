@@ -14,9 +14,15 @@
 #include "nvs_storage.hpp"
 
 #ifndef ESP_PLATFORM
+// We need NO_DEBUG_STORAGE here since the integration tests on the host add some debug code.
+// The unit tests, however, don't want debug code since they check the behavior via data in/output and disturb
+// the order of calling mocked functions.
+#ifndef NO_DEBUG_STORAGE
 #include <map>
 #include <sstream>
+#define DEBUG_STORAGE
 #endif
+#endif // !ESP_PLATFORM
 
 namespace nvs
 {
@@ -31,7 +37,7 @@ void Storage::clearNamespaces()
     mNamespaces.clearAndFreeNodes();
 }
 
-void Storage::populateBlobIndices(TBlobIndexList& blobIdxList)
+esp_err_t Storage::populateBlobIndices(TBlobIndexList& blobIdxList)
 {
     for (auto it = mPageManager.begin(); it != mPageManager.end(); ++it) {
         Page& p = *it;
@@ -43,7 +49,9 @@ void Storage::populateBlobIndices(TBlobIndexList& blobIdxList)
          * duplicate index at this point */
 
         while (p.findItem(Page::NS_ANY, ItemType::BLOB_IDX, nullptr, itemIndex, item) == ESP_OK) {
-            BlobIndexNode* entry = new BlobIndexNode;
+            BlobIndexNode* entry = new (std::nothrow) BlobIndexNode;
+
+            if (!entry) return ESP_ERR_NO_MEM;
 
             item.getKey(entry->key, sizeof(entry->key));
             entry->nsIndex = item.nsIndex;
@@ -54,6 +62,8 @@ void Storage::populateBlobIndices(TBlobIndexList& blobIdxList)
             itemIndex += item.span;
         }
     }
+
+    return ESP_OK;
 }
 
 void Storage::eraseOrphanDataBlobs(TBlobIndexList& blobIdxList)
@@ -86,7 +96,7 @@ void Storage::eraseOrphanDataBlobs(TBlobIndexList& blobIdxList)
 
 esp_err_t Storage::init(uint32_t baseSector, uint32_t sectorCount)
 {
-    auto err = mPageManager.load(baseSector, sectorCount);
+    auto err = mPageManager.load(mPartition, baseSector, sectorCount);
     if (err != ESP_OK) {
         mState = StorageState::INVALID;
         return err;
@@ -100,7 +110,13 @@ esp_err_t Storage::init(uint32_t baseSector, uint32_t sectorCount)
         size_t itemIndex = 0;
         Item item;
         while (p.findItem(Page::NS_INDEX, ItemType::U8, nullptr, itemIndex, item) == ESP_OK) {
-            NamespaceEntry* entry = new NamespaceEntry;
+            NamespaceEntry* entry = new (std::nothrow) NamespaceEntry;
+
+            if (!entry) {
+                mState = StorageState::INVALID;
+                return ESP_ERR_NO_MEM;
+            }
+
             item.getKey(entry->mName, sizeof(entry->mName));
             item.getValue(entry->mIndex);
             mNamespaces.push_back(entry);
@@ -114,7 +130,11 @@ esp_err_t Storage::init(uint32_t baseSector, uint32_t sectorCount)
 
     // Populate list of multi-page index entries.
     TBlobIndexList blobIdxList;
-    populateBlobIndices(blobIdxList);
+    err = populateBlobIndices(blobIdxList);
+    if (err != ESP_OK) {
+        mState = StorageState::INVALID;
+        return ESP_ERR_NO_MEM;
+    }
 
     // Remove the entries for which there is no parent multi-page index.
     eraseOrphanDataBlobs(blobIdxList);
@@ -122,7 +142,7 @@ esp_err_t Storage::init(uint32_t baseSector, uint32_t sectorCount)
     // Purge the blob index list
     blobIdxList.clearAndFreeNodes();
 
-#ifndef ESP_PLATFORM
+#ifdef DEBUG_STORAGE
     debugCheck();
 #endif
     return ESP_OK;
@@ -151,7 +171,7 @@ esp_err_t Storage::writeMultiPageBlob(uint8_t nsIndex, const char* key, const vo
     uint8_t chunkCount = 0;
     TUsedPageList usedPages;
     size_t remainingSize = dataSize;
-    size_t offset=0;
+    size_t offset = 0;
     esp_err_t err = ESP_OK;
 
     /* Check how much maximum data can be accommodated**/
@@ -168,8 +188,8 @@ esp_err_t Storage::writeMultiPageBlob(uint8_t nsIndex, const char* key, const vo
     do {
         Page& page = getCurrentPage();
         size_t tailroom = page.getVarDataTailroom();
-        size_t chunkSize =0;
-        if (!chunkCount && tailroom < dataSize && tailroom < Page::CHUNK_MAX_SIZE/10) {
+        size_t chunkSize = 0;
+        if (chunkCount == 0U && ((tailroom < dataSize) || (tailroom == 0 && dataSize == 0)) && tailroom < Page::CHUNK_MAX_SIZE/10) {
             /** This is the first chunk and tailroom is too small ***/
             if (page.state() != Page::PageState::FULL) {
                 err = page.markFull();
@@ -192,7 +212,7 @@ esp_err_t Storage::writeMultiPageBlob(uint8_t nsIndex, const char* key, const vo
         }
 
         /* Split the blob into two and store the chunk of available size onto the current page */
-        assert(tailroom!=0);
+        assert(tailroom != 0);
         chunkSize = (remainingSize > tailroom)? tailroom : remainingSize;
         remainingSize -= chunkSize;
 
@@ -203,7 +223,11 @@ esp_err_t Storage::writeMultiPageBlob(uint8_t nsIndex, const char* key, const vo
         if (err != ESP_OK) {
             break;
         } else {
-            UsedPageNode* node = new UsedPageNode();
+            UsedPageNode* node = new (std::nothrow) UsedPageNode();
+            if (!node) {
+                err = ESP_ERR_NO_MEM;
+                break;
+            }
             node->mPage = &page;
             usedPages.push_back(node);
             if (remainingSize || (tailroom - chunkSize) < Page::ENTRY_SIZE) {
@@ -365,7 +389,7 @@ esp_err_t Storage::writeItem(uint8_t nsIndex, ItemType datatype, const char* key
             return err;
         }
     }
-#ifndef ESP_PLATFORM
+#ifdef DEBUG_STORAGE
     debugCheck();
 #endif
     return ESP_OK;
@@ -395,6 +419,11 @@ esp_err_t Storage::createOrOpenNamespace(const char* nsName, bool canCreate, uin
             return ESP_ERR_NVS_NOT_ENOUGH_SPACE;
         }
 
+        NamespaceEntry* entry = new (std::nothrow) NamespaceEntry;
+        if (!entry) {
+            return ESP_ERR_NO_MEM;
+        }
+
         auto err = writeItem(Page::NS_INDEX, ItemType::U8, nsName, &ns, sizeof(ns));
         if (err != ESP_OK) {
             return err;
@@ -402,7 +431,6 @@ esp_err_t Storage::createOrOpenNamespace(const char* nsName, bool canCreate, uin
         mNamespaceUsage.set(ns, true);
         nsIndex = ns;
 
-        NamespaceEntry* entry = new NamespaceEntry;
         entry->mIndex = ns;
         strncpy(entry->mName, nsName, sizeof(entry->mName) - 1);
         entry->mName[sizeof(entry->mName) - 1] = 0;
@@ -427,10 +455,9 @@ esp_err_t Storage::readMultiPageBlob(uint8_t nsIndex, const char* key, void* dat
 
     uint8_t chunkCount = item.blobIndex.chunkCount;
     VerOffset chunkStart = item.blobIndex.chunkStart;
-    size_t readSize = item.blobIndex.dataSize;
     size_t offset = 0;
 
-    assert(dataSize == readSize);
+    assert(dataSize == item.blobIndex.dataSize);
 
     /* Now read corresponding chunks */
     for (uint8_t chunkNum = 0; chunkNum < chunkCount; chunkNum++) {
@@ -644,7 +671,7 @@ void Storage::debugDump()
     }
 }
 
-#ifndef ESP_PLATFORM
+#ifdef DEBUG_STORAGE
 void Storage::debugCheck()
 {
     std::map<std::string, Page*> keys;
@@ -669,7 +696,7 @@ void Storage::debugCheck()
         assert(usedCount == p->getUsedEntryCount());
     }
 }
-#endif //ESP_PLATFORM
+#endif //DEBUG_STORAGE
 
 esp_err_t Storage::fillStats(nvs_stats_t& nvsStats)
 {
